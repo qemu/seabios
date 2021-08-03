@@ -4,6 +4,18 @@
 #
 # This file may be distributed under the terms of the GNU LGPLv3 license.
 
+################ Hindawi port rules
+
+%.c: %.c.uhin
+	@echo "  Processing Hindawi ported sources $@"
+	cat $< | tail +2 | iconv -futf8 -tutf16 | uni2acii | acii2pcf | h2c > $@
+
+%.h: %.h.uhin
+	@echo "  Processing Hindawi ported sources $@"
+	cat $< | tail +2 | iconv -futf8 -tutf16 | uni2acii | acii2pcf | h2c > $@
+
+#####################################
+
 # Output directory
 OUT=out/
 
@@ -143,7 +155,6 @@ $(OUT)%.o: %.c $(OUT)autoconf.h
 $(OUT)%.lds: %.lds.S
 	@echo "  Precompiling $@"
 	$(Q)$(CPP) $(CPPFLAGS) -D__ASSEMBLY__ $< -o $@
-
 
 ################ Main BIOS build rules
 
