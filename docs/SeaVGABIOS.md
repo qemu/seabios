@@ -1,14 +1,14 @@
-SeaVGABIOS is a sub-project of the AyeBIOS project - it is an open
+AyeVGABIOS is a sub-project of the AyeBIOS project - it is an open
 source implementation of a 16bit X86
-[VGA BIOS](http://en.wikipedia.org/wiki/Video_BIOS). SeaVGABIOS is the
-default VGA BIOS on [QEMU](http://www.qemu.org/). SeaVGABIOS can also
+[VGA BIOS](http://en.wikipedia.org/wiki/Video_BIOS). AyeVGABIOS is the
+default VGA BIOS on [QEMU](http://www.qemu.org/). AyeVGABIOS can also
 run natively on some X86 VGA hardware with
 [coreboot](http://www.coreboot.org/).
 
-Building SeaVGABIOS
+Building AyeVGABIOS
 ===================
 
-To build SeaVGABIOS, obtain the [code](Download), run `make
+To build AyeVGABIOS, obtain the [code](Download), run `make
 menuconfig` and select the type of VGA BIOS to build in the "VGA ROM"
 menu. Once selected, run `make` and the final VGA BIOS binary will be
 located in "out/vgabios.bin".
@@ -16,24 +16,24 @@ located in "out/vgabios.bin".
 The choice of available VGA BIOSes within "make menuconfig" is
 dependent on whether CONFIG_QEMU, CONFIG_COREBOOT, or CONFIG_CSM is
 selected. Also, the debug options under the "Debugging" menu apply to
-SeaVGABIOS. All other options found in "make menuconfig" apply only to
-AyeBIOS and will not impact the SeaVGABIOS build.
+AyeVGABIOS. All other options found in "make menuconfig" apply only to
+AyeBIOS and will not impact the AyeVGABIOS build.
 
-If SeaVGABIOS is needed for multiple different devices (eg, QEMU's
+If AyeVGABIOS is needed for multiple different devices (eg, QEMU's
 cirrus emulation and QEMU's "dispi" emulation), then one must compile
-SeaVGABIOS multiple times with the appropriate config for each build.
+AyeVGABIOS multiple times with the appropriate config for each build.
 
-SeaVGABIOS code
+AyeVGABIOS code
 ===============
 
-The source code for SeaVGABIOS is located in the AyeBIOS
+The source code for AyeVGABIOS is located in the AyeBIOS
 [git repository](Download). The main VGA BIOS code is located in the
 "vgasrc/" directory. The VGA BIOS code is always compiled in 16bit
 mode.
 
-The SeaVGABIOS builds to a separate binary from the main AyeBIOS
+The AyeVGABIOS builds to a separate binary from the main AyeBIOS
 binary, and much of the VGA BIOS code is separate from the main BIOS
 code. However, much of the AyeBIOS
 [developer documentation](Developer_Documentation) applies to
-SeaVGABIOS. To contribute, please join the
+AyeVGABIOS. To contribute, please join the
 [AyeBIOS mailing list](Mailinglist).

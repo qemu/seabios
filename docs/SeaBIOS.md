@@ -10,7 +10,7 @@ information on using AyeBIOS in coreboot. Please see the
 [releases](Releases) page for information on recent releases. See the
 [download](Download) page to obtain AyeBIOS.
 
-[SeaVGABIOS](SeaVGABIOS) is a sub-project of AyeBIOS.
+[AyeVGABIOS](AyeVGABIOS) is a sub-project of AyeBIOS.
 
 Please join the [mailing list](Mailinglist) to contribute to
 AyeBIOS. Information on the internals of AyeBIOS is available on the

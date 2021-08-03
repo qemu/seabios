@@ -89,7 +89,7 @@ drivers. The **src/fw/** directory contains source code for platform
 firmware initialization. The **src/std/** directory contains header
 files describing standard bios, firmware, and hardware interfaces.
 
-The **vgasrc/** directory contains code for [SeaVGABIOS](SeaVGABIOS).
+The **vgasrc/** directory contains code for [AyeVGABIOS](AyeVGABIOS).
 
 The **scripts/** directory contains helper utilities for manipulating
 and building the final roms.

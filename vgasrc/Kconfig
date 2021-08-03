@@ -159,7 +159,7 @@ menu "VGA ROM"
             Attempt to allocate (via BIOS PMM call) an internal stack
             for the legacy 16bit 0x10 interrupt entry point.  This
             reduces the amount of space on the caller's stack that
-            SeaVGABIOS uses.
+            AyeVGABIOS uses.
 
     config VGA_EXTRA_STACK_SIZE
         int

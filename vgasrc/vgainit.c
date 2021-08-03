@@ -157,7 +157,7 @@ void VISIBLE16
 vga_post(struct bregs *regs)
 {
     serial_debug_preinit();
-    dprintf(1, "Start SeaVGABIOS (version %s)\n", VERSION);
+    dprintf(1, "Start AyeVGABIOS (version %s)\n", VERSION);
     dprintf(1, "VGABUILD: %s\n", BUILDINFO);
     debug_enter(regs, DEBUG_VGA_POST);
 
