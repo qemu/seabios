@@ -1,0 +1,1 @@
+qemu-system-i386 -bios out/bios.bin -chardev stdio,id=seabios -device isa-debugcon,iobase=0x402,chardev=seabios
