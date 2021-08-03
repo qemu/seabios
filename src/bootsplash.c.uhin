@@ -1,0 +1,256 @@
+<शैली गुरु>
+// Initialize the VGA console and possibly show a boot splash image.
+//
+// Copyright (C) 2009-2010  coreप्रणालीs GmbH
+// Copyright (C) 2010  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "config.h" // CONFIG_*
+#समावेश "farptr.h" // FLATPTR_TO_SEG
+#समावेश "malloc.h" // मुक्त
+#समावेश "output.h" // dम_लिखो
+#समावेश "romfile.h" // romfile_loadfile
+#समावेश "stacks.h" // call16_पूर्णांक
+#समावेश "std/vbe.h" // काष्ठा vbe_info
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // enable_bootsplash
+
+
+/****************************************************************
+ * Helper functions
+ ****************************************************************/
+
+// Call पूर्णांक10 vga handler.
+अटल व्योम
+call16_पूर्णांक10(काष्ठा bregs *br)
+अणु
+    br->flags = F_IF;
+    start_preempt();
+    call16_पूर्णांक(0x10, br);
+    finish_preempt();
+पूर्ण
+
+
+/****************************************************************
+ * VGA text / graphics console
+ ****************************************************************/
+
+व्योम
+enable_vga_console(व्योम)
+अणु
+    dम_लिखो(1, "Turning on vga text mode console\n");
+    काष्ठा bregs br;
+
+    /* Enable VGA text mode */
+    स_रखो(&br, 0, माप(br));
+    br.ax = 0x0003;
+    call16_पूर्णांक10(&br);
+
+    // Write to screen.
+    म_लिखो("AyeBIOS (version %s)\n", VERSION);
+    display_uuid();
+पूर्ण
+
+अटल पूर्णांक
+find_videomode(काष्ठा vbe_info *vesa_info, काष्ठा vbe_mode_info *mode_info
+               , पूर्णांक width, पूर्णांक height, पूर्णांक bpp_req)
+अणु
+    dम_लिखो(3, "Finding vesa mode with dimensions %d/%d\n", width, height);
+    u16 *videomodes = SEGOFF_TO_FLATPTR(vesa_info->video_mode);
+    क्रम (;; videomodes++) अणु
+        u16 videomode = *videomodes;
+        अगर (videomode == 0xffff) अणु
+            dम_लिखो(1, "Unable to find vesa video mode dimensions %d/%d\n"
+                    , width, height);
+            वापस -1;
+        पूर्ण
+        काष्ठा bregs br;
+        स_रखो(&br, 0, माप(br));
+        br.ax = 0x4f01;
+        br.cx = videomode;
+        br.di = FLATPTR_TO_OFFSET(mode_info);
+        br.es = FLATPTR_TO_SEG(mode_info);
+        call16_पूर्णांक10(&br);
+        अगर (br.ax != 0x4f) अणु
+            dम_लिखो(1, "get_mode failed.\n");
+            जारी;
+        पूर्ण
+        अगर (mode_info->xres != width
+            || mode_info->yres != height)
+            जारी;
+        u8 depth = mode_info->bits_per_pixel;
+        अगर (bpp_req == 0) अणु
+            अगर ((depth != 16 && depth != 24 && depth != 32)
+                || mode_info->green_size == 5)
+                जारी;
+        पूर्ण अन्यथा अणु
+            अगर (depth != bpp_req)
+                जारी;
+        पूर्ण
+        वापस videomode;
+    पूर्ण
+पूर्ण
+
+अटल पूर्णांक BootsplashActive;
+
+व्योम
+enable_bootsplash(व्योम)
+अणु
+    अगर (!CONFIG_BOOTSPLASH)
+        वापस;
+    /* splash picture can be bmp or jpeg file */
+    dम_लिखो(3, "Checking for bootsplash\n");
+    u8 type = 0; /* 0 means jpg, 1 means bmp, शेष is 0=jpg */
+    पूर्णांक filesize;
+    u8 *filedata = romfile_loadfile("bootsplash.jpg", &filesize);
+    अगर (!filedata) अणु
+        filedata = romfile_loadfile("bootsplash.bmp", &filesize);
+        अगर (!filedata)
+            वापस;
+        type = 1;
+    पूर्ण
+    dम_लिखो(3, "start showing bootsplash\n");
+
+    u8 *picture = शून्य; /* data buff used to be flushed to the video buf */
+    काष्ठा jpeg_decdata *jpeg = शून्य;
+    काष्ठा bmp_decdata *bmp = शून्य;
+    काष्ठा vbe_info *vesa_info = दो_स्मृति_पंचांगplow(माप(*vesa_info));
+    काष्ठा vbe_mode_info *mode_info = दो_स्मृति_पंचांगplow(माप(*mode_info));
+    अगर (!vesa_info || !mode_info) अणु
+        warn_noalloc();
+        जाओ करोne;
+    पूर्ण
+
+    /* Check whether we have a VESA 2.0 compliant BIOS */
+    स_रखो(vesa_info, 0, माप(काष्ठा vbe_info));
+    vesa_info->signature = VBE2_SIGNATURE;
+    काष्ठा bregs br;
+    स_रखो(&br, 0, माप(br));
+    br.ax = 0x4f00;
+    br.di = FLATPTR_TO_OFFSET(vesa_info);
+    br.es = FLATPTR_TO_SEG(vesa_info);
+    call16_पूर्णांक10(&br);
+    अगर (vesa_info->signature != VESA_SIGNATURE) अणु
+        dम_लिखो(1,"No VBE2 found.\n");
+        जाओ करोne;
+    पूर्ण
+
+    /* Prपूर्णांक some debugging inक्रमmation about our card. */
+    अक्षर *venकरोr = SEGOFF_TO_FLATPTR(vesa_info->oem_venकरोr_string);
+    अक्षर *product = SEGOFF_TO_FLATPTR(vesa_info->oem_product_string);
+    dम_लिखो(3, "VESA %d.%d\nVENDOR: %s\nPRODUCT: %s\n",
+            vesa_info->version>>8, vesa_info->version&0xff,
+            venकरोr, product);
+
+    पूर्णांक ret, width, height;
+    पूर्णांक bpp_require = 0;
+    अगर (type == 0) अणु
+        jpeg = jpeg_alloc();
+        अगर (!jpeg) अणु
+            warn_noalloc();
+            जाओ करोne;
+        पूर्ण
+        /* Parse jpeg and get image size. */
+        dम_लिखो(5, "Decoding bootsplash.jpg\n");
+        ret = jpeg_decode(jpeg, filedata);
+        अगर (ret) अणु
+            dम_लिखो(1, "jpeg_decode failed with return code %d...\n", ret);
+            जाओ करोne;
+        पूर्ण
+        jpeg_get_size(jpeg, &width, &height);
+    पूर्ण अन्यथा अणु
+        bmp = bmp_alloc();
+        अगर (!bmp) अणु
+            warn_noalloc();
+            जाओ करोne;
+        पूर्ण
+        /* Parse bmp and get image size. */
+        dम_लिखो(5, "Decoding bootsplash.bmp\n");
+        ret = bmp_decode(bmp, filedata, filesize);
+        अगर (ret) अणु
+            dम_लिखो(1, "bmp_decode failed with return code %d...\n", ret);
+            जाओ करोne;
+        पूर्ण
+        bmp_get_info(bmp, &width, &height, &bpp_require);
+    पूर्ण
+
+    // jpeg would use 16 or 24 bpp video mode, BMP uses 16/24/32 bpp mode.
+
+    // Try to find a graphics mode with the corresponding dimensions.
+    पूर्णांक videomode = find_videomode(vesa_info, mode_info, width, height,
+                                       bpp_require);
+    अगर (videomode < 0) अणु
+        dम_लिखो(1, "failed to find a videomode with %dx%d %dbpp (0=any).\n",
+                    width, height, bpp_require);
+        जाओ करोne;
+    पूर्ण
+    व्योम *framebuffer = (व्योम *)mode_info->phys_base;
+    पूर्णांक depth = mode_info->bits_per_pixel;
+    dम_लिखो(3, "mode: %04x\n", videomode);
+    dम_लिखो(3, "framebuffer: %p\n", framebuffer);
+    dम_लिखो(3, "bytes per scanline: %d\n", mode_info->bytes_per_scanline);
+    dम_लिखो(3, "bits per pixel: %d\n", depth);
+
+    // Allocate space क्रम image and decompress it.
+    पूर्णांक imagesize = height * mode_info->bytes_per_scanline;
+    picture = दो_स्मृति_पंचांगphigh(imagesize);
+    अगर (!picture) अणु
+        warn_noalloc();
+        जाओ करोne;
+    पूर्ण
+
+    अगर (type == 0) अणु
+        dम_लिखो(5, "Decompressing bootsplash.jpg\n");
+        ret = jpeg_show(jpeg, picture, width, height, depth,
+                            mode_info->bytes_per_scanline);
+        अगर (ret) अणु
+            dम_लिखो(1, "jpeg_show failed with return code %d...\n", ret);
+            जाओ करोne;
+        पूर्ण
+    पूर्ण अन्यथा अणु
+        dम_लिखो(5, "Decompressing bootsplash.bmp\n");
+        ret = bmp_show(bmp, picture, width, height, depth,
+                           mode_info->bytes_per_scanline);
+        अगर (ret) अणु
+            dम_लिखो(1, "bmp_show failed with return code %d...\n", ret);
+            जाओ करोne;
+        पूर्ण
+    पूर्ण
+
+    /* Switch to graphics mode */
+    dम_लिखो(5, "Switching to graphics mode\n");
+    स_रखो(&br, 0, माप(br));
+    br.ax = 0x4f02;
+    br.bx = videomode | VBE_MODE_LINEAR_FRAME_BUFFER;
+    call16_पूर्णांक10(&br);
+    अगर (br.ax != 0x4f) अणु
+        dम_लिखो(1, "set_mode failed.\n");
+        जाओ करोne;
+    पूर्ण
+
+    /* Show the picture */
+    dम_लिखो(5, "Showing bootsplash picture\n");
+    ioस_नकल(framebuffer, picture, imagesize);
+    dम_लिखो(5, "Bootsplash copy complete\n");
+    BootsplashActive = 1;
+
+करोne:
+    मुक्त(filedata);
+    मुक्त(picture);
+    मुक्त(vesa_info);
+    मुक्त(mode_info);
+    मुक्त(jpeg);
+    मुक्त(bmp);
+    वापस;
+पूर्ण
+
+व्योम
+disable_bootsplash(व्योम)
+अणु
+    अगर (!CONFIG_BOOTSPLASH || !BootsplashActive)
+        वापस;
+    BootsplashActive = 0;
+    enable_vga_console();
+पूर्ण

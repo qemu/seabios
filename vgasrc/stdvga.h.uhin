@@ -1,0 +1,82 @@
+<शैली गुरु>
+#अगर_अघोषित __STDVGA_H
+#घोषणा __STDVGA_H
+
+#समावेश "types.h" // u8
+
+// VGA रेजिस्टरs
+#घोषणा VGAREG_ACTL_ADDRESS            0x3c0
+#घोषणा VGAREG_ACTL_WRITE_DATA         0x3c0
+#घोषणा VGAREG_ACTL_READ_DATA          0x3c1
+
+#घोषणा VGAREG_INPUT_STATUS            0x3c2
+#घोषणा VGAREG_WRITE_MISC_OUTPUT       0x3c2
+#घोषणा VGAREG_VIDEO_ENABLE            0x3c3
+#घोषणा VGAREG_SEQU_ADDRESS            0x3c4
+#घोषणा VGAREG_SEQU_DATA               0x3c5
+
+#घोषणा VGAREG_PEL_MASK                0x3c6
+#घोषणा VGAREG_DAC_STATE               0x3c7
+#घोषणा VGAREG_DAC_READ_ADDRESS        0x3c7
+#घोषणा VGAREG_DAC_WRITE_ADDRESS       0x3c8
+#घोषणा VGAREG_DAC_DATA                0x3c9
+
+#घोषणा VGAREG_READ_FEATURE_CTL        0x3ca
+#घोषणा VGAREG_READ_MISC_OUTPUT        0x3cc
+
+#घोषणा VGAREG_GRDC_ADDRESS            0x3ce
+#घोषणा VGAREG_GRDC_DATA               0x3cf
+
+#घोषणा VGAREG_MDA_CRTC_ADDRESS        0x3b4
+#घोषणा VGAREG_MDA_CRTC_DATA           0x3b5
+#घोषणा VGAREG_VGA_CRTC_ADDRESS        0x3d4
+#घोषणा VGAREG_VGA_CRTC_DATA           0x3d5
+
+#घोषणा VGAREG_MDA_WRITE_FEATURE_CTL   0x3ba
+#घोषणा VGAREG_VGA_WRITE_FEATURE_CTL   0x3da
+#घोषणा VGAREG_ACTL_RESET              0x3da
+
+#घोषणा VGAREG_MDA_MODECTL             0x3b8
+#घोषणा VGAREG_CGA_MODECTL             0x3d8
+#घोषणा VGAREG_CGA_PALETTE             0x3d9
+
+/* Video memory */
+#घोषणा SEG_GRAPH 0xA000
+#घोषणा SEG_CTEXT 0xB800
+#घोषणा SEG_MTEXT 0xB000
+
+// stdvga.c
+व्योम stdvga_set_border_color(u8 color);
+व्योम stdvga_set_overscan_border_color(u8 color);
+u8 stdvga_get_overscan_border_color(व्योम);
+व्योम stdvga_set_palette(u8 palid);
+व्योम stdvga_set_all_palette_reg(u16 seg, u8 *data_far);
+व्योम stdvga_get_all_palette_reg(u16 seg, u8 *data_far);
+व्योम stdvga_toggle_पूर्णांकensity(u8 flag);
+व्योम stdvga_select_video_dac_color_page(u8 flag, u8 data);
+व्योम stdvga_पढ़ो_video_dac_state(u8 *pmode, u8 *curpage);
+व्योम stdvga_perक्रमm_gray_scale_summing(u16 start, u16 count);
+व्योम stdvga_set_text_block_specअगरier(u8 spec);
+व्योम stdvga_planar4_plane(पूर्णांक plane);
+व्योम stdvga_load_font(u16 seg, व्योम *src_far, u16 count
+                      , u16 start, u8 destflags, u8 fontsize);
+u16 stdvga_get_crtc(व्योम);
+काष्ठा vgamode_s;
+पूर्णांक stdvga_vram_ratio(काष्ठा vgamode_s *vmode_g);
+व्योम stdvga_set_cursor_shape(u16 cursor_type);
+व्योम stdvga_set_cursor_pos(पूर्णांक address);
+व्योम stdvga_set_scan_lines(u8 lines);
+u16 stdvga_get_vde(व्योम);
+पूर्णांक stdvga_get_winकरोw(काष्ठा vgamode_s *vmode_g, पूर्णांक winकरोw);
+पूर्णांक stdvga_set_winकरोw(काष्ठा vgamode_s *vmode_g, पूर्णांक winकरोw, पूर्णांक val);
+पूर्णांक stdvga_get_linelength(काष्ठा vgamode_s *vmode_g);
+पूर्णांक stdvga_set_linelength(काष्ठा vgamode_s *vmode_g, पूर्णांक val);
+पूर्णांक stdvga_get_displaystart(काष्ठा vgamode_s *vmode_g);
+पूर्णांक stdvga_set_displaystart(काष्ठा vgamode_s *vmode_g, पूर्णांक val);
+पूर्णांक stdvga_get_dacक्रमmat(काष्ठा vgamode_s *vmode_g);
+पूर्णांक stdvga_set_dacक्रमmat(काष्ठा vgamode_s *vmode_g, पूर्णांक val);
+पूर्णांक stdvga_save_restore(पूर्णांक cmd, u16 seg, व्योम *data);
+व्योम stdvga_enable_video_addressing(u8 disable);
+पूर्णांक stdvga_setup(व्योम);
+
+#पूर्ण_अगर // stdvga.h

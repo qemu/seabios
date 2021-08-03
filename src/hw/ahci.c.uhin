@@ -1,0 +1,700 @@
+<शैली गुरु>
+// Low level AHCI disk access
+//
+// Copyright (C) 2010 Gerd Hoffmann <kraxel@redhat.com>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "ahci.h" // CDB_CMD_READ_10
+#समावेश "ata.h" // ATA_CB_STAT
+#समावेश "biosvar.h" // GET_GLOBAL
+#समावेश "blockcmd.h" // CDB_CMD_READ_10
+#समावेश "malloc.h" // मुक्त
+#समावेश "output.h" // dम_लिखो
+#समावेश "pci.h" // pci_config_पढ़ोb
+#समावेश "pcidevice.h" // क्रमeachpci
+#समावेश "pci_ids.h" // PCI_CLASS_STORAGE_OTHER
+#समावेश "pci_regs.h" // PCI_INTERRUPT_LINE
+#समावेश "stacks.h" // yield
+#समावेश "std/disk.h" // DISK_RET_SUCCESS
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // समयr_calc
+#समावेश "x86.h" // inb
+
+#घोषणा AHCI_REQUEST_TIMEOUT 32000 // 32 seconds max क्रम IDE ops
+#घोषणा AHCI_RESET_TIMEOUT     500 // 500 miliseconds
+#घोषणा AHCI_LINK_TIMEOUT       10 // 10 miliseconds
+
+// prepare sata command fis
+अटल व्योम sata_prep_simple(काष्ठा sata_cmd_fis *fis, u8 command)
+अणु
+    स_रखो_fl(fis, 0, माप(*fis));
+    fis->command = command;
+पूर्ण
+
+अटल व्योम sata_prep_पढ़ोग_लिखो(काष्ठा sata_cmd_fis *fis,
+                                काष्ठा disk_op_s *op, पूर्णांक isग_लिखो)
+अणु
+    u64 lba = op->lba;
+    u8 command;
+
+    स_रखो_fl(fis, 0, माप(*fis));
+
+    अगर (op->count >= (1<<8) || lba + op->count >= (1<<28)) अणु
+        fis->sector_count2 = op->count >> 8;
+        fis->lba_low2      = lba >> 24;
+        fis->lba_mid2      = lba >> 32;
+        fis->lba_high2     = lba >> 40;
+        lba &= 0xffffff;
+        command = (isग_लिखो ? ATA_CMD_WRITE_DMA_EXT
+                   : ATA_CMD_READ_DMA_EXT);
+    पूर्ण अन्यथा अणु
+        command = (isग_लिखो ? ATA_CMD_WRITE_DMA
+                   : ATA_CMD_READ_DMA);
+    पूर्ण
+    fis->feature      = 1; /* dma */
+    fis->command      = command;
+    fis->sector_count = op->count;
+    fis->lba_low      = lba;
+    fis->lba_mid      = lba >> 8;
+    fis->lba_high     = lba >> 16;
+    fis->device       = ((lba >> 24) & 0xf) | ATA_CB_DH_LBA;
+पूर्ण
+
+अटल व्योम sata_prep_atapi(काष्ठा sata_cmd_fis *fis, u16 blocksize)
+अणु
+    स_रखो_fl(fis, 0, माप(*fis));
+    fis->command  = ATA_CMD_PACKET;
+    fis->feature  = 1; /* dma */
+    fis->lba_mid  = blocksize;
+    fis->lba_high = blocksize >> 8;
+पूर्ण
+
+// ahci रेजिस्टर access helpers
+अटल u32 ahci_ctrl_पढ़ोl(काष्ठा ahci_ctrl_s *ctrl, u32 reg)
+अणु
+    वापस पढ़ोl(ctrl->iobase + reg);
+पूर्ण
+
+अटल व्योम ahci_ctrl_ग_लिखोl(काष्ठा ahci_ctrl_s *ctrl, u32 reg, u32 val)
+अणु
+    ग_लिखोl(ctrl->iobase + reg, val);
+पूर्ण
+
+अटल u32 ahci_port_to_ctrl(u32 pnr, u32 port_reg)
+अणु
+    u32 ctrl_reg = 0x100;
+    ctrl_reg += pnr * 0x80;
+    ctrl_reg += port_reg;
+    वापस ctrl_reg;
+पूर्ण
+
+अटल u32 ahci_port_पढ़ोl(काष्ठा ahci_ctrl_s *ctrl, u32 pnr, u32 reg)
+अणु
+    u32 ctrl_reg = ahci_port_to_ctrl(pnr, reg);
+    वापस ahci_ctrl_पढ़ोl(ctrl, ctrl_reg);
+पूर्ण
+
+अटल व्योम ahci_port_ग_लिखोl(काष्ठा ahci_ctrl_s *ctrl, u32 pnr, u32 reg, u32 val)
+अणु
+    u32 ctrl_reg = ahci_port_to_ctrl(pnr, reg);
+    ahci_ctrl_ग_लिखोl(ctrl, ctrl_reg, val);
+पूर्ण
+
+// submit ahci command + रुको क्रम result
+अटल पूर्णांक ahci_command(काष्ठा ahci_port_s *port_gf, पूर्णांक isग_लिखो, पूर्णांक isatapi,
+                        व्योम *buffer, u32 bsize)
+अणु
+    u32 val, status, success, flags, पूर्णांकbits, error;
+    काष्ठा ahci_ctrl_s *ctrl = port_gf->ctrl;
+    काष्ठा ahci_cmd_s  *cmd  = port_gf->cmd;
+    काष्ठा ahci_fis_s  *fis  = port_gf->fis;
+    काष्ठा ahci_list_s *list = port_gf->list;
+    u32 pnr                  = port_gf->pnr;
+
+    cmd->fis.reg       = 0x27;
+    cmd->fis.pmp_type  = 1 << 7; /* cmd fis */
+    cmd->prdt[0].base  = (u32)buffer;
+    cmd->prdt[0].baseu = 0;
+    cmd->prdt[0].flags = bsize-1;
+
+    flags = ((1 << 16) | /* one prd entry */
+             (isग_लिखो ? (1 << 6) : 0) |
+             (isatapi ? (1 << 5) : 0) |
+             (5 << 0)); /* fis length (dwords) */
+    list[0].flags  = flags;
+    list[0].bytes  = 0;
+    list[0].base   = (u32)(cmd);
+    list[0].baseu  = 0;
+
+    dम_लिखो(8, "AHCI/%d: send cmd ...\n", pnr);
+    पूर्णांकbits = ahci_port_पढ़ोl(ctrl, pnr, PORT_IRQ_STAT);
+    अगर (पूर्णांकbits)
+        ahci_port_ग_लिखोl(ctrl, pnr, PORT_IRQ_STAT, पूर्णांकbits);
+    ahci_port_ग_लिखोl(ctrl, pnr, PORT_CMD_ISSUE, 1);
+
+    u32 end = समयr_calc(AHCI_REQUEST_TIMEOUT);
+    करो अणु
+        क्रम (;;) अणु
+            पूर्णांकbits = ahci_port_पढ़ोl(ctrl, pnr, PORT_IRQ_STAT);
+            अगर (पूर्णांकbits) अणु
+                ahci_port_ग_लिखोl(ctrl, pnr, PORT_IRQ_STAT, पूर्णांकbits);
+                अगर (पूर्णांकbits & 0x02) अणु
+                    status = GET_LOWFLAT(fis->psfis[2]);
+                    error  = GET_LOWFLAT(fis->psfis[3]);
+                    अवरोध;
+                पूर्ण
+                अगर (पूर्णांकbits & 0x01) अणु
+                    status = GET_LOWFLAT(fis->rfis[2]);
+                    error  = GET_LOWFLAT(fis->rfis[3]);
+                    अवरोध;
+                पूर्ण
+            पूर्ण
+            अगर (समयr_check(end)) अणु
+                warn_समयout();
+                वापस -1;
+            पूर्ण
+            yield();
+        पूर्ण
+        dम_लिखो(8, "AHCI/%d: ... intbits 0x%x, status 0x%x ...\n",
+                pnr, पूर्णांकbits, status);
+    पूर्ण जबतक (status & ATA_CB_STAT_BSY);
+
+    success = (0x00 == (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_DF |
+                                  ATA_CB_STAT_ERR)) &&
+               ATA_CB_STAT_RDY == (status & (ATA_CB_STAT_RDY)));
+    अगर (success) अणु
+        dम_लिखो(8, "AHCI/%d: ... finished, status 0x%x, OK\n", pnr,
+                status);
+    पूर्ण अन्यथा अणु
+        dम_लिखो(2, "AHCI/%d: ... finished, status 0x%x, ERROR 0x%x\n", pnr,
+                status, error);
+
+        // non-queued error recovery (AHCI 1.3 section 6.2.2.1)
+        // Clears PxCMD.ST to 0 to reset the PxCI रेजिस्टर
+        val = ahci_port_पढ़ोl(ctrl, pnr, PORT_CMD);
+        ahci_port_ग_लिखोl(ctrl, pnr, PORT_CMD, val & ~PORT_CMD_START);
+
+        // रुकोs क्रम PxCMD.CR to clear to 0
+        जबतक (1) अणु
+            val = ahci_port_पढ़ोl(ctrl, pnr, PORT_CMD);
+            अगर ((val & PORT_CMD_LIST_ON) == 0)
+                अवरोध;
+            yield();
+        पूर्ण
+
+        // Clears any error bits in PxSERR to enable capturing new errors
+        val = ahci_port_पढ़ोl(ctrl, pnr, PORT_SCR_ERR);
+        ahci_port_ग_लिखोl(ctrl, pnr, PORT_SCR_ERR, val);
+
+        // Clears status bits in PxIS as appropriate
+        val = ahci_port_पढ़ोl(ctrl, pnr, PORT_IRQ_STAT);
+        ahci_port_ग_लिखोl(ctrl, pnr, PORT_IRQ_STAT, val);
+
+        // If PxTFD.STS.BSY or PxTFD.STS.DRQ is set to 1, issue
+        // a COMRESET to the device to put it in an idle state
+        val = ahci_port_पढ़ोl(ctrl, pnr, PORT_TFDATA);
+        अगर (val & (ATA_CB_STAT_BSY | ATA_CB_STAT_DRQ)) अणु
+            dम_लिखो(2, "AHCI/%d: issue comreset\n", pnr);
+            val = ahci_port_पढ़ोl(ctrl, pnr, PORT_SCR_CTL);
+            // set Device Detection Initialization (DET) to 1 क्रम 1 ms क्रम comreset
+            ahci_port_ग_लिखोl(ctrl, pnr, PORT_SCR_CTL, val | 1);
+            mdelay (1);
+            ahci_port_ग_लिखोl(ctrl, pnr, PORT_SCR_CTL, val);
+        पूर्ण
+
+        // Sets PxCMD.ST to 1 to enable issuing new commands
+        val = ahci_port_पढ़ोl(ctrl, pnr, PORT_CMD);
+        ahci_port_ग_लिखोl(ctrl, pnr, PORT_CMD, val | PORT_CMD_START);
+    पूर्ण
+    वापस success ? 0 : -1;
+पूर्ण
+
+#घोषणा CDROM_CDB_SIZE 12
+
+पूर्णांक ahci_atapi_process_op(काष्ठा disk_op_s *op)
+अणु
+    अगर (! CONFIG_AHCI)
+        वापस 0;
+
+    काष्ठा ahci_port_s *port_gf = container_of(
+        op->drive_fl, काष्ठा ahci_port_s, drive);
+    काष्ठा ahci_cmd_s *cmd = port_gf->cmd;
+
+    अगर (op->command == CMD_WRITE || op->command == CMD_FORMAT)
+        वापस DISK_RET_EWRITEPROTECT;
+    पूर्णांक blocksize = scsi_fill_cmd(op, cmd->atapi, CDROM_CDB_SIZE);
+    अगर (blocksize < 0)
+        वापस शेष_process_op(op);
+    sata_prep_atapi(&cmd->fis, blocksize);
+    पूर्णांक rc = ahci_command(port_gf, 0, 1, op->buf_fl, op->count * blocksize);
+    अगर (rc < 0)
+        वापस DISK_RET_EBADTRACK;
+    वापस DISK_RET_SUCCESS;
+पूर्ण
+
+// पढ़ो/ग_लिखो count blocks from a harddrive, op->buf_fl must be word aligned
+अटल पूर्णांक
+ahci_disk_पढ़ोग_लिखो_aligned(काष्ठा disk_op_s *op, पूर्णांक isग_लिखो)
+अणु
+    काष्ठा ahci_port_s *port_gf = container_of(
+        op->drive_fl, काष्ठा ahci_port_s, drive);
+    काष्ठा ahci_cmd_s *cmd = port_gf->cmd;
+    पूर्णांक rc;
+
+    sata_prep_पढ़ोग_लिखो(&cmd->fis, op, isग_लिखो);
+    rc = ahci_command(port_gf, isग_लिखो, 0, op->buf_fl,
+                      op->count * DISK_SECTOR_SIZE);
+    dम_लिखो(8, "ahci disk %s, lba %6x, count %3x, buf %p, rc %d\n",
+            isग_लिखो ? "write" : "read", (u32)op->lba, op->count, op->buf_fl, rc);
+    अगर (rc < 0)
+        वापस DISK_RET_EBADTRACK;
+    वापस DISK_RET_SUCCESS;
+पूर्ण
+
+// पढ़ो/ग_लिखो count blocks from a harddrive.
+अटल पूर्णांक
+ahci_disk_पढ़ोग_लिखो(काष्ठा disk_op_s *op, पूर्णांक isग_लिखो)
+अणु
+    // अगर caller's buffer is word aligned, use it directly
+    अगर (((u32) op->buf_fl & 1) == 0)
+        वापस ahci_disk_पढ़ोग_लिखो_aligned(op, isग_लिखो);
+
+    // Use a word aligned buffer क्रम AHCI I/O
+    पूर्णांक rc;
+    काष्ठा disk_op_s localop = *op;
+    u8 *alignedbuf_fl = bounce_buf_fl;
+    u8 *position = op->buf_fl;
+
+    localop.buf_fl = alignedbuf_fl;
+    localop.count = 1;
+
+    अगर (isग_लिखो) अणु
+        u16 block;
+        क्रम (block = 0; block < op->count; block++) अणु
+            स_नकल_fl (alignedbuf_fl, position, DISK_SECTOR_SIZE);
+            rc = ahci_disk_पढ़ोग_लिखो_aligned (&localop, 1);
+            अगर (rc)
+                वापस rc;
+            position += DISK_SECTOR_SIZE;
+            localop.lba++;
+        पूर्ण
+    पूर्ण अन्यथा अणु // पढ़ो
+        u16 block;
+        क्रम (block = 0; block < op->count; block++) अणु
+            rc = ahci_disk_पढ़ोग_लिखो_aligned (&localop, 0);
+            अगर (rc)
+                वापस rc;
+            स_नकल_fl (position, alignedbuf_fl, DISK_SECTOR_SIZE);
+            position += DISK_SECTOR_SIZE;
+            localop.lba++;
+        पूर्ण
+    पूर्ण
+    वापस DISK_RET_SUCCESS;
+पूर्ण
+
+// command demuxer
+पूर्णांक
+ahci_process_op(काष्ठा disk_op_s *op)
+अणु
+    अगर (!CONFIG_AHCI)
+        वापस 0;
+    चयन (op->command) अणु
+    हाल CMD_READ:
+        वापस ahci_disk_पढ़ोग_लिखो(op, 0);
+    हाल CMD_WRITE:
+        वापस ahci_disk_पढ़ोग_लिखो(op, 1);
+    शेष:
+        वापस शेष_process_op(op);
+    पूर्ण
+पूर्ण
+
+अटल व्योम
+ahci_port_reset(काष्ठा ahci_ctrl_s *ctrl, u32 pnr)
+अणु
+    u32 val;
+
+    /* disable FIS + CMD */
+    u32 end = समयr_calc(AHCI_RESET_TIMEOUT);
+    क्रम (;;) अणु
+        val = ahci_port_पढ़ोl(ctrl, pnr, PORT_CMD);
+        अगर (!(val & (PORT_CMD_FIS_RX | PORT_CMD_START |
+                     PORT_CMD_FIS_ON | PORT_CMD_LIST_ON)))
+            अवरोध;
+        val &= ~(PORT_CMD_FIS_RX | PORT_CMD_START);
+        ahci_port_ग_लिखोl(ctrl, pnr, PORT_CMD, val);
+        अगर (समयr_check(end)) अणु
+            warn_समयout();
+            अवरोध;
+        पूर्ण
+        yield();
+    पूर्ण
+
+    /* disable + clear IRQs */
+    ahci_port_ग_लिखोl(ctrl, pnr, PORT_IRQ_MASK, 0);
+    val = ahci_port_पढ़ोl(ctrl, pnr, PORT_IRQ_STAT);
+    अगर (val)
+        ahci_port_ग_लिखोl(ctrl, pnr, PORT_IRQ_STAT, val);
+पूर्ण
+
+अटल काष्ठा ahci_port_s*
+ahci_port_alloc(काष्ठा ahci_ctrl_s *ctrl, u32 pnr)
+अणु
+    काष्ठा ahci_port_s *port = दो_स्मृति_पंचांगp(माप(*port));
+
+    अगर (!port) अणु
+        warn_noalloc();
+        वापस शून्य;
+    पूर्ण
+    स_रखो(port, 0, माप(*port));
+    port->pnr = pnr;
+    port->ctrl = ctrl;
+    port->list = memalign_पंचांगp(1024, 1024);
+    port->fis = memalign_पंचांगp(256, 256);
+    port->cmd = memalign_पंचांगp(256, 256);
+    अगर (port->list == शून्य || port->fis == शून्य || port->cmd == शून्य) अणु
+        warn_noalloc();
+        वापस शून्य;
+    पूर्ण
+    स_रखो(port->list, 0, 1024);
+    स_रखो(port->fis, 0, 256);
+    स_रखो(port->cmd, 0, 256);
+
+    ahci_port_ग_लिखोl(ctrl, pnr, PORT_LST_ADDR, (u32)port->list);
+    ahci_port_ग_लिखोl(ctrl, pnr, PORT_FIS_ADDR, (u32)port->fis);
+    अगर (ctrl->caps & HOST_CAP_64) अणु
+        ahci_port_ग_लिखोl(ctrl, pnr, PORT_LST_ADDR_HI, 0);
+        ahci_port_ग_लिखोl(ctrl, pnr, PORT_FIS_ADDR_HI, 0);
+    पूर्ण
+
+    वापस port;
+पूर्ण
+
+अटल व्योम ahci_port_release(काष्ठा ahci_port_s *port)
+अणु
+    ahci_port_reset(port->ctrl, port->pnr);
+    मुक्त(port->list);
+    मुक्त(port->fis);
+    मुक्त(port->cmd);
+    मुक्त(port);
+पूर्ण
+
+अटल काष्ठा ahci_port_s* ahci_port_पुनः_स्मृति(काष्ठा ahci_port_s *port)
+अणु
+    काष्ठा ahci_port_s *पंचांगp;
+    u32 cmd;
+
+    पंचांगp = दो_स्मृति_fseg(माप(*port));
+    अगर (!पंचांगp) अणु
+        warn_noalloc();
+        ahci_port_release(port);
+        वापस शून्य;
+    पूर्ण
+    *पंचांगp = *port;
+    मुक्त(port);
+    port = पंचांगp;
+
+    ahci_port_reset(port->ctrl, port->pnr);
+
+    मुक्त(port->list);
+    मुक्त(port->fis);
+    मुक्त(port->cmd);
+    port->list = memalign_high(1024, 1024);
+    port->fis = memalign_high(256, 256);
+    port->cmd = memalign_high(256, 256);
+    अगर (!port->list || !port->fis || !port->cmd) अणु
+        warn_noalloc();
+        मुक्त(port->list);
+        मुक्त(port->fis);
+        मुक्त(port->cmd);
+        मुक्त(port);
+        वापस शून्य;
+    पूर्ण
+
+    ahci_port_ग_लिखोl(port->ctrl, port->pnr, PORT_LST_ADDR, (u32)port->list);
+    ahci_port_ग_लिखोl(port->ctrl, port->pnr, PORT_FIS_ADDR, (u32)port->fis);
+
+    cmd = ahci_port_पढ़ोl(port->ctrl, port->pnr, PORT_CMD);
+    cmd |= (PORT_CMD_FIS_RX|PORT_CMD_START);
+    ahci_port_ग_लिखोl(port->ctrl, port->pnr, PORT_CMD, cmd);
+
+    वापस port;
+पूर्ण
+
+#घोषणा MAXMODEL 40
+
+/* See ahci spec chapter 10.1 "Software Initialization of HBA" */
+अटल पूर्णांक ahci_port_setup(काष्ठा ahci_port_s *port)
+अणु
+    काष्ठा ahci_ctrl_s *ctrl = port->ctrl;
+    u32 pnr = port->pnr;
+    अक्षर model[MAXMODEL+1];
+    u16 buffer[256];
+    u32 cmd, stat, err, tf;
+    पूर्णांक rc;
+
+    /* enable FIS recv */
+    cmd = ahci_port_पढ़ोl(ctrl, pnr, PORT_CMD);
+    cmd |= PORT_CMD_FIS_RX;
+    ahci_port_ग_लिखोl(ctrl, pnr, PORT_CMD, cmd);
+
+    /* spin up */
+    cmd |= PORT_CMD_SPIN_UP;
+    ahci_port_ग_लिखोl(ctrl, pnr, PORT_CMD, cmd);
+    u32 end = समयr_calc(AHCI_LINK_TIMEOUT);
+    क्रम (;;) अणु
+        stat = ahci_port_पढ़ोl(ctrl, pnr, PORT_SCR_STAT);
+        अगर ((stat & 0x07) == 0x03) अणु
+            dम_लिखो(2, "AHCI/%d: link up\n", port->pnr);
+            अवरोध;
+        पूर्ण
+        अगर (समयr_check(end)) अणु
+            dम_लिखो(2, "AHCI/%d: link down\n", port->pnr);
+            वापस -1;
+        पूर्ण
+        yield();
+    पूर्ण
+
+    /* clear error status */
+    err = ahci_port_पढ़ोl(ctrl, pnr, PORT_SCR_ERR);
+    अगर (err)
+        ahci_port_ग_लिखोl(ctrl, pnr, PORT_SCR_ERR, err);
+
+    /* रुको क्रम device becoming पढ़ोy */
+    end = समयr_calc(AHCI_REQUEST_TIMEOUT);
+    क्रम (;;) अणु
+        tf = ahci_port_पढ़ोl(ctrl, pnr, PORT_TFDATA);
+        अगर (!(tf & (ATA_CB_STAT_BSY |
+                    ATA_CB_STAT_DRQ)))
+            अवरोध;
+        अगर (समयr_check(end)) अणु
+            warn_समयout();
+            dम_लिखो(1, "AHCI/%d: device not ready (tf 0x%x)\n", port->pnr, tf);
+            वापस -1;
+        पूर्ण
+        yield();
+    पूर्ण
+
+    /* start device */
+    cmd |= PORT_CMD_START;
+    ahci_port_ग_लिखोl(ctrl, pnr, PORT_CMD, cmd);
+
+    sata_prep_simple(&port->cmd->fis, ATA_CMD_IDENTIFY_PACKET_DEVICE);
+    rc = ahci_command(port, 0, 0, buffer, माप(buffer));
+    अगर (rc == 0) अणु
+        port->atapi = 1;
+    पूर्ण अन्यथा अणु
+        port->atapi = 0;
+        sata_prep_simple(&port->cmd->fis, ATA_CMD_IDENTIFY_DEVICE);
+        rc = ahci_command(port, 0, 0, buffer, माप(buffer));
+        अगर (rc < 0)
+            वापस -1;
+    पूर्ण
+
+    port->drive.cntl_id = pnr;
+    port->drive.removable = (buffer[0] & 0x80) ? 1 : 0;
+
+    अगर (!port->atapi) अणु
+        // found disk (ata)
+        port->drive.type = DTYPE_AHCI;
+        port->drive.blksize = DISK_SECTOR_SIZE;
+        port->drive.pchs.cylinder = buffer[1];
+        port->drive.pchs.head = buffer[3];
+        port->drive.pchs.sector = buffer[6];
+
+        u64 sectors;
+        अगर (buffer[83] & (1 << 10)) // word 83 - lba48 support
+            sectors = *(u64*)&buffer[100]; // word 100-103
+        अन्यथा
+            sectors = *(u32*)&buffer[60]; // word 60 and word 61
+        port->drive.sectors = sectors;
+        u64 adjsize = sectors >> 11;
+        अक्षर adjprefix = 'M';
+        अगर (adjsize >= (1 << 16)) अणु
+            adjsize >>= 10;
+            adjprefix = 'G';
+        पूर्ण
+        port->desc = znम_लिखो(MAXDESCSIZE
+                              , "AHCI/%d: %s ATA-%d Hard-Disk (%u %ciBytes)"
+                              , port->pnr
+                              , ata_extract_model(model, MAXMODEL, buffer)
+                              , ata_extract_version(buffer)
+                              , (u32)adjsize, adjprefix);
+        port->prio = bootprio_find_ata_device(ctrl->pci_पंचांगp, pnr, 0);
+
+        s8 multi_dma = -1;
+        s8 pio_mode = -1;
+        s8 udma_mode = -1;
+        // If bit 2 in word 53 is set, udma inक्रमmation is valid in word 88.
+        अगर (buffer[53] & 0x04) अणु
+            udma_mode = 6;
+            जबतक ((udma_mode >= 0) &&
+                   !((buffer[88] & 0x7f) & ( 1 << udma_mode ))) अणु
+                udma_mode--;
+            पूर्ण
+        पूर्ण
+        // If bit 1 in word 53 is set, multiword-dma and advanced pio modes
+        // are available in words 63 and 64.
+        अगर (buffer[53] & 0x02) अणु
+            pio_mode = 4;
+            multi_dma = 3;
+            जबतक ((multi_dma >= 0) &&
+                   !((buffer[63] & 0x7) & ( 1 << multi_dma ))) अणु
+                multi_dma--;
+            पूर्ण
+            जबतक ((pio_mode >= 3) &&
+                   !((buffer[64] & 0x3) & ( 1 << ( pio_mode - 3 ) ))) अणु
+                pio_mode--;
+            पूर्ण
+        पूर्ण
+        dम_लिखो(2, "AHCI/%d: supported modes: udma %d, multi-dma %d, pio %d\n",
+                port->pnr, udma_mode, multi_dma, pio_mode);
+
+        sata_prep_simple(&port->cmd->fis, ATA_CMD_SET_FEATURES);
+        port->cmd->fis.feature = ATA_SET_FEATRUE_TRANSFER_MODE;
+        // Select used mode. UDMA first, then Multi-DMA followed by
+        // advanced PIO modes 3 or 4. If non, set शेष PIO.
+        अगर (udma_mode >= 0) अणु
+            dम_लिखो(1, "AHCI/%d: Set transfer mode to UDMA-%d\n",
+                    port->pnr, udma_mode);
+            port->cmd->fis.sector_count = ATA_TRANSFER_MODE_ULTRA_DMA
+                                          | udma_mode;
+        पूर्ण अन्यथा अगर (multi_dma >= 0) अणु
+            dम_लिखो(1, "AHCI/%d: Set transfer mode to Multi-DMA-%d\n",
+                    port->pnr, multi_dma);
+            port->cmd->fis.sector_count = ATA_TRANSFER_MODE_MULTIWORD_DMA
+                                          | multi_dma;
+        पूर्ण अन्यथा अगर (pio_mode >= 3) अणु
+            dम_लिखो(1, "AHCI/%d: Set transfer mode to PIO-%d\n",
+                    port->pnr, pio_mode);
+            port->cmd->fis.sector_count = ATA_TRANSFER_MODE_PIO_FLOW_CTRL
+                                          | pio_mode;
+        पूर्ण अन्यथा अणु
+            dम_लिखो(1, "AHCI/%d: Set transfer mode to default PIO\n",
+                    port->pnr);
+            port->cmd->fis.sector_count = ATA_TRANSFER_MODE_DEFAULT_PIO;
+        पूर्ण
+        rc = ahci_command(port, 1, 0, 0, 0);
+        अगर (rc < 0) अणु
+            dम_लिखो(1, "AHCI/%d: Set transfer mode failed.\n", port->pnr);
+        पूर्ण
+    पूर्ण अन्यथा अणु
+        // found cdrom (atapi)
+        port->drive.type = DTYPE_AHCI_ATAPI;
+        port->drive.blksize = CDROM_SECTOR_SIZE;
+        port->drive.sectors = (u64)-1;
+        u8 iscd = ((buffer[0] >> 8) & 0x1f) == 0x05;
+        अगर (!iscd) अणु
+            dम_लिखो(1, "AHCI/%d: atapi device isn't a cdrom\n", port->pnr);
+            वापस -1;
+        पूर्ण
+        port->desc = znम_लिखो(MAXDESCSIZE
+                              , "DVD/CD [AHCI/%d: %s ATAPI-%d DVD/CD]"
+                              , port->pnr
+                              , ata_extract_model(model, MAXMODEL, buffer)
+                              , ata_extract_version(buffer));
+        port->prio = bootprio_find_ata_device(ctrl->pci_पंचांगp, pnr, 0);
+    पूर्ण
+    boot_lchs_find_ata_device(ctrl->pci_पंचांगp, pnr, 0, &(port->drive.lchs));
+    वापस 0;
+पूर्ण
+
+// Detect any drives attached to a given controller.
+अटल व्योम
+ahci_port_detect(व्योम *data)
+अणु
+    काष्ठा ahci_port_s *port = data;
+    पूर्णांक rc;
+
+    dम_लिखो(2, "AHCI/%d: probing\n", port->pnr);
+    ahci_port_reset(port->ctrl, port->pnr);
+    rc = ahci_port_setup(port);
+    अगर (rc < 0)
+        ahci_port_release(port);
+    अन्यथा अणु
+        port = ahci_port_पुनः_स्मृति(port);
+        अगर (port == शून्य)
+            वापस;
+        dम_लिखो(1, "AHCI/%d: registering: \"%s\"\n", port->pnr, port->desc);
+        अगर (!port->atapi) अणु
+            // Register with bcv प्रणाली.
+            boot_add_hd(&port->drive, port->desc, port->prio);
+        पूर्ण अन्यथा अणु
+            // fill cdidmap
+            boot_add_cd(&port->drive, port->desc, port->prio);
+        पूर्ण
+    पूर्ण
+पूर्ण
+
+// Initialize an ata controller and detect its drives.
+अटल व्योम
+ahci_controller_setup(काष्ठा pci_device *pci)
+अणु
+    काष्ठा ahci_port_s *port;
+    u32 val, pnr, max;
+
+    अगर (create_bounce_buf() < 0)
+        वापस;
+
+    व्योम *iobase = pci_enable_membar(pci, PCI_BASE_ADDRESS_5);
+    अगर (!iobase)
+        वापस;
+
+    काष्ठा ahci_ctrl_s *ctrl = दो_स्मृति_fseg(माप(*ctrl));
+    अगर (!ctrl) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+
+    ctrl->pci_पंचांगp = pci;
+    ctrl->iobase = iobase;
+    ctrl->irq = pci_config_पढ़ोb(pci->bdf, PCI_INTERRUPT_LINE);
+    dम_लिखो(1, "AHCI controller at %pP, iobase %p, irq %d\n"
+            , pci, ctrl->iobase, ctrl->irq);
+
+    pci_enable_busmaster(pci);
+
+    val = ahci_ctrl_पढ़ोl(ctrl, HOST_CTL);
+    ahci_ctrl_ग_लिखोl(ctrl, HOST_CTL, val | HOST_CTL_AHCI_EN);
+
+    ctrl->caps = ahci_ctrl_पढ़ोl(ctrl, HOST_CAP);
+    ctrl->ports = ahci_ctrl_पढ़ोl(ctrl, HOST_PORTS_IMPL);
+    dम_लिखो(2, "AHCI: cap 0x%x, ports_impl 0x%x\n",
+            ctrl->caps, ctrl->ports);
+
+    max = 0x1f;
+    क्रम (pnr = 0; pnr <= max; pnr++) अणु
+        अगर (!(ctrl->ports & (1 << pnr)))
+            जारी;
+        port = ahci_port_alloc(ctrl, pnr);
+        अगर (port == शून्य)
+            जारी;
+        run_thपढ़ो(ahci_port_detect, port);
+    पूर्ण
+पूर्ण
+
+// Locate and init ahci controllers.
+अटल व्योम
+ahci_scan(व्योम)
+अणु
+    // Scan PCI bus क्रम ATA adapters
+    काष्ठा pci_device *pci;
+    क्रमeachpci(pci) अणु
+        अगर (pci->class != PCI_CLASS_STORAGE_SATA)
+            जारी;
+        अगर (pci->prog_अगर != 1 /* AHCI rev 1 */)
+            जारी;
+        ahci_controller_setup(pci);
+    पूर्ण
+पूर्ण
+
+व्योम
+ahci_setup(व्योम)
+अणु
+    ASSERT32FLAT();
+    अगर (!CONFIG_AHCI)
+        वापस;
+
+    dम_लिखो(3, "init ahci\n");
+    ahci_scan();
+पूर्ण

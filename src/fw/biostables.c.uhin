@@ -1,0 +1,519 @@
+<शैली गुरु>
+// Support क्रम manipulating bios tables (pir, mptable, acpi, smbios).
+//
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "byteorder.h" // le32_to_cpu
+#समावेश "config.h" // CONFIG_*
+#समावेश "hw/pci.h" // pci_config_ग_लिखोb
+#समावेश "malloc.h" // दो_स्मृति_fseg
+#समावेश "memmap.h" // SYMBOL
+#समावेश "output.h" // dम_लिखो
+#समावेश "romfile.h" // romfile_find
+#समावेश "std/acpi.h" // काष्ठा rsdp_descriptor
+#समावेश "std/mptable.h" // MPTABLE_SIGNATURE
+#समावेश "std/pirtable.h" // काष्ठा pir_header
+#समावेश "std/smbios.h" // काष्ठा smbios_entry_poपूर्णांक
+#समावेश "string.h" // स_नकल
+#समावेश "util.h" // copy_table
+#समावेश "x86.h" // outb
+
+काष्ठा pir_header *PirAddr VARFSEG;
+
+व्योम
+copy_pir(व्योम *pos)
+अणु
+    काष्ठा pir_header *p = pos;
+    अगर (p->signature != PIR_SIGNATURE)
+        वापस;
+    अगर (PirAddr)
+        वापस;
+    अगर (p->size < माप(*p))
+        वापस;
+    अगर (checksum(pos, p->size) != 0)
+        वापस;
+    व्योम *newpos = दो_स्मृति_fseg(p->size);
+    अगर (!newpos) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    dम_लिखो(1, "Copying PIR from %p to %p\n", pos, newpos);
+    स_नकल(newpos, pos, p->size);
+    PirAddr = newpos;
+पूर्ण
+
+व्योम
+copy_mptable(व्योम *pos)
+अणु
+    काष्ठा mptable_भग्नing_s *p = pos;
+    अगर (p->signature != MPTABLE_SIGNATURE)
+        वापस;
+    अगर (!p->physaddr)
+        वापस;
+    अगर (checksum(pos, माप(*p)) != 0)
+        वापस;
+    u32 length = p->length * 16;
+    u16 mpclength = ((काष्ठा mptable_config_s *)p->physaddr)->length;
+    अगर (length + mpclength > BUILD_MAX_MPTABLE_FSEG) अणु
+        dम_लिखो(1, "Skipping MPTABLE copy due to large size (%d bytes)\n"
+                , length + mpclength);
+        वापस;
+    पूर्ण
+    // Allocate final memory location.  (In theory the config
+    // काष्ठाure can go in high memory, but Linux kernels beक्रमe
+    // v2.6.30 crash with that.)
+    काष्ठा mptable_भग्नing_s *newpos = दो_स्मृति_fseg(length + mpclength);
+    अगर (!newpos) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    dम_लिखो(1, "Copying MPTABLE from %p/%x to %p\n", pos, p->physaddr, newpos);
+    स_नकल(newpos, pos, length);
+    newpos->physaddr = (u32)newpos + length;
+    newpos->checksum -= checksum(newpos, माप(*newpos));
+    स_नकल((व्योम*)newpos + length, (व्योम*)p->physaddr, mpclength);
+पूर्ण
+
+
+/****************************************************************
+ * ACPI
+ ****************************************************************/
+
+अटल पूर्णांक
+get_acpi_rsdp_length(व्योम *pos, अचिन्हित size)
+अणु
+    काष्ठा rsdp_descriptor *p = pos;
+    अगर (p->signature != RSDP_SIGNATURE)
+        वापस -1;
+    u32 length = 20;
+    अगर (length > size)
+        वापस -1;
+    अगर (checksum(pos, length) != 0)
+        वापस -1;
+    अगर (p->revision > 1) अणु
+        length = p->length;
+        अगर (length > size)
+            वापस -1;
+        अगर (checksum(pos, length) != 0)
+            वापस -1;
+    पूर्ण
+    वापस length;
+पूर्ण
+
+काष्ठा rsdp_descriptor *RsdpAddr;
+
+व्योम
+copy_acpi_rsdp(व्योम *pos)
+अणु
+    अगर (RsdpAddr)
+        वापस;
+    पूर्णांक length = get_acpi_rsdp_length(pos, -1);
+    अगर (length < 0)
+        वापस;
+    व्योम *newpos = दो_स्मृति_fseg(length);
+    अगर (!newpos) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    dम_लिखो(1, "Copying ACPI RSDP from %p to %p\n", pos, newpos);
+    स_नकल(newpos, pos, length);
+    RsdpAddr = newpos;
+पूर्ण
+
+व्योम *find_acpi_rsdp(व्योम)
+अणु
+    अचिन्हित दीर्घ start = SYMBOL(zonefseg_start);
+    अचिन्हित दीर्घ end = SYMBOL(zonefseg_end);
+    अचिन्हित दीर्घ pos;
+
+    क्रम (pos = ALIGN(start, 0x10); pos <= ALIGN_DOWN(end, 0x10); pos += 0x10)
+        अगर (get_acpi_rsdp_length((व्योम *)pos, end - pos) >= 0)
+            वापस (व्योम *)pos;
+
+    वापस शून्य;
+पूर्ण
+
+व्योम *
+find_acpi_table(u32 signature)
+अणु
+    dम_लिखो(4, "rsdp=%p\n", RsdpAddr);
+    अगर (!RsdpAddr || RsdpAddr->signature != RSDP_SIGNATURE)
+        वापस शून्य;
+    काष्ठा rsdt_descriptor_rev1 *rsdt = (व्योम*)RsdpAddr->rsdt_physical_address;
+    काष्ठा xsdt_descriptor_rev2 *xsdt =
+        RsdpAddr->xsdt_physical_address >= 0x100000000
+        ? शून्य : (व्योम*)(u32)(RsdpAddr->xsdt_physical_address);
+    dम_लिखो(4, "rsdt=%p\n", rsdt);
+    dम_लिखो(4, "xsdt=%p\n", xsdt);
+
+    अगर (xsdt && xsdt->signature == XSDT_SIGNATURE) अणु
+        व्योम *end = (व्योम*)xsdt + xsdt->length;
+        पूर्णांक i;
+        क्रम (i=0; (व्योम*)&xsdt->table_offset_entry[i] < end; i++) अणु
+            अगर (xsdt->table_offset_entry[i] >= 0x100000000)
+                जारी; /* above 4G */
+            काष्ठा acpi_table_header *tbl = (व्योम*)(u32)xsdt->table_offset_entry[i];
+            अगर (!tbl || tbl->signature != signature)
+                जारी;
+            dम_लिखो(1, "table(%x)=%p (via xsdt)\n", signature, tbl);
+            वापस tbl;
+        पूर्ण
+    पूर्ण
+
+    अगर (rsdt && rsdt->signature == RSDT_SIGNATURE) अणु
+        व्योम *end = (व्योम*)rsdt + rsdt->length;
+        पूर्णांक i;
+        क्रम (i=0; (व्योम*)&rsdt->table_offset_entry[i] < end; i++) अणु
+            काष्ठा acpi_table_header *tbl = (व्योम*)rsdt->table_offset_entry[i];
+            अगर (!tbl || tbl->signature != signature)
+                जारी;
+            dम_लिखो(1, "table(%x)=%p (via rsdt)\n", signature, tbl);
+            वापस tbl;
+        पूर्ण
+    पूर्ण
+
+    dम_लिखो(4, "no table %x found\n", signature);
+    वापस शून्य;
+पूर्ण
+
+u32
+find_resume_vector(व्योम)
+अणु
+    काष्ठा fadt_descriptor_rev1 *fadt = find_acpi_table(FACP_SIGNATURE);
+    अगर (!fadt)
+        वापस 0;
+    काष्ठा facs_descriptor_rev1 *facs = (व्योम*)fadt->firmware_ctrl;
+    dम_लिखो(4, "facs=%p\n", facs);
+    अगर (! facs || facs->signature != FACS_SIGNATURE)
+        वापस 0;
+    // Found it.
+    dम_लिखो(4, "resume addr=%d\n", facs->firmware_waking_vector);
+    वापस facs->firmware_waking_vector;
+पूर्ण
+
+अटल काष्ठा acpi_20_generic_address acpi_reset_reg;
+अटल u8 acpi_reset_val;
+u32 acpi_pm1a_cnt VARFSEG;
+u16 acpi_pm_base = 0xb000;
+
+#घोषणा acpi_ga_to_bdf(addr) pci_to_bdf(0, (addr >> 32) & 0xffff, (addr >> 16) & 0xffff)
+
+व्योम
+acpi_reboot(व्योम)
+अणु
+    // Check it passed the sanity checks in acpi_set_reset_reg() and was set
+    अगर (acpi_reset_reg.रेजिस्टर_bit_width != 8)
+        वापस;
+
+    u64 addr = le64_to_cpu(acpi_reset_reg.address);
+
+    dम_लिखो(1, "ACPI hard reset %d:%llx (%x)\n",
+            acpi_reset_reg.address_space_id, addr, acpi_reset_val);
+
+    चयन (acpi_reset_reg.address_space_id) अणु
+    हाल 0: // System Memory
+        ग_लिखोb((व्योम *)(u32)addr, acpi_reset_val);
+        अवरोध;
+    हाल 1: // System I/O
+        outb(acpi_reset_val, addr);
+        अवरोध;
+    हाल 2: // PCI config space
+        pci_config_ग_लिखोb(acpi_ga_to_bdf(addr), addr & 0xffff, acpi_reset_val);
+        अवरोध;
+    पूर्ण
+पूर्ण
+
+अटल व्योम
+acpi_set_reset_reg(काष्ठा acpi_20_generic_address *reg, u8 val)
+अणु
+    अगर (!reg || reg->address_space_id > 2 ||
+        reg->रेजिस्टर_bit_width != 8 || reg->रेजिस्टर_bit_offset)
+        वापस;
+
+    acpi_reset_reg = *reg;
+    acpi_reset_val = val;
+पूर्ण
+
+व्योम
+find_acpi_features(व्योम)
+अणु
+    काष्ठा fadt_descriptor_rev1 *fadt = find_acpi_table(FACP_SIGNATURE);
+    अगर (!fadt)
+        वापस;
+    u32 pm_पंचांगr = le32_to_cpu(fadt->pm_पंचांगr_blk);
+    u32 pm1a_cnt = le32_to_cpu(fadt->pm1a_cnt_blk);
+    dम_लिखो(4, "pm_tmr_blk=%x\n", pm_पंचांगr);
+    अगर (pm_पंचांगr)
+        pmसमयr_setup(pm_पंचांगr);
+    अगर (pm1a_cnt)
+        acpi_pm1a_cnt = pm1a_cnt;
+
+    // Theoretically we should check the 'reset_reg_sup' flag, but Winकरोws
+    // करोesn't and thus nobody seems to *set* it. If the table is large enough
+    // to include it, let the sanity checks in acpi_set_reset_reg() suffice.
+    अगर (fadt->length >= 129) अणु
+        व्योम *p = fadt;
+        acpi_set_reset_reg(p + 116, *(u8 *)(p + 128));
+    पूर्ण
+    acpi_dsdt_parse();
+पूर्ण
+
+
+/****************************************************************
+ * SMBIOS
+ ****************************************************************/
+
+// Iterator क्रम each sub-table in the smbios blob.
+व्योम *
+smbios_next(काष्ठा smbios_entry_poपूर्णांक *smbios, व्योम *prev)
+अणु
+    अगर (!smbios)
+        वापस शून्य;
+    व्योम *start = (व्योम*)smbios->काष्ठाure_table_address;
+    व्योम *end = start + smbios->काष्ठाure_table_length;
+
+    अगर (!prev) अणु
+        prev = start;
+    पूर्ण अन्यथा अणु
+        काष्ठा smbios_काष्ठाure_header *hdr = prev;
+        अगर (prev + माप(*hdr) > end)
+            वापस शून्य;
+        prev += hdr->length + 2;
+        जबतक (prev < end && (*(u8*)(prev-1) != '\0' || *(u8*)(prev-2) != '\0'))
+            prev++;
+    पूर्ण
+    काष्ठा smbios_काष्ठाure_header *hdr = prev;
+    अगर (prev >= end || prev + माप(*hdr) >= end || prev + hdr->length >= end)
+        वापस शून्य;
+    वापस prev;
+पूर्ण
+
+काष्ठा smbios_entry_poपूर्णांक *SMBiosAddr;
+
+व्योम
+copy_smbios(व्योम *pos)
+अणु
+    अगर (SMBiosAddr)
+        वापस;
+    काष्ठा smbios_entry_poपूर्णांक *p = pos;
+    अगर (p->signature != SMBIOS_SIGNATURE)
+        वापस;
+    अगर (checksum(pos, 0x10) != 0)
+        वापस;
+    अगर (स_भेद(p->पूर्णांकermediate_anchor_string, "_DMI_", 5))
+        वापस;
+    अगर (checksum(pos+0x10, p->length-0x10) != 0)
+        वापस;
+    काष्ठा smbios_entry_poपूर्णांक *newpos = दो_स्मृति_fseg(p->length);
+    अगर (!newpos) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    dम_लिखो(1, "Copying SMBIOS entry point from %p to %p\n", pos, newpos);
+    स_नकल(newpos, pos, p->length);
+    SMBiosAddr = newpos;
+पूर्ण
+
+व्योम
+display_uuid(व्योम)
+अणु
+    काष्ठा smbios_type_1 *tbl = smbios_next(SMBiosAddr, शून्य);
+    पूर्णांक minlen = दुरत्व(काष्ठा smbios_type_1, uuid) + माप(tbl->uuid);
+    क्रम (; tbl; tbl = smbios_next(SMBiosAddr, tbl))
+        अगर (tbl->header.type == 1 && tbl->header.length >= minlen) अणु
+            u8 *uuid = tbl->uuid;
+            u8 empty_uuid[माप(tbl->uuid)] = अणु 0 पूर्ण;
+            अगर (स_भेद(uuid, empty_uuid, माप(empty_uuid)) == 0)
+                वापस;
+
+            /*
+             * According to SMBIOS v2.6 the first three fields are encoded in
+             * little-endian क्रमmat.  Versions prior to v2.6 did not specअगरy
+             * the encoding, but we follow dmidecode and assume big-endian
+             * encoding.
+             */
+            अगर (SMBiosAddr->smbios_major_version > 2 ||
+                (SMBiosAddr->smbios_major_version == 2 &&
+                 SMBiosAddr->smbios_minor_version >= 6)) अणु
+                म_लिखो("Machine UUID"
+                       " %02x%02x%02x%02x"
+                       "-%02x%02x"
+                       "-%02x%02x"
+                       "-%02x%02x"
+                       "-%02x%02x%02x%02x%02x%02x\n"
+                       , uuid[ 3], uuid[ 2], uuid[ 1], uuid[ 0]
+                       , uuid[ 5], uuid[ 4]
+                       , uuid[ 7], uuid[ 6]
+                       , uuid[ 8], uuid[ 9]
+                       , uuid[10], uuid[11], uuid[12]
+                       , uuid[13], uuid[14], uuid[15]);
+            पूर्ण अन्यथा अणु
+                म_लिखो("Machine UUID"
+                       " %02x%02x%02x%02x"
+                       "-%02x%02x"
+                       "-%02x%02x"
+                       "-%02x%02x"
+                       "-%02x%02x%02x%02x%02x%02x\n"
+                       , uuid[ 0], uuid[ 1], uuid[ 2], uuid[ 3]
+                       , uuid[ 4], uuid[ 5]
+                       , uuid[ 6], uuid[ 7]
+                       , uuid[ 8], uuid[ 9]
+                       , uuid[10], uuid[11], uuid[12]
+                       , uuid[13], uuid[14], uuid[15]);
+            पूर्ण
+
+            वापस;
+        पूर्ण
+पूर्ण
+
+#घोषणा set_str_field_or_skip(type, field, value)                       \
+    करो अणु                                                                \
+        पूर्णांक size = (value != शून्य) ? म_माप(value) + 1 : 0;             \
+        अगर (size > 1) अणु                                                 \
+            स_नकल(end, value, size);                                   \
+            end += size;                                                \
+            p->field = ++str_index;                                     \
+        पूर्ण अन्यथा अणु                                                        \
+            p->field = 0;                                               \
+        पूर्ण                                                               \
+    पूर्ण जबतक (0)
+
+अटल व्योम *
+smbios_new_type_0(व्योम *start,
+                  स्थिर अक्षर *venकरोr, स्थिर अक्षर *version, स्थिर अक्षर *date)
+अणु
+    काष्ठा smbios_type_0 *p = (काष्ठा smbios_type_0 *)start;
+    अक्षर *end = (अक्षर *)start + माप(काष्ठा smbios_type_0);
+    पूर्णांक str_index = 0;
+
+    p->header.type = 0;
+    p->header.length = माप(काष्ठा smbios_type_0);
+    p->header.handle = 0;
+
+    set_str_field_or_skip(0, venकरोr_str, venकरोr);
+    set_str_field_or_skip(0, bios_version_str, version);
+    p->bios_starting_address_segment = 0xe800;
+    set_str_field_or_skip(0, bios_release_date_str, date);
+
+    p->bios_rom_size = 0; /* FIXME */
+
+    /* BIOS अक्षरacteristics not supported */
+    स_रखो(p->bios_अक्षरacteristics, 0, 8);
+    p->bios_अक्षरacteristics[0] = 0x08;
+
+    /* Enable targeted content distribution (needed क्रम SVVP) */
+    p->bios_अक्षरacteristics_extension_bytes[0] = 0;
+    p->bios_अक्षरacteristics_extension_bytes[1] = 4;
+
+    p->प्रणाली_bios_major_release = 0;
+    p->प्रणाली_bios_minor_release = 0;
+    p->embedded_controller_major_release = 0xFF;
+    p->embedded_controller_minor_release = 0xFF;
+
+    *end = 0;
+    end++;
+    अगर (!str_index) अणु
+        *end = 0;
+        end++;
+    पूर्ण
+
+    वापस end;
+पूर्ण
+
+#घोषणा BIOS_NAME "AyeBIOS"
+#घोषणा BIOS_DATE "04/01/2014"
+
+अटल पूर्णांक
+smbios_romfile_setup(व्योम)
+अणु
+    काष्ठा romfile_s *f_anchor = romfile_find("etc/smbios/smbios-anchor");
+    काष्ठा romfile_s *f_tables = romfile_find("etc/smbios/smbios-tables");
+    काष्ठा smbios_entry_poपूर्णांक ep;
+    काष्ठा smbios_type_0 *t0;
+    u16 qtables_len, need_t0 = 1;
+    u8 *qtables, *tables;
+
+    अगर (!f_anchor || !f_tables || f_anchor->size != माप(ep))
+        वापस 0;
+
+    f_anchor->copy(f_anchor, &ep, f_anchor->size);
+
+    अगर (f_tables->size != ep.काष्ठाure_table_length)
+        वापस 0;
+
+    qtables = दो_स्मृति_पंचांगphigh(f_tables->size);
+    अगर (!qtables) अणु
+        warn_noalloc();
+        वापस 0;
+    पूर्ण
+    f_tables->copy(f_tables, qtables, f_tables->size);
+    ep.काष्ठाure_table_address = (u32)qtables; /* क्रम smbios_next(), below */
+
+    /* did we get a type 0 काष्ठाure ? */
+    क्रम (t0 = smbios_next(&ep, शून्य); t0; t0 = smbios_next(&ep, t0))
+        अगर (t0->header.type == 0) अणु
+            need_t0 = 0;
+            अवरोध;
+        पूर्ण
+
+    qtables_len = ep.काष्ठाure_table_length;
+    अगर (need_t0) अणु
+        /* common हाल: add our own type 0, with 3 strings and 4 '\0's */
+        u16 t0_len = माप(काष्ठा smbios_type_0) + म_माप(BIOS_NAME) +
+                     म_माप(VERSION) + म_माप(BIOS_DATE) + 4;
+        अगर (t0_len > (0xffff - ep.काष्ठाure_table_length)) अणु
+            dम_लिखो(1, "Insufficient space (%d bytes) to add SMBIOS type 0 table (%d bytes)\n",
+                    0xffff - ep.काष्ठाure_table_length, t0_len);
+            need_t0 = 0;
+        पूर्ण अन्यथा अणु
+            ep.काष्ठाure_table_length += t0_len;
+            अगर (t0_len > ep.max_काष्ठाure_size)
+                ep.max_काष्ठाure_size = t0_len;
+            ep.number_of_काष्ठाures++;
+        पूर्ण
+    पूर्ण
+
+    /* allocate final blob and record its address in the entry poपूर्णांक */
+    अगर (ep.काष्ठाure_table_length > BUILD_MAX_SMBIOS_FSEG)
+        tables = दो_स्मृति_high(ep.काष्ठाure_table_length);
+    अन्यथा
+        tables = दो_स्मृति_fseg(ep.काष्ठाure_table_length);
+    अगर (!tables) अणु
+        warn_noalloc();
+        मुक्त(qtables);
+        वापस 0;
+    पूर्ण
+    ep.काष्ठाure_table_address = (u32)tables;
+
+    /* populate final blob */
+    अगर (need_t0)
+        tables = smbios_new_type_0(tables, BIOS_NAME, VERSION, BIOS_DATE);
+    स_नकल(tables, qtables, qtables_len);
+    मुक्त(qtables);
+
+    /* finalize entry poपूर्णांक */
+    ep.checksum -= checksum(&ep, 0x10);
+    ep.पूर्णांकermediate_checksum -= checksum((व्योम *)&ep + 0x10, ep.length - 0x10);
+
+    copy_smbios(&ep);
+    वापस 1;
+पूर्ण
+
+व्योम
+smbios_setup(व्योम)
+अणु
+    अगर (smbios_romfile_setup())
+        वापस;
+    smbios_legacy_setup();
+पूर्ण
+
+व्योम
+copy_table(व्योम *pos)
+अणु
+    copy_pir(pos);
+    copy_mptable(pos);
+    copy_acpi_rsdp(pos);
+    copy_smbios(pos);
+पूर्ण

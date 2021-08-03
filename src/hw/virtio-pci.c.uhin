@@ -1,0 +1,546 @@
+<शैली गुरु>
+/* virtio-pci.c - pci पूर्णांकerface क्रम virtio पूर्णांकerface
+ *
+ * (c) Copyright 2008 Bull S.A.S.
+ *
+ *  Author: Laurent Vivier <Laurent.Vivier@bull.net>
+ *
+ * some parts from Linux Virtio PCI driver
+ *
+ *  Copyright IBM Corp. 2007
+ *  Authors: Anthony Liguori  <aliguori@us.ibm.com>
+ *
+ *  Aकरोpted क्रम Seabios: Gleb Natapov <gleb@redhat.com>
+ *
+ * This work is licensed under the terms of the GNU LGPLv3
+ * See the COPYING file in the top-level directory.
+ */
+
+#समावेश "config.h" // CONFIG_DEBUG_LEVEL
+#समावेश "malloc.h" // मुक्त
+#समावेश "output.h" // dम_लिखो
+#समावेश "pci.h" // pci_config_पढ़ोl
+#समावेश "pcidevice.h" // काष्ठा pci_device
+#समावेश "pci_regs.h" // PCI_BASE_ADDRESS_0
+#समावेश "string.h" // स_रखो
+#समावेश "virtio-pci.h"
+#समावेश "virtio-mmio.h"
+#समावेश "virtio-ring.h"
+
+u64 _vp_पढ़ो(काष्ठा vp_cap *cap, u32 offset, u8 size)
+अणु
+    u64 var = 0;
+
+    चयन (cap->mode) अणु
+    हाल VP_ACCESS_IO:
+    अणु
+        u32 addr = cap->ioaddr + offset;
+        चयन (size) अणु
+        हाल 8:
+            var = inl(addr);
+            var |= (u64)inl(addr+4) << 32;
+            अवरोध;
+        हाल 4:
+            var = inl(addr);
+            अवरोध;
+        हाल 2:
+            var = inw(addr);
+            अवरोध;
+        हाल 1:
+            var = inb(addr);
+            अवरोध;
+        पूर्ण
+        अवरोध;
+    पूर्ण
+
+    हाल VP_ACCESS_MMIO:
+    अणु
+        व्योम *addr = cap->memaddr + offset;
+        चयन (size) अणु
+        हाल 8:
+            var = पढ़ोl(addr);
+            var |= (u64)पढ़ोl(addr+4) << 32;
+            अवरोध;
+        हाल 4:
+            var = पढ़ोl(addr);
+            अवरोध;
+        हाल 2:
+            var = पढ़ोw(addr);
+            अवरोध;
+        हाल 1:
+            var = पढ़ोb(addr);
+            अवरोध;
+        पूर्ण
+        अवरोध;
+    पूर्ण
+
+    हाल VP_ACCESS_PCICFG:
+    अणु
+        u32 addr = cap->baroff + offset;
+        pci_config_ग_लिखोb(cap->bdf, cap->cfg +
+                          दुरत्व(काष्ठा virtio_pci_cfg_cap, cap.bar),
+                          cap->bar);
+        pci_config_ग_लिखोl(cap->bdf, cap->cfg +
+                          दुरत्व(काष्ठा virtio_pci_cfg_cap, cap.offset),
+                          addr);
+        pci_config_ग_लिखोl(cap->bdf, cap->cfg +
+                          दुरत्व(काष्ठा virtio_pci_cfg_cap, cap.length),
+                          (size > 4) ? 4 : size);
+        चयन (size) अणु
+        हाल 8:
+            var = pci_config_पढ़ोl(cap->bdf, cap->cfg +
+                                   दुरत्व(काष्ठा virtio_pci_cfg_cap, pci_cfg_data));
+            pci_config_ग_लिखोl(cap->bdf, cap->cfg +
+                              दुरत्व(काष्ठा virtio_pci_cfg_cap, cap.offset),
+                              addr + 4);
+            var |= (u64)pci_config_पढ़ोl(cap->bdf, cap->cfg +
+                                         दुरत्व(काष्ठा virtio_pci_cfg_cap, pci_cfg_data)) << 32;
+            अवरोध;
+        हाल 4:
+            var = pci_config_पढ़ोl(cap->bdf, cap->cfg +
+                                   दुरत्व(काष्ठा virtio_pci_cfg_cap, pci_cfg_data));
+            अवरोध;
+        हाल 2:
+            var = pci_config_पढ़ोw(cap->bdf, cap->cfg +
+                                   दुरत्व(काष्ठा virtio_pci_cfg_cap, pci_cfg_data));
+            अवरोध;
+        हाल 1:
+            var = pci_config_पढ़ोb(cap->bdf, cap->cfg +
+                                   दुरत्व(काष्ठा virtio_pci_cfg_cap, pci_cfg_data));
+            अवरोध;
+        पूर्ण
+    पूर्ण
+    पूर्ण
+    dम_लिखो(9, "vp read   %x (%d) -> 0x%llx\n", cap->ioaddr + offset, size, var);
+    वापस var;
+पूर्ण
+
+व्योम _vp_ग_लिखो(काष्ठा vp_cap *cap, u32 offset, u8 size, u64 var)
+अणु
+    dम_लिखो(9, "vp write  %x (%d) <- 0x%llx\n", cap->ioaddr + offset, size, var);
+
+    चयन (cap->mode) अणु
+    हाल VP_ACCESS_IO:
+    अणु
+        u32 addr = cap->ioaddr + offset;
+        चयन (size) अणु
+        हाल 4:
+            outl(var, addr);
+            अवरोध;
+        हाल 2:
+            outw(var, addr);
+            अवरोध;
+        हाल 1:
+            outb(var, addr);
+            अवरोध;
+        पूर्ण
+        अवरोध;
+    पूर्ण
+
+    हाल VP_ACCESS_MMIO:
+    अणु
+        व्योम *addr = cap->memaddr + offset;
+        चयन (size) अणु
+        हाल 4:
+            ग_लिखोl(addr, var);
+            अवरोध;
+        हाल 2:
+            ग_लिखोw(addr, var);
+            अवरोध;
+        हाल 1:
+            ग_लिखोb(addr, var);
+            अवरोध;
+        पूर्ण
+        अवरोध;
+    पूर्ण
+
+    हाल VP_ACCESS_PCICFG:
+    अणु
+        u32 addr = cap->baroff + offset;
+        pci_config_ग_लिखोb(cap->bdf, cap->cfg +
+                          दुरत्व(काष्ठा virtio_pci_cfg_cap, cap.bar),
+                          cap->bar);
+        pci_config_ग_लिखोl(cap->bdf, cap->cfg +
+                          दुरत्व(काष्ठा virtio_pci_cfg_cap, cap.offset),
+                          addr);
+        pci_config_ग_लिखोl(cap->bdf, cap->cfg +
+                          दुरत्व(काष्ठा virtio_pci_cfg_cap, cap.length),
+                          size);
+        चयन (size) अणु
+        हाल 4:
+            pci_config_ग_लिखोl(cap->bdf, cap->cfg +
+                              दुरत्व(काष्ठा virtio_pci_cfg_cap, pci_cfg_data),
+                              var);
+            अवरोध;
+        हाल 2:
+            pci_config_ग_लिखोw(cap->bdf, cap->cfg +
+                              दुरत्व(काष्ठा virtio_pci_cfg_cap, pci_cfg_data),
+                              var);
+            अवरोध;
+        हाल 1:
+            pci_config_ग_लिखोb(cap->bdf, cap->cfg +
+                              दुरत्व(काष्ठा virtio_pci_cfg_cap, pci_cfg_data),
+                              var);
+            अवरोध;
+        पूर्ण
+    पूर्ण
+    पूर्ण
+पूर्ण
+
+u64 vp_get_features(काष्ठा vp_device *vp)
+अणु
+    u32 f0, f1;
+
+    अगर (vp->use_mmio) अणु
+        vp_ग_लिखो(&vp->common, virtio_mmio_cfg, device_feature_select, 0);
+        f0 = vp_पढ़ो(&vp->common, virtio_mmio_cfg, device_feature);
+        f1 = 0;
+    पूर्ण अन्यथा अगर (vp->use_modern) अणु
+        vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, device_feature_select, 0);
+        f0 = vp_पढ़ो(&vp->common, virtio_pci_common_cfg, device_feature);
+        vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, device_feature_select, 1);
+        f1 = vp_पढ़ो(&vp->common, virtio_pci_common_cfg, device_feature);
+    पूर्ण अन्यथा अणु
+        f0 = vp_पढ़ो(&vp->legacy, virtio_pci_legacy, host_features);
+        f1 = 0;
+    पूर्ण
+    वापस ((u64)f1 << 32) | f0;
+पूर्ण
+
+व्योम vp_set_features(काष्ठा vp_device *vp, u64 features)
+अणु
+    u32 f0, f1;
+
+    f0 = features;
+    f1 = features >> 32;
+
+    अगर (vp->use_mmio) अणु
+        vp_ग_लिखो(&vp->common, virtio_mmio_cfg, guest_feature_select, f0);
+        vp_ग_लिखो(&vp->common, virtio_mmio_cfg, guest_feature, f0);
+    पूर्ण अन्यथा अगर (vp->use_modern) अणु
+        vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, guest_feature_select, 0);
+        vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, guest_feature, f0);
+        vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, guest_feature_select, 1);
+        vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, guest_feature, f1);
+    पूर्ण अन्यथा अणु
+        vp_ग_लिखो(&vp->legacy, virtio_pci_legacy, guest_features, f0);
+    पूर्ण
+पूर्ण
+
+u8 vp_get_status(काष्ठा vp_device *vp)
+अणु
+    अगर (vp->use_mmio) अणु
+        वापस vp_पढ़ो(&vp->common, virtio_mmio_cfg, device_status);
+    पूर्ण अन्यथा अगर (vp->use_modern) अणु
+        वापस vp_पढ़ो(&vp->common, virtio_pci_common_cfg, device_status);
+    पूर्ण अन्यथा अणु
+        वापस vp_पढ़ो(&vp->legacy, virtio_pci_legacy, status);
+    पूर्ण
+पूर्ण
+
+व्योम vp_set_status(काष्ठा vp_device *vp, u8 status)
+अणु
+    अगर (status == 0)        /* reset */
+        वापस;
+    अगर (vp->use_mmio) अणु
+        vp_ग_लिखो(&vp->common, virtio_mmio_cfg, device_status, status);
+    पूर्ण अन्यथा अगर (vp->use_modern) अणु
+        vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, device_status, status);
+    पूर्ण अन्यथा अणु
+        vp_ग_लिखो(&vp->legacy, virtio_pci_legacy, status, status);
+    पूर्ण
+पूर्ण
+
+u8 vp_get_isr(काष्ठा vp_device *vp)
+अणु
+    अगर (vp->use_mmio) अणु
+        वापस vp_पढ़ो(&vp->common, virtio_mmio_cfg, irq_status);
+    पूर्ण अन्यथा अगर (vp->use_modern) अणु
+        वापस vp_पढ़ो(&vp->isr, virtio_pci_isr, isr);
+    पूर्ण अन्यथा अणु
+        वापस vp_पढ़ो(&vp->legacy, virtio_pci_legacy, isr);
+    पूर्ण
+पूर्ण
+
+व्योम vp_reset(काष्ठा vp_device *vp)
+अणु
+    अगर (vp->use_mmio) अणु
+        vp_ग_लिखो(&vp->common, virtio_mmio_cfg, device_status, 0);
+        vp_पढ़ो(&vp->common, virtio_mmio_cfg, irq_status);
+    पूर्ण अन्यथा अगर (vp->use_modern) अणु
+        vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, device_status, 0);
+        vp_पढ़ो(&vp->isr, virtio_pci_isr, isr);
+    पूर्ण अन्यथा अणु
+        vp_ग_लिखो(&vp->legacy, virtio_pci_legacy, status, 0);
+        vp_पढ़ो(&vp->legacy, virtio_pci_legacy, isr);
+    पूर्ण
+पूर्ण
+
+व्योम vp_notअगरy(काष्ठा vp_device *vp, काष्ठा vring_virtqueue *vq)
+अणु
+    अगर (vp->use_mmio) अणु
+        vp_ग_लिखो(&vp->common, virtio_mmio_cfg, queue_notअगरy, vq->queue_index);
+    पूर्ण अन्यथा अगर (vp->use_modern) अणु
+        u32 offset = vq->queue_notअगरy_off * vp->notअगरy_off_multiplier;
+        चयन (vp->notअगरy.mode) अणु
+        हाल VP_ACCESS_IO:
+            outw(vq->queue_index, vp->notअगरy.ioaddr + offset);
+            अवरोध;
+        हाल VP_ACCESS_MMIO:
+            ग_लिखोw(vp->notअगरy.memaddr + offset, vq->queue_index);
+            अवरोध;
+        हाल VP_ACCESS_PCICFG:
+            pci_config_ग_लिखोb(vp->notअगरy.bdf, vp->notअगरy.cfg +
+                              दुरत्व(काष्ठा virtio_pci_cfg_cap, cap.bar),
+                              vp->notअगरy.bar);
+            pci_config_ग_लिखोl(vp->notअगरy.bdf, vp->notअगरy.cfg +
+                              दुरत्व(काष्ठा virtio_pci_cfg_cap, cap.offset),
+                              vp->notअगरy.baroff + offset);
+            pci_config_ग_लिखोl(vp->notअगरy.bdf, vp->notअगरy.cfg +
+                              दुरत्व(काष्ठा virtio_pci_cfg_cap, cap.length),
+                              2);
+            pci_config_ग_लिखोw(vp->notअगरy.bdf, vp->notअगरy.cfg +
+                              दुरत्व(काष्ठा virtio_pci_cfg_cap, pci_cfg_data),
+                              vq->queue_index);
+        पूर्ण
+        dम_लिखो(9, "vp notify %x (%d) -- 0x%x\n",
+                vp->notअगरy.ioaddr, 2, vq->queue_index);
+    पूर्ण अन्यथा अणु
+        vp_ग_लिखो(&vp->legacy, virtio_pci_legacy, queue_notअगरy, vq->queue_index);
+    पूर्ण
+पूर्ण
+
+पूर्णांक vp_find_vq(काष्ठा vp_device *vp, पूर्णांक queue_index,
+               काष्ठा vring_virtqueue **p_vq)
+अणु
+   u16 num;
+
+   ASSERT32FLAT();
+   काष्ठा vring_virtqueue *vq = *p_vq = memalign_high(PAGE_SIZE, माप(*vq));
+   अगर (!vq) अणु
+       warn_noalloc();
+       जाओ fail;
+   पूर्ण
+   स_रखो(vq, 0, माप(*vq));
+
+
+   /* select the queue */
+   अगर (vp->use_mmio) अणु
+       vp_ग_लिखो(&vp->common, virtio_mmio_cfg, queue_select, queue_index);
+   पूर्ण अन्यथा अगर (vp->use_modern) अणु
+       vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, queue_select, queue_index);
+   पूर्ण अन्यथा अणु
+       vp_ग_लिखो(&vp->legacy, virtio_pci_legacy, queue_sel, queue_index);
+   पूर्ण
+
+   /* check अगर the queue is available */
+   अगर (vp->use_mmio) अणु
+       num = vp_पढ़ो(&vp->common, virtio_mmio_cfg, queue_num_max);
+       अगर (num > MAX_QUEUE_NUM)
+           num = MAX_QUEUE_NUM;
+       vp_ग_लिखो(&vp->common, virtio_mmio_cfg, queue_num, num);
+   पूर्ण अन्यथा अगर (vp->use_modern) अणु
+       num = vp_पढ़ो(&vp->common, virtio_pci_common_cfg, queue_size);
+       अगर (num > MAX_QUEUE_NUM) अणु
+           vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, queue_size,
+                    MAX_QUEUE_NUM);
+           num = vp_पढ़ो(&vp->common, virtio_pci_common_cfg, queue_size);
+       पूर्ण
+   पूर्ण अन्यथा अणु
+       num = vp_पढ़ो(&vp->legacy, virtio_pci_legacy, queue_num);
+   पूर्ण
+   अगर (!num) अणु
+       dम_लिखो(1, "ERROR: queue size is 0\n");
+       जाओ fail;
+   पूर्ण
+   अगर (num > MAX_QUEUE_NUM) अणु
+       dम_लिखो(1, "ERROR: queue size %d > %d\n", num, MAX_QUEUE_NUM);
+       जाओ fail;
+   पूर्ण
+
+   /* check अगर the queue is alपढ़ोy active */
+   अगर (vp->use_mmio) अणु
+       /* TODO */;
+   पूर्ण अन्यथा अगर (vp->use_modern) अणु
+       अगर (vp_पढ़ो(&vp->common, virtio_pci_common_cfg, queue_enable)) अणु
+           dम_लिखो(1, "ERROR: queue already active\n");
+           जाओ fail;
+       पूर्ण
+   पूर्ण अन्यथा अणु
+       अगर (vp_पढ़ो(&vp->legacy, virtio_pci_legacy, queue_pfn)) अणु
+           dम_लिखो(1, "ERROR: queue already active\n");
+           जाओ fail;
+       पूर्ण
+   पूर्ण
+   vq->queue_index = queue_index;
+
+   /* initialize the queue */
+   काष्ठा vring * vr = &vq->vring;
+   vring_init(vr, num, (अचिन्हित अक्षर*)&vq->queue);
+
+   /* activate the queue
+    *
+    * NOTE: vr->desc is initialized by vring_init()
+    */
+
+   अगर (vp->use_mmio) अणु
+       अगर (vp_पढ़ो(&vp->common, virtio_mmio_cfg, version) == 2) अणु
+           vp_ग_लिखो(&vp->common, virtio_mmio_cfg, queue_desc_lo,
+                    (अचिन्हित दीर्घ)virt_to_phys(vr->desc));
+           vp_ग_लिखो(&vp->common, virtio_mmio_cfg, queue_desc_hi, 0);
+           vp_ग_लिखो(&vp->common, virtio_mmio_cfg, queue_driver_lo,
+                    (अचिन्हित दीर्घ)virt_to_phys(vr->avail));
+           vp_ग_लिखो(&vp->common, virtio_mmio_cfg, queue_driver_hi, 0);
+           vp_ग_लिखो(&vp->common, virtio_mmio_cfg, queue_device_lo,
+                    (अचिन्हित दीर्घ)virt_to_phys(vr->used));
+           vp_ग_लिखो(&vp->common, virtio_mmio_cfg, queue_device_hi, 0);
+           vp_ग_लिखो(&vp->common, virtio_mmio_cfg, queue_पढ़ोy, 1);
+       पूर्ण अन्यथा अणु
+           vp_ग_लिखो(&vp->common, virtio_mmio_cfg, legacy_guest_page_size,
+                    (अचिन्हित दीर्घ)1 << PAGE_SHIFT);
+           vp_ग_लिखो(&vp->common, virtio_mmio_cfg, legacy_queue_pfn,
+                    (अचिन्हित दीर्घ)virt_to_phys(vr->desc) >> PAGE_SHIFT);
+       पूर्ण
+   पूर्ण अन्यथा अगर (vp->use_modern) अणु
+       vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, queue_desc_lo,
+                (अचिन्हित दीर्घ)virt_to_phys(vr->desc));
+       vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, queue_desc_hi, 0);
+       vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, queue_avail_lo,
+                (अचिन्हित दीर्घ)virt_to_phys(vr->avail));
+       vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, queue_avail_hi, 0);
+       vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, queue_used_lo,
+                (अचिन्हित दीर्घ)virt_to_phys(vr->used));
+       vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, queue_used_hi, 0);
+       vp_ग_लिखो(&vp->common, virtio_pci_common_cfg, queue_enable, 1);
+       vq->queue_notअगरy_off = vp_पढ़ो(&vp->common, virtio_pci_common_cfg,
+                                      queue_notअगरy_off);
+   पूर्ण अन्यथा अणु
+       vp_ग_लिखो(&vp->legacy, virtio_pci_legacy, queue_pfn,
+                (अचिन्हित दीर्घ)virt_to_phys(vr->desc) >> PAGE_SHIFT);
+   पूर्ण
+   वापस num;
+
+fail:
+   मुक्त(vq);
+   *p_vq = शून्य;
+   वापस -1;
+पूर्ण
+
+व्योम vp_init_simple(काष्ठा vp_device *vp, काष्ठा pci_device *pci)
+अणु
+    u8 cap = pci_find_capability(pci->bdf, PCI_CAP_ID_VNDR, 0);
+    काष्ठा vp_cap *vp_cap;
+    स्थिर अक्षर *mode;
+    u32 offset, base, mul;
+    u64 addr;
+    u8 type;
+
+    स_रखो(vp, 0, माप(*vp));
+    जबतक (cap != 0) अणु
+        type = pci_config_पढ़ोb(pci->bdf, cap +
+                                दुरत्व(काष्ठा virtio_pci_cap, cfg_type));
+        चयन (type) अणु
+        हाल VIRTIO_PCI_CAP_COMMON_CFG:
+            vp_cap = &vp->common;
+            अवरोध;
+        हाल VIRTIO_PCI_CAP_NOTIFY_CFG:
+            vp_cap = &vp->notअगरy;
+            mul = दुरत्व(काष्ठा virtio_pci_notअगरy_cap, notअगरy_off_multiplier);
+            vp->notअगरy_off_multiplier = pci_config_पढ़ोl(pci->bdf, cap + mul);
+            अवरोध;
+        हाल VIRTIO_PCI_CAP_ISR_CFG:
+            vp_cap = &vp->isr;
+            अवरोध;
+        हाल VIRTIO_PCI_CAP_DEVICE_CFG:
+            vp_cap = &vp->device;
+            अवरोध;
+        हाल VIRTIO_PCI_CAP_PCI_CFG:
+            vp->common.cfg = cap;
+            vp->common.bdf = pci->bdf;
+            vp->notअगरy.cfg = cap;
+            vp->notअगरy.bdf = pci->bdf;
+            vp->isr.cfg = cap;
+            vp->isr.bdf = pci->bdf;
+            vp->device.cfg = cap;
+            vp->device.bdf = pci->bdf;
+            vp_cap = शून्य;
+            dम_लिखो(1, "pci dev %pP virtio cap at 0x%x type %d"
+                    " [pci cfg access]\n", pci, cap, type);
+            अवरोध;
+        शेष:
+            vp_cap = शून्य;
+            अवरोध;
+        पूर्ण
+        अगर (vp_cap && !vp_cap->cap) अणु
+            vp_cap->cap = cap;
+            vp_cap->bar = pci_config_पढ़ोb(pci->bdf, cap +
+                                           दुरत्व(काष्ठा virtio_pci_cap, bar));
+            offset = pci_config_पढ़ोl(pci->bdf, cap +
+                                      दुरत्व(काष्ठा virtio_pci_cap, offset));
+            base = PCI_BASE_ADDRESS_0 + 4 * vp_cap->bar;
+            addr = pci_config_पढ़ोl(pci->bdf, base);
+            अगर (addr & PCI_BASE_ADDRESS_SPACE_IO) अणु
+                addr &= PCI_BASE_ADDRESS_IO_MASK;
+                vp_cap->mode = VP_ACCESS_IO;
+            पूर्ण अन्यथा अगर ((addr & PCI_BASE_ADDRESS_MEM_TYPE_MASK) ==
+                       PCI_BASE_ADDRESS_MEM_TYPE_64) अणु
+                addr &= PCI_BASE_ADDRESS_MEM_MASK;
+                addr |= (u64)pci_config_पढ़ोl(pci->bdf, base + 4) << 32;
+                vp_cap->mode = (addr > 0xffffffffll) ?
+                    VP_ACCESS_PCICFG : VP_ACCESS_MMIO;
+            पूर्ण अन्यथा अणु
+                addr &= PCI_BASE_ADDRESS_MEM_MASK;
+                vp_cap->mode = VP_ACCESS_MMIO;
+            पूर्ण
+            चयन (vp_cap->mode) अणु
+            हाल VP_ACCESS_IO:
+            अणु
+                u32 addr = pci_enable_iobar(pci, base);
+                अगर (!addr)
+                    वापस;
+                vp_cap->ioaddr = addr + offset;
+                mode = "io";
+                अवरोध;
+            पूर्ण
+            हाल VP_ACCESS_MMIO:
+            अणु
+                व्योम *addr = pci_enable_membar(pci, base);
+                अगर (!addr)
+                    वापस;
+                vp_cap->memaddr = addr + offset;
+                mode = "mmio";
+                अवरोध;
+            पूर्ण
+            हाल VP_ACCESS_PCICFG:
+                mode = "pcicfg";
+                vp_cap->baroff = offset;
+                अवरोध;
+            शेष:
+                mode = "Huh?";
+                अवरोध;
+            पूर्ण
+            dम_लिखो(1, "pci dev %pP virtio cap at 0x%x type %d "
+                    "bar %d at 0x%08llx off +0x%04x [%s]\n",
+                    pci, vp_cap->cap, type, vp_cap->bar, addr, offset, mode);
+        पूर्ण
+
+        cap = pci_find_capability(pci->bdf, PCI_CAP_ID_VNDR, cap);
+    पूर्ण
+
+    अगर (vp->common.cap && vp->notअगरy.cap && vp->isr.cap && vp->device.cap) अणु
+        dम_लिखो(1, "pci dev %pP using modern (1.0) virtio mode\n", pci);
+        vp->use_modern = 1;
+    पूर्ण अन्यथा अणु
+        dम_लिखो(1, "pci dev %pP using legacy (0.9.5) virtio mode\n", pci);
+        vp->legacy.bar = 0;
+        vp->legacy.ioaddr = pci_enable_iobar(pci, PCI_BASE_ADDRESS_0);
+        अगर (!vp->legacy.ioaddr)
+            वापस;
+        vp->legacy.mode = VP_ACCESS_IO;
+    पूर्ण
+
+    vp_reset(vp);
+    pci_enable_busmaster(pci);
+    vp_set_status(vp, VIRTIO_CONFIG_S_ACKNOWLEDGE |
+                  VIRTIO_CONFIG_S_DRIVER );
+पूर्ण

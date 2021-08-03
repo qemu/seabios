@@ -1,0 +1,7 @@
+<शैली गुरु>
+// Place build generated version पूर्णांकo a C variable
+#समावेश "autovgaversion.h"
+#समावेश "types.h"
+
+अक्षर VERSION[] VAR16 = BUILD_VERSION;
+अक्षर BUILDINFO[] VAR16 = BUILD_TOOLS;

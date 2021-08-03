@@ -1,0 +1,89 @@
+<शैली गुरु>
+#अगर_अघोषित __VGABIOS_H
+#घोषणा __VGABIOS_H
+
+#समावेश "config.h" // CONFIG_VGA_EMULATE_TEXT
+#समावेश "farptr.h" // GET_FARVAR
+#समावेश "types.h" // u8
+
+// Save/Restore flags
+#घोषणा SR_HARDWARE   0x0001
+#घोषणा SR_BDA        0x0002
+#घोषणा SR_DAC        0x0004
+#घोषणा SR_REGISTERS  0x0008
+#घोषणा SR_SAVE       0x0100
+#घोषणा SR_RESTORE    0x0200
+
+// Mode flags
+#घोषणा MF_LEGACY     0x0001
+#घोषणा MF_GRAYSUM    0x0002
+#घोषणा MF_NOPALETTE  0x0008
+#घोषणा MF_CUSTOMCRTC 0x0800
+#घोषणा MF_LINEARFB   0x4000
+#घोषणा MF_NOCLEARMEM 0x8000
+#घोषणा MF_VBEFLAGS   0xfe00
+
+// Memory model types
+#घोषणा MM_TEXT            0x00
+#घोषणा MM_CGA             0x01
+#घोषणा MM_HERCULES        0x02
+#घोषणा MM_PLANAR          0x03
+#घोषणा MM_PACKED          0x04
+#घोषणा MM_NON_CHAIN_4_256 0x05
+#घोषणा MM_सूचीECT          0x06
+#घोषणा MM_YUV             0x07
+
+काष्ठा vgamode_s अणु
+    u8 memmodel;
+    u16 width;
+    u16 height;
+    u8 depth;
+    u8 cwidth;
+    u8 cheight;
+    u16 sstart;
+पूर्ण;
+
+// Custom पूर्णांकernal storage in BDA (करोn't change here without also
+// updating vgaentry.S)
+#घोषणा VGA_CUSTOM_BDA 0xb9
+
+काष्ठा vga_bda_s अणु
+    u8 flags;
+    u16 vbe_mode;
+    u16 vgamode_offset;
+पूर्ण PACKED;
+
+#घोषणा BF_PM_MASK      0x0f
+#घोषणा BF_EMULATE_TEXT 0x10
+#घोषणा BF_SWCURSOR     0x20
+#घोषणा BF_EXTRA_STACK  0x40
+
+#घोषणा GET_BDA_EXT(var) \
+    GET_FARVAR(SEG_BDA, ((काष्ठा vga_bda_s *)VGA_CUSTOM_BDA)->var)
+#घोषणा SET_BDA_EXT(var, val) \
+    SET_FARVAR(SEG_BDA, ((काष्ठा vga_bda_s *)VGA_CUSTOM_BDA)->var, (val))
+#घोषणा MASK_BDA_EXT(var, off, on)                                      \
+    SET_BDA_EXT(var, (GET_BDA_EXT(var) & ~(off)) | (on))
+
+अटल अंतरभूत पूर्णांक vga_emulate_text(व्योम) अणु
+    वापस CONFIG_VGA_EMULATE_TEXT && GET_BDA_EXT(flags) & BF_EMULATE_TEXT;
+पूर्ण
+
+// Write to global variables (during "post" phase only)
+#घोषणा SET_VGA(var, val) SET_FARVAR(get_global_seg(), (var), (val))
+
+// Debug settings
+#घोषणा DEBUG_VGA_POST 1
+#घोषणा DEBUG_VGA_10 9
+
+// vgabios.c
+पूर्णांक vga_bpp(काष्ठा vgamode_s *vmode_g);
+u16 calc_page_size(u8 memmodel, u16 width, u16 height);
+u16 get_cursor_shape(व्योम);
+काष्ठा cursorpos get_cursor_pos(u8 page);
+पूर्णांक bda_save_restore(पूर्णांक cmd, u16 seg, व्योम *data);
+काष्ठा vgamode_s *get_current_mode(व्योम);
+पूर्णांक vga_set_mode(पूर्णांक mode, पूर्णांक flags);
+बाह्य काष्ठा video_func_अटल अटल_functionality;
+
+#पूर्ण_अगर // vgaमूलप्रण.स

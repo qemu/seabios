@@ -1,0 +1,130 @@
+<शैली गुरु>
+// Low-level serial (and serial-like) device access.
+//
+// Copyright (C) 2008-1013  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "config.h" // CONFIG_DEBUG_SERIAL
+#समावेश "fw/paravirt.h" // RunningOnQEMU
+#समावेश "output.h" // dम_लिखो
+#समावेश "serialio.h" // serial_debug_preinit
+#समावेश "x86.h" // outb
+
+
+/****************************************************************
+ * Serial port debug output
+ ****************************************************************/
+
+#घोषणा DEBUG_TIMEOUT 100000
+
+// Write to a serial port रेजिस्टर
+अटल व्योम
+serial_debug_ग_लिखो(u8 offset, u8 val)
+अणु
+    अगर (CONFIG_DEBUG_SERIAL) अणु
+        outb(val, CONFIG_DEBUG_SERIAL_PORT + offset);
+    पूर्ण अन्यथा अगर (CONFIG_DEBUG_SERIAL_MMIO) अणु
+        ASSERT32FLAT();
+        ग_लिखोb((व्योम*)CONFIG_DEBUG_SERIAL_MEM_ADDRESS + 4*offset, val);
+    पूर्ण
+पूर्ण
+
+// Read from a serial port रेजिस्टर
+अटल u8
+serial_debug_पढ़ो(u8 offset)
+अणु
+    अगर (CONFIG_DEBUG_SERIAL)
+        वापस inb(CONFIG_DEBUG_SERIAL_PORT + offset);
+    अगर (CONFIG_DEBUG_SERIAL_MMIO) अणु
+        ASSERT32FLAT();
+        वापस पढ़ोb((व्योम*)CONFIG_DEBUG_SERIAL_MEM_ADDRESS + 4*offset);
+    पूर्ण
+पूर्ण
+
+// Setup the debug serial port क्रम output.
+व्योम
+serial_debug_preinit(व्योम)
+अणु
+    अगर (!CONFIG_DEBUG_SERIAL && (!CONFIG_DEBUG_SERIAL_MMIO || MODESEGMENT))
+        वापस;
+    // setup क्रम serial logging: 8N1
+    u8 oldparam, newparam = 0x03;
+    oldparam = serial_debug_पढ़ो(SEROFF_LCR);
+    serial_debug_ग_लिखो(SEROFF_LCR, newparam);
+    // Disable irqs
+    u8 oldier, newier = 0;
+    oldier = serial_debug_पढ़ो(SEROFF_IER);
+    serial_debug_ग_लिखो(SEROFF_IER, newier);
+
+    अगर (oldparam != newparam || oldier != newier)
+        dम_लिखो(1, "Changing serial settings was %x/%x now %x/%x\n"
+                , oldparam, oldier, newparam, newier);
+पूर्ण
+
+// Write a अक्षरacter to the serial port.
+अटल व्योम
+serial_debug(अक्षर c)
+अणु
+    अगर (!CONFIG_DEBUG_SERIAL && (!CONFIG_DEBUG_SERIAL_MMIO || MODESEGMENT))
+        वापस;
+    पूर्णांक समयout = DEBUG_TIMEOUT;
+    जबतक ((serial_debug_पढ़ो(SEROFF_LSR) & 0x20) != 0x20)
+        अगर (!समयout--)
+            // Ran out of समय.
+            वापस;
+    serial_debug_ग_लिखो(SEROFF_DATA, c);
+पूर्ण
+
+व्योम
+serial_debug_अ_दो(अक्षर c)
+अणु
+    अगर (c == '\n')
+        serial_debug('\r');
+    serial_debug(c);
+पूर्ण
+
+// Make sure all serial port ग_लिखोs have been completely sent.
+व्योम
+serial_debug_flush(व्योम)
+अणु
+    अगर (!CONFIG_DEBUG_SERIAL && (!CONFIG_DEBUG_SERIAL_MMIO || MODESEGMENT))
+        वापस;
+    पूर्णांक समयout = DEBUG_TIMEOUT;
+    जबतक ((serial_debug_पढ़ो(SEROFF_LSR) & 0x60) != 0x60)
+        अगर (!समयout--)
+            // Ran out of समय.
+            वापस;
+पूर्ण
+
+
+/****************************************************************
+ * QEMU debug port
+ ****************************************************************/
+
+u16 DebugOutputPort VARFSEG = 0x402;
+
+व्योम
+qemu_debug_preinit(व्योम)
+अणु
+    /* Xen करोesn't support checking अगर debug output is active. */
+    अगर (runningOnXen())
+        वापस;
+
+    /* Check अगर the QEMU debug output port is active */
+    अगर (CONFIG_DEBUG_IO &&
+        inb(GET_GLOBAL(DebugOutputPort)) != QEMU_DEBUGCON_READBACK)
+        DebugOutputPort = 0;
+पूर्ण
+
+// Write a अक्षरacter to the special debugging port.
+व्योम
+qemu_debug_अ_दो(अक्षर c)
+अणु
+    अगर (!CONFIG_DEBUG_IO || !runningOnQEMU())
+        वापस;
+    u16 port = GET_GLOBAL(DebugOutputPort);
+    अगर (port)
+        // Send अक्षरacter to debug port.
+        outb(c, port);
+पूर्ण

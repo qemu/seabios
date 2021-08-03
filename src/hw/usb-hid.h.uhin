@@ -1,0 +1,30 @@
+<शैली गुरु>
+#अगर_अघोषित __USB_HID_H
+#घोषणा __USB_HID_H
+
+// usb-hid.c
+काष्ठा usbdevice_s;
+पूर्णांक usb_hid_setup(काष्ठा usbdevice_s *usbdev);
+पूर्णांक usb_kbd_active(व्योम);
+पूर्णांक usb_kbd_command(पूर्णांक command, u8 *param);
+पूर्णांक usb_mouse_active(व्योम);
+पूर्णांक usb_mouse_command(पूर्णांक command, u8 *param);
+व्योम usb_check_event(व्योम);
+
+
+/****************************************************************
+ * hid flags
+ ****************************************************************/
+
+#घोषणा USB_INTERFACE_SUBCLASS_BOOT     1
+#घोषणा USB_INTERFACE_PROTOCOL_KEYBOARD 1
+#घोषणा USB_INTERFACE_PROTOCOL_MOUSE    2
+
+#घोषणा HID_REQ_GET_REPORT              0x01
+#घोषणा HID_REQ_GET_IDLE                0x02
+#घोषणा HID_REQ_GET_PROTOCOL            0x03
+#घोषणा HID_REQ_SET_REPORT              0x09
+#घोषणा HID_REQ_SET_IDLE                0x0A
+#घोषणा HID_REQ_SET_PROTOCOL            0x0B
+
+#पूर्ण_अगर // ush-hid.h

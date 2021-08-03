@@ -1,0 +1,13 @@
+<शैली गुरु>
+#अगर_अघोषित __SVGAMODES_H
+#घोषणा __SVGAMODES_H
+
+काष्ठा generic_svga_mode अणु
+    u16 mode;
+    काष्ठा vgamode_s info;
+पूर्ण;
+
+बाह्य काष्ठा generic_svga_mode svga_modes[] VAR16;
+बाह्य अचिन्हित पूर्णांक svga_mcount VAR16;
+
+#पूर्ण_अगर /* __SVGAMODES_H */

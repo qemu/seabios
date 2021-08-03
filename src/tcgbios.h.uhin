@@ -1,0 +1,20 @@
+<शैली गुरु>
+#अगर_अघोषित TCGBIOS_H
+#घोषणा TCGBIOS_H
+
+#समावेश "types.h"
+
+काष्ठा bregs;
+व्योम tpm_पूर्णांकerrupt_handler32(काष्ठा bregs *regs);
+
+व्योम tpm_setup(व्योम);
+व्योम tpm_prepboot(व्योम);
+व्योम tpm_s3_resume(व्योम);
+व्योम tpm_add_bcv(u32 bootdrv, स्थिर u8 *addr, u32 length);
+व्योम tpm_add_cdrom(u32 bootdrv, स्थिर u8 *addr, u32 length);
+व्योम tpm_add_cdrom_catalog(स्थिर u8 *addr, u32 length);
+व्योम tpm_option_rom(स्थिर व्योम *addr, u32 len);
+पूर्णांक tpm_can_show_menu(व्योम);
+व्योम tpm_menu(व्योम);
+
+#पूर्ण_अगर /* TCGBIOS_H */

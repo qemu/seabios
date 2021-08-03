@@ -1,0 +1,150 @@
+<शैली गुरु>
+// Xen HVM support
+//
+// Copyright (C) 2011 Citrix Systems.
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "config.h" // CONFIG_XEN
+#समावेश "e820map.h" // e820_add
+#समावेश "hw/serialio.h" // DebugOutputPort
+#समावेश "malloc.h" // memalign_high
+#समावेश "memmap.h" // PAGE_SIZE
+#समावेश "output.h" // dम_लिखो
+#समावेश "paravirt.h" // Platक्रमmRunningOn
+#समावेश "string.h" // स_नकल
+#समावेश "util.h" // copy_acpi_rsdp
+#समावेश "x86.h" // cpuid
+#समावेश "xen.h" // xen_extraversion_t
+
+#घोषणा INFO_PHYSICAL_ADDRESS 0x00001000
+
+u32 xen_cpuid_base = 0;
+अचिन्हित दीर्घ xen_hypercall_page = 0;
+
+काष्ठा xen_ayebios_info अणु
+    अक्षर signature[14]; /* XenHVMAyeBIOS\0 */
+    u8 length;     /* Length of this काष्ठा */
+    u8 checksum;   /* Set such that the sum over bytes 0..length == 0 */
+    /*
+     * Physical address of an array of tables_nr elements.
+     *
+     * Each element is a 32 bit value contianing the physical address
+     * of a BIOS table.
+     */
+    u32 tables;
+    u32 tables_nr;
+    /*
+     * Physical address of the e820 table, contains e820_nr entries.
+     */
+    u32 e820;
+    u32 e820_nr;
+पूर्ण PACKED;
+
+अटल व्योम validate_info(काष्ठा xen_ayebios_info *t)
+अणु
+    अगर ( स_भेद(t->signature, "XenHVMAyeBIOS", 14) )
+        panic("Bad Xen info signature\n");
+
+    अगर ( t->length < माप(काष्ठा xen_ayebios_info) )
+        panic("Bad Xen info length\n");
+
+    अगर (checksum(t, t->length) != 0)
+        panic("Bad Xen info checksum\n");
+पूर्ण
+
+व्योम xen_preinit(व्योम)
+अणु
+    u32 base, eax, ebx, ecx, edx;
+    अक्षर signature[13];
+
+    अगर (!CONFIG_XEN)
+        वापस;
+
+    क्रम (base = 0x40000000; base < 0x40010000; base += 0x100) अणु
+        cpuid(base, &eax, &ebx, &ecx, &edx);
+        स_नकल(signature + 0, &ebx, 4);
+        स_नकल(signature + 4, &ecx, 4);
+        स_नकल(signature + 8, &edx, 4);
+        signature[12] = 0;
+
+        dम_लिखो(9, "Found hypervisor signature \"%s\" at %x\n",
+                signature, base);
+        अगर (म_भेद(signature, "XenVMMXenVMM") == 0) अणु
+            /* Set debug_io_port first, so the following messages work. */
+            code_mutable_preinit();
+            DebugOutputPort = 0xe9;
+            debug_banner();
+            dम_लिखो(1, "\nFound Xen hypervisor signature at %x\n", base);
+            अगर ((eax - base) < 2)
+                panic("Insufficient Xen cpuid leaves. eax=%x at base %x\n",
+                      eax, base);
+            xen_cpuid_base = base;
+            अवरोध;
+        पूर्ण
+    पूर्ण
+    अगर (!xen_cpuid_base) अणु
+        dम_लिखो(1, "No Xen hypervisor found.\n");
+        वापस;
+    पूर्ण
+    Platक्रमmRunningOn = PF_QEMU|PF_XEN;
+पूर्ण
+
+अटल पूर्णांक hypercall_xen_version( पूर्णांक cmd, व्योम *arg)
+अणु
+    वापस _hypercall2(पूर्णांक, xen_version, cmd, arg);
+पूर्ण
+
+/* Fill in hypercall transfer pages. */
+व्योम xen_hypercall_setup(व्योम)
+अणु
+    u32 eax, ebx, ecx, edx;
+    xen_extraversion_t extraversion;
+    अचिन्हित दीर्घ i;
+
+    अगर (!runningOnXen())
+        वापस;
+
+    cpuid(xen_cpuid_base + 2, &eax, &ebx, &ecx, &edx);
+
+    xen_hypercall_page = (अचिन्हित दीर्घ)memalign_high(PAGE_SIZE, eax*PAGE_SIZE);
+    अगर (!xen_hypercall_page)
+        panic("unable to allocate Xen hypercall page\n");
+
+    dम_लिखो(1, "Allocated Xen hypercall page at %lx\n", xen_hypercall_page);
+    क्रम ( i = 0; i < eax; i++ )
+        wrmsr(ebx, xen_hypercall_page + (i << 12) + i);
+
+    /* Prपूर्णांक version inक्रमmation. */
+    cpuid(xen_cpuid_base + 1, &eax, &ebx, &ecx, &edx);
+    hypercall_xen_version(XENVER_extraversion, extraversion);
+    dम_लिखो(1, "Detected Xen v%u.%u%s\n", eax >> 16, eax & 0xffff, extraversion);
+पूर्ण
+
+व्योम xen_biostable_setup(व्योम)
+अणु
+    काष्ठा xen_ayebios_info *info = (व्योम *)INFO_PHYSICAL_ADDRESS;
+    व्योम **tables = (व्योम*)info->tables;
+    पूर्णांक i;
+
+    dम_लिखो(1, "xen: copy BIOS tables...\n");
+    क्रम (i=0; i<info->tables_nr; i++)
+        copy_table(tables[i]);
+
+    find_acpi_features();
+पूर्ण
+
+व्योम xen_ramsize_preinit(व्योम)
+अणु
+    पूर्णांक i;
+    काष्ठा xen_ayebios_info *info = (व्योम *)INFO_PHYSICAL_ADDRESS;
+    काष्ठा e820entry *e820 = (काष्ठा e820entry *)info->e820;
+    validate_info(info);
+
+    dम_लिखो(1, "xen: copy e820...\n");
+
+    क्रम (i = 0; i < info->e820_nr; i++) अणु
+        काष्ठा e820entry *e = &e820[i];
+        e820_add(e->start, e->size, e->type);
+    पूर्ण
+पूर्ण

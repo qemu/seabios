@@ -1,0 +1,600 @@
+<शैली गुरु>
+// 16bit code to handle keyboard requests.
+//
+// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2002  MandrakeSoft S.A.
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_BDA
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "config.h" // CONFIG_*
+#समावेश "hw/ps2port.h" // ps2_kbd_command
+#समावेश "hw/usb-hid.h" // usb_kbd_command
+#समावेश "output.h" // debug_enter
+#समावेश "stacks.h" // yield
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // kbd_init
+
+व्योम
+kbd_init(व्योम)
+अणु
+    dम_लिखो(3, "init keyboard\n");
+    u16 x = दुरत्व(काष्ठा bios_data_area_s, kbd_buf);
+    SET_BDA(kbd_flag1, KF1_101KBD);
+    SET_BDA(kbd_buf_head, x);
+    SET_BDA(kbd_buf_tail, x);
+    SET_BDA(kbd_buf_start_offset, x);
+
+    SET_BDA(kbd_buf_end_offset
+            , x + FIELD_SIZखातापूर्ण(काष्ठा bios_data_area_s, kbd_buf));
+पूर्ण
+
+u8
+enqueue_key(u16 keycode)
+अणु
+    u16 buffer_start = GET_BDA(kbd_buf_start_offset);
+    u16 buffer_end   = GET_BDA(kbd_buf_end_offset);
+
+    u16 buffer_head = GET_BDA(kbd_buf_head);
+    u16 buffer_tail = GET_BDA(kbd_buf_tail);
+
+    u16 temp_tail = buffer_tail;
+    buffer_tail += 2;
+    अगर (buffer_tail >= buffer_end)
+        buffer_tail = buffer_start;
+
+    अगर (buffer_tail == buffer_head)
+        वापस 0;
+
+    SET_FARVAR(SEG_BDA, *(u16*)(temp_tail+0), keycode);
+    SET_BDA(kbd_buf_tail, buffer_tail);
+    वापस 1;
+पूर्ण
+
+अटल व्योम
+dequeue_key(काष्ठा bregs *regs, पूर्णांक incr, पूर्णांक extended)
+अणु
+    yield();
+    u16 buffer_head;
+    u16 buffer_tail;
+    क्रम (;;) अणु
+        buffer_head = GET_BDA(kbd_buf_head);
+        buffer_tail = GET_BDA(kbd_buf_tail);
+
+        अगर (buffer_head != buffer_tail)
+            अवरोध;
+        अगर (!incr) अणु
+            regs->flags |= F_ZF;
+            वापस;
+        पूर्ण
+        yield_toirq();
+    पूर्ण
+
+    u16 keycode = GET_FARVAR(SEG_BDA, *(u16*)(buffer_head+0));
+    u8 ascii = keycode & 0xff;
+    अगर (!extended) अणु
+        // Translate extended keys
+        अगर (ascii == 0xe0 && keycode & 0xff00)
+            keycode &= 0xff00;
+        अन्यथा अगर (keycode == 0xe00d || keycode == 0xe00a)
+            // Extended enter key
+            keycode = 0x1c00 | ascii;
+        अन्यथा अगर (keycode == 0xe02f)
+            // Extended '/' key
+            keycode = 0x352f;
+        // Technically, अगर the ascii value is 0xf0 or अगर the
+        // 'scancode' is greater than 0x84 then the key should be
+        // discarded.  However, there seems no harm in passing on the
+        // extended values in these हालs.
+    पूर्ण
+    अगर (ascii == 0xf0 && keycode & 0xff00)
+        keycode &= 0xff00;
+    regs->ax = keycode;
+
+    अगर (!incr) अणु
+        regs->flags &= ~F_ZF;
+        वापस;
+    पूर्ण
+    u16 buffer_start = GET_BDA(kbd_buf_start_offset);
+    u16 buffer_end   = GET_BDA(kbd_buf_end_offset);
+
+    buffer_head += 2;
+    अगर (buffer_head >= buffer_end)
+        buffer_head = buffer_start;
+    SET_BDA(kbd_buf_head, buffer_head);
+पूर्ण
+
+अटल पूर्णांक
+kbd_command(पूर्णांक command, u8 *param)
+अणु
+    अगर (usb_kbd_active())
+        वापस usb_kbd_command(command, param);
+    वापस ps2_kbd_command(command, param);
+पूर्ण
+
+// पढ़ो keyboard input
+अटल व्योम
+handle_1600(काष्ठा bregs *regs)
+अणु
+    dequeue_key(regs, 1, 0);
+पूर्ण
+
+// check keyboard status
+अटल व्योम
+handle_1601(काष्ठा bregs *regs)
+अणु
+    dequeue_key(regs, 0, 0);
+पूर्ण
+
+// get shअगरt flag status
+अटल व्योम
+handle_1602(काष्ठा bregs *regs)
+अणु
+    yield();
+    regs->al = GET_BDA(kbd_flag0);
+पूर्ण
+
+// store key-stroke पूर्णांकo buffer
+अटल व्योम
+handle_1605(काष्ठा bregs *regs)
+अणु
+    regs->al = !enqueue_key(regs->cx);
+पूर्ण
+
+// GET KEYBOARD FUNCTIONALITY
+अटल व्योम
+handle_1609(काष्ठा bregs *regs)
+अणु
+    // bit Bochs Description
+    //  7    0   reserved
+    //  6    0   INT 16/AH=20h-22h supported (122-key keyboard support)
+    //  5    1   INT 16/AH=10h-12h supported (enhanced keyboard support)
+    //  4    1   INT 16/AH=0Ah supported
+    //  3    0   INT 16/AX=0306h supported
+    //  2    0   INT 16/AX=0305h supported
+    //  1    0   INT 16/AX=0304h supported
+    //  0    0   INT 16/AX=0300h supported
+    //
+    regs->al = 0x30;
+पूर्ण
+
+// GET KEYBOARD ID
+अटल व्योम noअंतरभूत
+handle_160a(काष्ठा bregs *regs)
+अणु
+    u8 param[2];
+    पूर्णांक ret = kbd_command(ATKBD_CMD_GETID, param);
+    अगर (ret) अणु
+        regs->bx = 0;
+        वापस;
+    पूर्ण
+    regs->bx = (param[1] << 8) | param[0];
+पूर्ण
+
+// पढ़ो MF-II keyboard input
+अटल व्योम
+handle_1610(काष्ठा bregs *regs)
+अणु
+    dequeue_key(regs, 1, 1);
+पूर्ण
+
+// check MF-II keyboard status
+अटल व्योम
+handle_1611(काष्ठा bregs *regs)
+अणु
+    dequeue_key(regs, 0, 1);
+पूर्ण
+
+// get extended keyboard status
+अटल व्योम
+handle_1612(काष्ठा bregs *regs)
+अणु
+    yield();
+    regs->ax = ((GET_BDA(kbd_flag0) & ~((KF1_RCTRL|KF1_RALT) << 8))
+                | ((GET_BDA(kbd_flag1) & (KF1_RCTRL|KF1_RALT)) << 8));
+    //BX_DEBUG_INT16("int16: func 12 sending %04x\n",AX);
+पूर्ण
+
+अटल व्योम
+handle_166f(काष्ठा bregs *regs)
+अणु
+    अगर (regs->al == 0x08)
+        // unsupported, aka normal keyboard
+        regs->ah = 2;
+पूर्ण
+
+// keyboard capability check called by DOS 5.0+ keyb
+अटल व्योम
+handle_1692(काष्ठा bregs *regs)
+अणु
+    // function पूर्णांक16 ah=0x10-0x12 supported
+    regs->ah = 0x80;
+पूर्ण
+
+// 122 keys capability check called by DOS 5.0+ keyb
+अटल व्योम
+handle_16a2(काष्ठा bregs *regs)
+अणु
+    // करोn't change AH : function पूर्णांक16 ah=0x20-0x22 NOT supported
+पूर्ण
+
+अटल व्योम
+handle_16XX(काष्ठा bregs *regs)
+अणु
+    warn_unimplemented(regs);
+पूर्ण
+
+अटल व्योम noअंतरभूत
+set_leds(व्योम)
+अणु
+    u8 shअगरt_flags = (GET_BDA(kbd_flag0) >> 4) & 0x07;
+    u8 kbd_led = GET_BDA(kbd_led);
+    u8 led_flags = kbd_led & 0x07;
+    अगर (shअगरt_flags == led_flags)
+        वापस;
+
+    पूर्णांक ret = kbd_command(ATKBD_CMD_SETLEDS, &shअगरt_flags);
+    अगर (ret)
+        // Error
+        वापस;
+    kbd_led = (kbd_led & ~0x07) | shअगरt_flags;
+    SET_BDA(kbd_led, kbd_led);
+पूर्ण
+
+// INT 16h Keyboard Service Entry Poपूर्णांक
+व्योम VISIBLE16
+handle_16(काष्ठा bregs *regs)
+अणु
+    debug_enter(regs, DEBUG_HDL_16);
+    अगर (! CONFIG_KEYBOARD)
+        वापस;
+
+    // XXX - set_leds should be called from irq handler
+    set_leds();
+
+    चयन (regs->ah) अणु
+    हाल 0x00: handle_1600(regs); अवरोध;
+    हाल 0x01: handle_1601(regs); अवरोध;
+    हाल 0x02: handle_1602(regs); अवरोध;
+    हाल 0x05: handle_1605(regs); अवरोध;
+    हाल 0x09: handle_1609(regs); अवरोध;
+    हाल 0x0a: handle_160a(regs); अवरोध;
+    हाल 0x10: handle_1610(regs); अवरोध;
+    हाल 0x11: handle_1611(regs); अवरोध;
+    हाल 0x12: handle_1612(regs); अवरोध;
+    हाल 0x92: handle_1692(regs); अवरोध;
+    हाल 0xa2: handle_16a2(regs); अवरोध;
+    हाल 0x6f: handle_166f(regs); अवरोध;
+    शेष:   handle_16XX(regs); अवरोध;
+    पूर्ण
+पूर्ण
+
+#घोषणा none 0
+
+अटल काष्ठा scaninfo अणु
+    u16 normal;
+    u16 shअगरt;
+    u16 control;
+    u16 alt;
+पूर्ण scan_to_keycode[] VAR16 = अणु
+    अणु   none,   none,   none,   none पूर्ण,
+    अणु 0x011b, 0x011b, 0x011b, 0x01f0 पूर्ण, /* escape */
+    अणु 0x0231, 0x0221,   none, 0x7800 पूर्ण, /* 1! */
+    अणु 0x0332, 0x0340, 0x0300, 0x7900 पूर्ण, /* 2@ */
+    अणु 0x0433, 0x0423,   none, 0x7a00 पूर्ण, /* 3# */
+    अणु 0x0534, 0x0524,   none, 0x7b00 पूर्ण, /* 4$ */
+    अणु 0x0635, 0x0625,   none, 0x7c00 पूर्ण, /* 5% */
+    अणु 0x0736, 0x075e, 0x071e, 0x7d00 पूर्ण, /* 6^ */
+    अणु 0x0837, 0x0826,   none, 0x7e00 पूर्ण, /* 7& */
+    अणु 0x0938, 0x092a,   none, 0x7f00 पूर्ण, /* 8* */
+    अणु 0x0a39, 0x0a28,   none, 0x8000 पूर्ण, /* 9( */
+    अणु 0x0b30, 0x0b29,   none, 0x8100 पूर्ण, /* 0) */
+    अणु 0x0c2d, 0x0c5f, 0x0c1f, 0x8200 पूर्ण, /* -_ */
+    अणु 0x0d3d, 0x0d2b,   none, 0x8300 पूर्ण, /* =+ */
+    अणु 0x0e08, 0x0e08, 0x0e7f, 0x0ef0 पूर्ण, /* backspace */
+    अणु 0x0f09, 0x0f00, 0x9400, 0xa5f0 पूर्ण, /* tab */
+    अणु 0x1071, 0x1051, 0x1011, 0x1000 पूर्ण, /* Q */
+    अणु 0x1177, 0x1157, 0x1117, 0x1100 पूर्ण, /* W */
+    अणु 0x1265, 0x1245, 0x1205, 0x1200 पूर्ण, /* E */
+    अणु 0x1372, 0x1352, 0x1312, 0x1300 पूर्ण, /* R */
+    अणु 0x1474, 0x1454, 0x1414, 0x1400 पूर्ण, /* T */
+    अणु 0x1579, 0x1559, 0x1519, 0x1500 पूर्ण, /* Y */
+    अणु 0x1675, 0x1655, 0x1615, 0x1600 पूर्ण, /* U */
+    अणु 0x1769, 0x1749, 0x1709, 0x1700 पूर्ण, /* I */
+    अणु 0x186f, 0x184f, 0x180f, 0x1800 पूर्ण, /* O */
+    अणु 0x1970, 0x1950, 0x1910, 0x1900 पूर्ण, /* P */
+    अणु 0x1a5b, 0x1a7b, 0x1a1b, 0x1af0 पूर्ण, /* [अणु */
+    अणु 0x1b5d, 0x1b7d, 0x1b1d, 0x1bf0 पूर्ण, /* ]पूर्ण */
+    अणु 0x1c0d, 0x1c0d, 0x1c0a, 0x1cf0 पूर्ण, /* Enter */
+    अणु   none,   none,   none,   none पूर्ण, /* L Ctrl */
+    अणु 0x1e61, 0x1e41, 0x1e01, 0x1e00 पूर्ण, /* A */
+    अणु 0x1f73, 0x1f53, 0x1f13, 0x1f00 पूर्ण, /* S */
+    अणु 0x2064, 0x2044, 0x2004, 0x2000 पूर्ण, /* D */
+    अणु 0x2166, 0x2146, 0x2106, 0x2100 पूर्ण, /* F */
+    अणु 0x2267, 0x2247, 0x2207, 0x2200 पूर्ण, /* G */
+    अणु 0x2368, 0x2348, 0x2308, 0x2300 पूर्ण, /* H */
+    अणु 0x246a, 0x244a, 0x240a, 0x2400 पूर्ण, /* J */
+    अणु 0x256b, 0x254b, 0x250b, 0x2500 पूर्ण, /* K */
+    अणु 0x266c, 0x264c, 0x260c, 0x2600 पूर्ण, /* L */
+    अणु 0x273b, 0x273a,   none, 0x27f0 पूर्ण, /* ;: */
+    अणु 0x2827, 0x2822,   none, 0x28f0 पूर्ण, /* '" */
+    अणु 0x2960, 0x297e,   none, 0x29f0 पूर्ण, /* `~ */
+    अणु   none,   none,   none,   none पूर्ण, /* L shअगरt */
+    अणु 0x2b5c, 0x2b7c, 0x2b1c, 0x2bf0 पूर्ण, /* |\ */
+    अणु 0x2c7a, 0x2c5a, 0x2c1a, 0x2c00 पूर्ण, /* Z */
+    अणु 0x2d78, 0x2d58, 0x2d18, 0x2d00 पूर्ण, /* X */
+    अणु 0x2e63, 0x2e43, 0x2e03, 0x2e00 पूर्ण, /* C */
+    अणु 0x2f76, 0x2f56, 0x2f16, 0x2f00 पूर्ण, /* V */
+    अणु 0x3062, 0x3042, 0x3002, 0x3000 पूर्ण, /* B */
+    अणु 0x316e, 0x314e, 0x310e, 0x3100 पूर्ण, /* N */
+    अणु 0x326d, 0x324d, 0x320d, 0x3200 पूर्ण, /* M */
+    अणु 0x332c, 0x333c,   none, 0x33f0 पूर्ण, /* ,< */
+    अणु 0x342e, 0x343e,   none, 0x34f0 पूर्ण, /* .> */
+    अणु 0x352f, 0x353f,   none, 0x35f0 पूर्ण, /* /? */
+    अणु   none,   none,   none,   none पूर्ण, /* R Shअगरt */
+    अणु 0x372a, 0x372a, 0x9600, 0x37f0 पूर्ण, /* * */
+    अणु   none,   none,   none,   none पूर्ण, /* L Alt */
+    अणु 0x3920, 0x3920, 0x3920, 0x3920 पूर्ण, /* space */
+    अणु   none,   none,   none,   none पूर्ण, /* caps lock */
+    अणु 0x3b00, 0x5400, 0x5e00, 0x6800 पूर्ण, /* F1 */
+    अणु 0x3c00, 0x5500, 0x5f00, 0x6900 पूर्ण, /* F2 */
+    अणु 0x3d00, 0x5600, 0x6000, 0x6a00 पूर्ण, /* F3 */
+    अणु 0x3e00, 0x5700, 0x6100, 0x6b00 पूर्ण, /* F4 */
+    अणु 0x3f00, 0x5800, 0x6200, 0x6c00 पूर्ण, /* F5 */
+    अणु 0x4000, 0x5900, 0x6300, 0x6d00 पूर्ण, /* F6 */
+    अणु 0x4100, 0x5a00, 0x6400, 0x6e00 पूर्ण, /* F7 */
+    अणु 0x4200, 0x5b00, 0x6500, 0x6f00 पूर्ण, /* F8 */
+    अणु 0x4300, 0x5c00, 0x6600, 0x7000 पूर्ण, /* F9 */
+    अणु 0x4400, 0x5d00, 0x6700, 0x7100 पूर्ण, /* F10 */
+    अणु   none,   none,   none,   none पूर्ण, /* Num Lock */
+    अणु   none,   none,   none,   none पूर्ण, /* Scroll Lock */
+    अणु 0x4700, 0x4737, 0x7700,   none पूर्ण, /* 7 Home */
+    अणु 0x4800, 0x4838, 0x8d00,   none पूर्ण, /* 8 UP */
+    अणु 0x4900, 0x4939, 0x8400,   none पूर्ण, /* 9 PgUp */
+    अणु 0x4a2d, 0x4a2d, 0x8e00, 0x4af0 पूर्ण, /* - */
+    अणु 0x4b00, 0x4b34, 0x7300,   none पूर्ण, /* 4 Left */
+    अणु 0x4c00, 0x4c35, 0x8f00,   none पूर्ण, /* 5 */
+    अणु 0x4d00, 0x4d36, 0x7400,   none पूर्ण, /* 6 Right */
+    अणु 0x4e2b, 0x4e2b, 0x9000, 0x4ef0 पूर्ण, /* + */
+    अणु 0x4f00, 0x4f31, 0x7500,   none पूर्ण, /* 1 End */
+    अणु 0x5000, 0x5032, 0x9100,   none पूर्ण, /* 2 Down */
+    अणु 0x5100, 0x5133, 0x7600,   none पूर्ण, /* 3 PgDn */
+    अणु 0x5200, 0x5230, 0x9200,   none पूर्ण, /* 0 Ins */
+    अणु 0x5300, 0x532e, 0x9300,   none पूर्ण, /* Del */
+    अणु   none,   none,   none,   none पूर्ण, /* SysReq */
+    अणु   none,   none,   none,   none पूर्ण,
+    अणु 0x565c, 0x567c,   none,   none पूर्ण, /* \| */
+    अणु 0x8500, 0x8700, 0x8900, 0x8b00 पूर्ण, /* F11 */
+    अणु 0x8600, 0x8800, 0x8a00, 0x8c00 पूर्ण, /* F12 */
+पूर्ण;
+
+काष्ठा scaninfo key_ext_enter VAR16 = अणु
+    0xe00d, 0xe00d, 0xe00a, 0xa600
+पूर्ण;
+काष्ठा scaninfo key_ext_slash VAR16 = अणु
+    0xe02f, 0xe02f, 0x9500, 0xa400
+पूर्ण;
+
+u16 ascii_to_keycode(u8 ascii)
+अणु
+    पूर्णांक i;
+
+    क्रम (i = 0; i < ARRAY_SIZE(scan_to_keycode); i++) अणु
+        अगर ((GET_GLOBAL(scan_to_keycode[i].normal) & 0xff) == ascii)
+            वापस GET_GLOBAL(scan_to_keycode[i].normal);
+        अगर ((GET_GLOBAL(scan_to_keycode[i].shअगरt) & 0xff) == ascii)
+            वापस GET_GLOBAL(scan_to_keycode[i].shअगरt);
+        अगर ((GET_GLOBAL(scan_to_keycode[i].control) & 0xff) == ascii)
+            वापस GET_GLOBAL(scan_to_keycode[i].control);
+    पूर्ण
+    वापस 0;
+पूर्ण
+
+// Handle a ps2 style scancode पढ़ो from the keyboard.
+अटल व्योम
+kbd_set_flag(पूर्णांक key_release, u16 set_bit0, u8 set_bit1, u16 toggle_bit)
+अणु
+    u16 flags0 = GET_BDA(kbd_flag0);
+    u8 flags1 = GET_BDA(kbd_flag1);
+    अगर (key_release) अणु
+        flags0 &= ~set_bit0;
+        flags1 &= ~set_bit1;
+    पूर्ण अन्यथा अणु
+        flags0 ^= toggle_bit;
+        flags0 |= set_bit0;
+        flags1 |= set_bit1;
+    पूर्ण
+    SET_BDA(kbd_flag0, flags0);
+    SET_BDA(kbd_flag1, flags1);
+पूर्ण
+
+अटल व्योम
+kbd_ctrl_अवरोध(पूर्णांक key_release)
+अणु
+    अगर (!key_release)
+        वापस;
+    // Clear keyboard buffer and place 0x0000 in buffer
+    u16 buffer_start = GET_BDA(kbd_buf_start_offset);
+    SET_BDA(kbd_buf_head, buffer_start);
+    SET_BDA(kbd_buf_tail, buffer_start+2);
+    SET_FARVAR(SEG_BDA, *(u16*)(buffer_start+0), 0x0000);
+    // Set अवरोध flag
+    SET_BDA(अवरोध_flag, 0x80);
+    // Generate पूर्णांक 0x1b
+    काष्ठा bregs br;
+    स_रखो(&br, 0, माप(br));
+    br.flags = F_IF;
+    call16_पूर्णांक(0x1b, &br);
+पूर्ण
+
+अटल व्योम
+kbd_sysreq(पूर्णांक key_release)
+अणु
+    // SysReq generates पूर्णांक 0x15/0x85
+    काष्ठा bregs br;
+    स_रखो(&br, 0, माप(br));
+    br.ah = 0x85;
+    br.al = key_release ? 0x01 : 0x00;
+    br.flags = F_IF;
+    call16_पूर्णांक(0x15, &br);
+पूर्ण
+
+अटल व्योम
+kbd_prtscr(पूर्णांक key_release)
+अणु
+    अगर (key_release)
+        वापस;
+    // PrtScr generates पूर्णांक 0x05 (ctrl-prtscr has keycode 0x7200?)
+    काष्ठा bregs br;
+    स_रखो(&br, 0, माप(br));
+    br.flags = F_IF;
+    call16_पूर्णांक(0x05, &br);
+पूर्ण
+
+// Handle a ps2 style scancode पढ़ो from the keyboard.
+अटल व्योम
+__process_key(u8 scancode)
+अणु
+    // Check क्रम multi-scancode key sequences
+    u8 flags1 = GET_BDA(kbd_flag1);
+    अगर (scancode == 0xe0 || scancode == 0xe1) अणु
+        // Start of two byte extended (e0) or three byte छोड़ो key (e1) sequence
+        u8 eflag = scancode == 0xe0 ? KF1_LAST_E0 : KF1_LAST_E1;
+        SET_BDA(kbd_flag1, flags1 | eflag);
+        वापस;
+    पूर्ण
+    पूर्णांक key_release = scancode & 0x80;
+    scancode &= ~0x80;
+    अगर (flags1 & (KF1_LAST_E0|KF1_LAST_E1)) अणु
+        अगर (flags1 & KF1_LAST_E1 && scancode == 0x1d)
+            // Ignore second byte of छोड़ो key (e1 1d 45 / e1 9d c5)
+            वापस;
+        // Clear E0/E1 flag in memory क्रम next key event
+        SET_BDA(kbd_flag1, flags1 & ~(KF1_LAST_E0|KF1_LAST_E1));
+    पूर्ण
+
+    // Check क्रम special keys
+    चयन (scancode) अणु
+    हाल 0x3a: /* Caps Lock */
+        kbd_set_flag(key_release, KF0_CAPS, 0, KF0_CAPSACTIVE);
+        वापस;
+    हाल 0x2a: /* L Shअगरt */
+        अगर (flags1 & KF1_LAST_E0)
+            // Ignore fake shअगरts
+            वापस;
+        kbd_set_flag(key_release, KF0_LSHIFT, 0, 0);
+        वापस;
+    हाल 0x36: /* R Shअगरt */
+        अगर (flags1 & KF1_LAST_E0)
+            // Ignore fake shअगरts
+            वापस;
+        kbd_set_flag(key_release, KF0_RSHIFT, 0, 0);
+        वापस;
+    हाल 0x1d: /* Ctrl */
+        अगर (flags1 & KF1_LAST_E0)
+            kbd_set_flag(key_release, KF0_CTRLACTIVE, KF1_RCTRL, 0);
+        अन्यथा
+            kbd_set_flag(key_release, KF0_CTRLACTIVE | KF0_LCTRL, 0, 0);
+        वापस;
+    हाल 0x38: /* Alt */
+        अगर (flags1 & KF1_LAST_E0)
+            kbd_set_flag(key_release, KF0_ALTACTIVE, KF1_RALT, 0);
+        अन्यथा
+            kbd_set_flag(key_release, KF0_ALTACTIVE | KF0_LALT, 0, 0);
+        वापस;
+    हाल 0x45: /* Num Lock */
+        अगर (flags1 & KF1_LAST_E1)
+            // XXX - छोड़ो key.
+            वापस;
+        kbd_set_flag(key_release, KF0_NUM, 0, KF0_NUMACTIVE);
+        वापस;
+    हाल 0x46: /* Scroll Lock */
+        अगर (flags1 & KF1_LAST_E0) अणु
+            kbd_ctrl_अवरोध(key_release);
+            वापस;
+        पूर्ण
+        kbd_set_flag(key_release, KF0_SCROLL, 0, KF0_SCROLLACTIVE);
+        वापस;
+
+    हाल 0x37: /* * */
+        अगर (flags1 & KF1_LAST_E0) अणु
+            kbd_prtscr(key_release);
+            वापस;
+        पूर्ण
+        अवरोध;
+    हाल 0x54: /* SysReq */
+        kbd_sysreq(key_release);
+        वापस;
+    हाल 0x53: /* Del */
+        अगर ((GET_BDA(kbd_flag0) & (KF0_CTRLACTIVE|KF0_ALTACTIVE))
+            == (KF0_CTRLACTIVE|KF0_ALTACTIVE) && !key_release) अणु
+            // Ctrl+alt+del - reset machine.
+            SET_BDA(soft_reset_flag, 0x1234);
+            reset();
+        पूर्ण
+        अवरोध;
+
+    शेष:
+        अवरोध;
+    पूर्ण
+
+    // Handle generic keys
+    अगर (key_release)
+        // ignore key releases
+        वापस;
+    अगर (!scancode || scancode >= ARRAY_SIZE(scan_to_keycode)) अणु
+        dम_लिखो(1, "__process_key unknown scancode read: 0x%02x!\n", scancode);
+        वापस;
+    पूर्ण
+    काष्ठा scaninfo *info = &scan_to_keycode[scancode];
+    अगर (flags1 & KF1_LAST_E0 && (scancode == 0x1c || scancode == 0x35))
+        info = (scancode == 0x1c ? &key_ext_enter : &key_ext_slash);
+    u16 flags0 = GET_BDA(kbd_flag0);
+    u16 keycode;
+    अगर (flags0 & KF0_ALTACTIVE) अणु
+        keycode = GET_GLOBAL(info->alt);
+    पूर्ण अन्यथा अगर (flags0 & KF0_CTRLACTIVE) अणु
+        keycode = GET_GLOBAL(info->control);
+    पूर्ण अन्यथा अणु
+        u8 useshअगरt = flags0 & (KF0_RSHIFT|KF0_LSHIFT) ? 1 : 0;
+        u8 ascii = GET_GLOBAL(info->normal) & 0xff;
+        अगर ((flags0 & KF0_NUMACTIVE && scancode >= 0x47 && scancode <= 0x53)
+            || (flags0 & KF0_CAPSACTIVE && ascii >= 'a' && ascii <= 'z'))
+            // Numlock/capslock toggles shअगरt on certain keys
+            useshअगरt ^= 1;
+        अगर (useshअगरt)
+            keycode = GET_GLOBAL(info->shअगरt);
+        अन्यथा
+            keycode = GET_GLOBAL(info->normal);
+    पूर्ण
+    अगर (flags1 & KF1_LAST_E0 && scancode >= 0x47 && scancode <= 0x53) अणु
+        /* extended keys handling */
+        अगर (flags0 & KF0_ALTACTIVE)
+            keycode = (scancode + 0x50) << 8;
+        अन्यथा
+            keycode = (keycode & 0xff00) | 0xe0;
+    पूर्ण
+    अगर (keycode)
+        enqueue_key(keycode);
+पूर्ण
+
+व्योम
+process_key(u8 key)
+अणु
+    अगर (!CONFIG_KEYBOARD)
+        वापस;
+
+    अगर (CONFIG_KBD_CALL_INT15_4F) अणु
+        // allow क्रम keyboard पूर्णांकercept
+        काष्ठा bregs br;
+        स_रखो(&br, 0, माप(br));
+        br.eax = (0x4f << 8) | key;
+        br.flags = F_IF|F_CF;
+        call16_पूर्णांक(0x15, &br);
+        अगर (!(br.flags & F_CF))
+            वापस;
+        key = br.eax;
+    पूर्ण
+    __process_key(key);
+पूर्ण

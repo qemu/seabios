@@ -1,0 +1,244 @@
+<शैली गुरु>
+// AMD PCscsi boot support.
+//
+// Copyright (C) 2012 Red Hat Inc.
+//
+// Authors:
+//  Paolo Bonzini <pbonzini@redhat.com>
+//
+// based on lsi-scsi.c which is written by:
+//  Gerd Hoffman <kraxel@redhat.com>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_GLOBALFLAT
+#समावेश "block.h" // काष्ठा drive_s
+#समावेश "blockcmd.h" // scsi_drive_setup
+#समावेश "config.h" // CONFIG_*
+#समावेश "fw/paravirt.h" // runningOnQEMU
+#समावेश "malloc.h" // मुक्त
+#समावेश "output.h" // dम_लिखो
+#समावेश "pcidevice.h" // क्रमeachpci
+#समावेश "pci_ids.h" // PCI_DEVICE_ID
+#समावेश "pci_regs.h" // PCI_VENDOR_ID
+#समावेश "stacks.h" // run_thपढ़ो
+#समावेश "std/disk.h" // DISK_RET_SUCCESS
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // usleep
+
+#घोषणा ESP_TCLO      0x00
+#घोषणा ESP_TCMID     0x04
+#घोषणा ESP_FIFO      0x08
+#घोषणा ESP_CMD       0x0c
+#घोषणा ESP_WBUSID    0x10
+#घोषणा ESP_TCHI      0x38
+
+#घोषणा ESP_RSTAT     0x10
+#घोषणा ESP_RINTR     0x14
+#घोषणा ESP_RFLAGS    0x1c
+
+#घोषणा ESP_DMA_CMD   0x40
+#घोषणा ESP_DMA_STC   0x44
+#घोषणा ESP_DMA_SPA   0x48
+#घोषणा ESP_DMA_WBC   0x4c
+#घोषणा ESP_DMA_WAC   0x50
+#घोषणा ESP_DMA_STAT  0x54
+#घोषणा ESP_DMA_SMDLA 0x58
+#घोषणा ESP_DMA_WMAC  0x58c
+
+#घोषणा ESP_CMD_DMA      0x80
+#घोषणा ESP_CMD_RESET    0x02
+#घोषणा ESP_CMD_TI       0x10
+#घोषणा ESP_CMD_ICCS     0x11
+#घोषणा ESP_CMD_SELATN   0x42
+
+#घोषणा ESP_STAT_DI      0x01
+#घोषणा ESP_STAT_CD      0x02
+#घोषणा ESP_STAT_MSG     0x04
+#घोषणा ESP_STAT_TC      0x10
+
+#घोषणा ESP_INTR_DC      0x20
+
+काष्ठा esp_lun_s अणु
+    काष्ठा drive_s drive;
+    काष्ठा pci_device *pci;
+    u32 iobase;
+    u8 target;
+    u8 lun;
+पूर्ण;
+
+अटल व्योम
+esp_scsi_dma(u32 iobase, u32 buf, u32 len, पूर्णांक पढ़ो)
+अणु
+    outb(len         & 0xff, iobase + ESP_TCLO);
+    outb((len >> 8)  & 0xff, iobase + ESP_TCMID);
+    outb((len >> 16) & 0xff, iobase + ESP_TCHI);
+    outl(buf,                iobase + ESP_DMA_SPA);
+    outl(len,                iobase + ESP_DMA_STC);
+    outb(पढ़ो ? 0x83 : 0x03, iobase + ESP_DMA_CMD);
+पूर्ण
+
+पूर्णांक
+esp_scsi_process_op(काष्ठा disk_op_s *op)
+अणु
+    अगर (!CONFIG_ESP_SCSI)
+        वापस DISK_RET_EBADTRACK;
+    काष्ठा esp_lun_s *llun_gf =
+        container_of(op->drive_fl, काष्ठा esp_lun_s, drive);
+    u16 target = GET_GLOBALFLAT(llun_gf->target);
+    u16 lun = GET_GLOBALFLAT(llun_gf->lun);
+    u8 cdbcmd[16];
+    पूर्णांक blocksize = scsi_fill_cmd(op, cdbcmd, माप(cdbcmd));
+    अगर (blocksize < 0)
+        वापस शेष_process_op(op);
+    u32 iobase = GET_GLOBALFLAT(llun_gf->iobase);
+    पूर्णांक i, state;
+    u8 status;
+
+    outb(target, iobase + ESP_WBUSID);
+
+    /*
+     * We need to pass the LUN at the beginning of the command, and the FIFO
+     * is only 16 bytes, so we cannot support 16-byte CDBs.  The alternative
+     * would be to use DMA क्रम the 17-byte command too, which is quite
+     * overसमाप्त.
+     */
+    outb(lun, iobase + ESP_FIFO);
+    cdbcmd[1] &= 0x1f;
+    cdbcmd[1] |= lun << 5;
+    क्रम (i = 0; i < 12; i++)
+        outb(cdbcmd[i], iobase + ESP_FIFO);
+    outb(ESP_CMD_SELATN, iobase + ESP_CMD);
+
+    क्रम (state = 0;;) अणु
+        u8 stat = inb(iobase + ESP_RSTAT);
+
+        /* Detect disconnected device.  */
+        अगर (state == 0 && (inb(iobase + ESP_RINTR) & ESP_INTR_DC)) अणु
+            वापस DISK_RET_ENOTREADY;
+        पूर्ण
+
+        /* HBA पढ़ोs command, clears CD, sets TC -> करो DMA अगर needed.  */
+        अगर (state == 0 && (stat & ESP_STAT_TC)) अणु
+            state++;
+            अगर (op->count && blocksize) अणु
+                /* Data phase.  */
+                u32 count = (u32)op->count * blocksize;
+                esp_scsi_dma(iobase, (u32)op->buf_fl, count, scsi_is_पढ़ो(op));
+                outb(ESP_CMD_TI | ESP_CMD_DMA, iobase + ESP_CMD);
+                जारी;
+            पूर्ण
+        पूर्ण
+
+        /* At end of DMA TC is set again -> complete command.  */
+        अगर (state == 1 && (stat & ESP_STAT_TC)) अणु
+            state++;
+            outb(ESP_CMD_ICCS, iobase + ESP_CMD);
+            जारी;
+        पूर्ण
+
+        /* Finally पढ़ो data from the message in phase.  */
+        अगर (state == 2 && (stat & ESP_STAT_MSG)) अणु
+            state++;
+            status = inb(iobase + ESP_FIFO);
+            inb(iobase + ESP_FIFO);
+            अवरोध;
+        पूर्ण
+        usleep(5);
+    पूर्ण
+
+    अगर (status == 0) अणु
+        वापस DISK_RET_SUCCESS;
+    पूर्ण
+
+    वापस DISK_RET_EBADTRACK;
+पूर्ण
+
+अटल व्योम
+esp_scsi_init_lun(काष्ठा esp_lun_s *llun, काष्ठा pci_device *pci, u32 iobase,
+                  u8 target, u8 lun)
+अणु
+    स_रखो(llun, 0, माप(*llun));
+    llun->drive.type = DTYPE_ESP_SCSI;
+    llun->drive.cntl_id = pci->bdf;
+    llun->pci = pci;
+    llun->target = target;
+    llun->lun = lun;
+    llun->iobase = iobase;
+पूर्ण
+
+अटल पूर्णांक
+esp_scsi_add_lun(u32 lun, काष्ठा drive_s *पंचांगpl_drv)
+अणु
+    काष्ठा esp_lun_s *पंचांगpl_llun =
+        container_of(पंचांगpl_drv, काष्ठा esp_lun_s, drive);
+    काष्ठा esp_lun_s *llun = दो_स्मृति_fseg(माप(*llun));
+    अगर (!llun) अणु
+        warn_noalloc();
+        वापस -1;
+    पूर्ण
+    esp_scsi_init_lun(llun, पंचांगpl_llun->pci, पंचांगpl_llun->iobase,
+                      पंचांगpl_llun->target, lun);
+
+    अक्षर *name = znम_लिखो(MAXDESCSIZE, "esp %pP %d:%d",
+                          llun->pci, llun->target, llun->lun);
+    boot_lchs_find_scsi_device(llun->pci, llun->target, llun->lun,
+                               &(llun->drive.lchs));
+    पूर्णांक prio = bootprio_find_scsi_device(llun->pci, llun->target, llun->lun);
+    पूर्णांक ret = scsi_drive_setup(&llun->drive, name, prio);
+    मुक्त(name);
+    अगर (ret)
+        जाओ fail;
+    वापस 0;
+
+fail:
+    मुक्त(llun);
+    वापस -1;
+पूर्ण
+
+अटल व्योम
+esp_scsi_scan_target(काष्ठा pci_device *pci, u32 iobase, u8 target)
+अणु
+    काष्ठा esp_lun_s llun0;
+
+    esp_scsi_init_lun(&llun0, pci, iobase, target, 0);
+
+    scsi_rep_luns_scan(&llun0.drive, esp_scsi_add_lun);
+पूर्ण
+
+अटल व्योम
+init_esp_scsi(व्योम *data)
+अणु
+    काष्ठा pci_device *pci = data;
+    u32 iobase = pci_enable_iobar(pci, PCI_BASE_ADDRESS_0);
+    अगर (!iobase)
+        वापस;
+    pci_enable_busmaster(pci);
+
+    dम_लिखो(1, "found esp at %pP, io @ %x\n", pci, iobase);
+
+    // reset
+    outb(ESP_CMD_RESET, iobase + ESP_CMD);
+
+    पूर्णांक i;
+    क्रम (i = 0; i <= 7; i++)
+        esp_scsi_scan_target(pci, iobase, i);
+पूर्ण
+
+व्योम
+esp_scsi_setup(व्योम)
+अणु
+    ASSERT32FLAT();
+    अगर (!CONFIG_ESP_SCSI || !runningOnQEMU())
+        वापस;
+
+    dम_लिखो(3, "init esp\n");
+
+    काष्ठा pci_device *pci;
+    क्रमeachpci(pci) अणु
+        अगर (pci->venकरोr != PCI_VENDOR_ID_AMD
+            || pci->device != PCI_DEVICE_ID_AMD_SCSI)
+            जारी;
+        run_thपढ़ो(init_esp_scsi, pci);
+    पूर्ण
+पूर्ण

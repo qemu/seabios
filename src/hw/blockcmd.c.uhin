@@ -1,0 +1,377 @@
+<शैली गुरु>
+// Support क्रम several common scsi like command data block requests
+//
+// Copyright (C) 2010  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2002  MandrakeSoft S.A.
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "block.h" // काष्ठा disk_op_s
+#समावेश "blockcmd.h" // काष्ठा cdb_request_sense
+#समावेश "byteorder.h" // be32_to_cpu
+#समावेश "farptr.h" // GET_FLATPTR
+#समावेश "output.h" // dम_लिखो
+#समावेश "std/disk.h" // DISK_RET_EPARAM
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // समयr_calc
+#समावेश "malloc.h"
+
+
+/****************************************************************
+ * Low level command requests
+ ****************************************************************/
+
+अटल पूर्णांक
+cdb_get_inquiry(काष्ठा disk_op_s *op, काष्ठा cdbres_inquiry *data)
+अणु
+    काष्ठा cdb_request_sense cmd;
+    स_रखो(&cmd, 0, माप(cmd));
+    cmd.command = CDB_CMD_INQUIRY;
+    cmd.length = माप(*data);
+    op->command = CMD_SCSI;
+    op->count = 1;
+    op->buf_fl = data;
+    op->cdbcmd = &cmd;
+    op->blocksize = माप(*data);
+    वापस process_op(op);
+पूर्ण
+
+// Request SENSE
+अटल पूर्णांक
+cdb_get_sense(काष्ठा disk_op_s *op, काष्ठा cdbres_request_sense *data)
+अणु
+    काष्ठा cdb_request_sense cmd;
+    स_रखो(&cmd, 0, माप(cmd));
+    cmd.command = CDB_CMD_REQUEST_SENSE;
+    cmd.length = माप(*data);
+    op->command = CMD_SCSI;
+    op->count = 1;
+    op->buf_fl = data;
+    op->cdbcmd = &cmd;
+    op->blocksize = माप(*data);
+    वापस process_op(op);
+पूर्ण
+
+// Test unit पढ़ोy
+अटल पूर्णांक
+cdb_test_unit_पढ़ोy(काष्ठा disk_op_s *op)
+अणु
+    काष्ठा cdb_request_sense cmd;
+    स_रखो(&cmd, 0, माप(cmd));
+    cmd.command = CDB_CMD_TEST_UNIT_READY;
+    op->command = CMD_SCSI;
+    op->count = 0;
+    op->buf_fl = शून्य;
+    op->cdbcmd = &cmd;
+    op->blocksize = 0;
+    वापस process_op(op);
+पूर्ण
+
+// Request capacity
+अटल पूर्णांक
+cdb_पढ़ो_capacity(काष्ठा disk_op_s *op, काष्ठा cdbres_पढ़ो_capacity *data)
+अणु
+    काष्ठा cdb_पढ़ो_capacity cmd;
+    स_रखो(&cmd, 0, माप(cmd));
+    cmd.command = CDB_CMD_READ_CAPACITY;
+    op->command = CMD_SCSI;
+    op->count = 1;
+    op->buf_fl = data;
+    op->cdbcmd = &cmd;
+    op->blocksize = माप(*data);
+    वापस process_op(op);
+पूर्ण
+
+// Mode sense, geometry page.
+अटल पूर्णांक
+cdb_mode_sense_geom(काष्ठा disk_op_s *op, काष्ठा cdbres_mode_sense_geom *data)
+अणु
+    काष्ठा cdb_mode_sense cmd;
+    स_रखो(&cmd, 0, माप(cmd));
+    cmd.command = CDB_CMD_MODE_SENSE;
+    cmd.flags = 8; /* DBD */
+    cmd.page = MODE_PAGE_HD_GEOMETRY;
+    cmd.count = cpu_to_be16(माप(*data));
+    op->command = CMD_SCSI;
+    op->count = 1;
+    op->buf_fl = data;
+    op->cdbcmd = &cmd;
+    op->blocksize = माप(*data);
+    वापस process_op(op);
+पूर्ण
+
+
+/****************************************************************
+ * Main SCSI commands
+ ****************************************************************/
+
+// Create a scsi command request from a disk_op_s request
+पूर्णांक
+scsi_fill_cmd(काष्ठा disk_op_s *op, व्योम *cdbcmd, पूर्णांक maxcdb)
+अणु
+    चयन (op->command) अणु
+    हाल CMD_READ:
+    हाल CMD_WRITE: ;
+        काष्ठा cdb_rwdata_10 *cmd = cdbcmd;
+        स_रखो(cmd, 0, maxcdb);
+        cmd->command = (op->command == CMD_READ ? CDB_CMD_READ_10
+                        : CDB_CMD_WRITE_10);
+        cmd->lba = cpu_to_be32(op->lba);
+        cmd->count = cpu_to_be16(op->count);
+        वापस GET_FLATPTR(op->drive_fl->blksize);
+    हाल CMD_SCSI:
+        अगर (MODESEGMENT)
+            वापस -1;
+        स_नकल(cdbcmd, op->cdbcmd, maxcdb);
+        वापस op->blocksize;
+    शेष:
+        वापस -1;
+    पूर्ण
+पूर्ण
+
+// Determine अगर the command is a request to pull data from the device
+पूर्णांक
+scsi_is_पढ़ो(काष्ठा disk_op_s *op)
+अणु
+    वापस op->command == CMD_READ || (
+        !MODESEGMENT && op->command == CMD_SCSI && op->blocksize);
+पूर्ण
+
+// Check अगर a SCSI device is पढ़ोy to receive commands
+पूर्णांक
+scsi_is_पढ़ोy(काष्ठा disk_op_s *op)
+अणु
+    ASSERT32FLAT();
+    dम_लिखो(6, "scsi_is_ready (drive=%p)\n", op->drive_fl);
+
+    /* Retry TEST UNIT READY क्रम 5 seconds unless MEDIUM NOT PRESENT is
+     * reported by the device 3 बार.  If the device reports "IN PROGRESS",
+     * 30 seconds is added. */
+    पूर्णांक tries = 3;
+    पूर्णांक in_progress = 0;
+    u32 end = समयr_calc(5000);
+    क्रम (;;) अणु
+        अगर (समयr_check(end)) अणु
+            dम_लिखो(1, "test unit ready failed\n");
+            वापस -1;
+        पूर्ण
+
+        पूर्णांक ret = cdb_test_unit_पढ़ोy(op);
+        अगर (!ret)
+            // Success
+            अवरोध;
+
+        काष्ठा cdbres_request_sense sense;
+        ret = cdb_get_sense(op, &sense);
+        अगर (ret)
+            // Error - retry.
+            जारी;
+
+        // Sense succeeded.
+        अगर (sense.asc == 0x3a) अणु /* MEDIUM NOT PRESENT */
+            tries--;
+            dम_लिखो(1, "Device reports MEDIUM NOT PRESENT - %d tries left\n",
+                tries);
+            अगर (!tries)
+                वापस -1;
+        पूर्ण
+
+        अगर (sense.asc == 0x04 && sense.ascq == 0x01 && !in_progress) अणु
+            /* IN PROGRESS OF BECOMING READY */
+            dम_लिखो(1, "Waiting for device to detect medium... ");
+            /* Allow 30 seconds more */
+            end = समयr_calc(30000);
+            in_progress = 1;
+        पूर्ण
+    पूर्ण
+    वापस 0;
+पूर्ण
+
+#घोषणा CDB_CMD_REPORT_LUNS  0xA0
+
+काष्ठा cdb_report_luns अणु
+    u8 command;
+    u8 reserved_01[5];
+    u32 length;
+    u8 pad[6];
+पूर्ण PACKED;
+
+काष्ठा scsi_lun अणु
+    u16 lun[4];
+पूर्ण;
+
+काष्ठा cdbres_report_luns अणु
+    u32 length;
+    u32 reserved;
+    काष्ठा scsi_lun luns[];
+पूर्ण;
+
+अटल u64 scsilun2u64(काष्ठा scsi_lun *scsi_lun)
+अणु
+    पूर्णांक i;
+    u64 ret = 0;
+    क्रम (i = 0; i < ARRAY_SIZE(scsi_lun->lun); i++)
+        ret |= be16_to_cpu(scsi_lun->lun[i]) << (16 * i);
+    वापस ret;
+पूर्ण
+
+// Issue REPORT LUNS on a temporary drive and iterate reported luns calling
+// @add_lun क्रम each
+पूर्णांक scsi_rep_luns_scan(काष्ठा drive_s *पंचांगp_drive, scsi_add_lun add_lun)
+अणु
+    पूर्णांक ret = -1;
+    /* start with the smallest possible buffer, otherwise some devices in QEMU
+     * may (incorrectly) error out on वापसing less data than fits in it */
+    u32 maxluns = 1;
+    u32 nluns, i;
+    काष्ठा cdb_report_luns cdb = अणु
+        .command = CDB_CMD_REPORT_LUNS,
+    पूर्ण;
+    काष्ठा disk_op_s op = अणु
+        .drive_fl = पंचांगp_drive,
+        .command = CMD_SCSI,
+        .count = 1,
+        .cdbcmd = &cdb,
+    पूर्ण;
+    काष्ठा cdbres_report_luns *resp;
+
+    ASSERT32FLAT();
+
+    जबतक (1) अणु
+        op.blocksize = माप(काष्ठा cdbres_report_luns) +
+            maxluns * माप(काष्ठा scsi_lun);
+        op.buf_fl = दो_स्मृति_पंचांगp(op.blocksize);
+        अगर (!op.buf_fl) अणु
+            warn_noalloc();
+            वापस -1;
+        पूर्ण
+
+        cdb.length = cpu_to_be32(op.blocksize);
+        अगर (process_op(&op) != DISK_RET_SUCCESS)
+            जाओ out;
+
+        resp = op.buf_fl;
+        nluns = be32_to_cpu(resp->length) / माप(काष्ठा scsi_lun);
+        अगर (nluns <= maxluns)
+            अवरोध;
+
+        मुक्त(op.buf_fl);
+        maxluns = nluns;
+    पूर्ण
+
+    क्रम (i = 0, ret = 0; i < nluns; i++) अणु
+        u64 lun = scsilun2u64(&resp->luns[i]);
+        अगर (lun >> 32)
+            जारी;
+        ret += !add_lun((u32)lun, पंचांगp_drive);
+    पूर्ण
+out:
+    मुक्त(op.buf_fl);
+    वापस ret;
+पूर्ण
+
+// Iterate LUNs on the target and call @add_lun क्रम each
+पूर्णांक scsi_sequential_scan(काष्ठा drive_s *पंचांगp_drive, u32 maxluns,
+                         scsi_add_lun add_lun)
+अणु
+    पूर्णांक ret;
+    u32 lun;
+
+    क्रम (lun = 0, ret = 0; lun < maxluns; lun++)
+        ret += !add_lun(lun, पंचांगp_drive);
+    वापस ret;
+पूर्ण
+
+// Validate drive, find block size / sector count, and रेजिस्टर drive.
+पूर्णांक
+scsi_drive_setup(काष्ठा drive_s *drive, स्थिर अक्षर *s, पूर्णांक prio)
+अणु
+    ASSERT32FLAT();
+    काष्ठा disk_op_s करोp;
+    स_रखो(&करोp, 0, माप(करोp));
+    करोp.drive_fl = drive;
+    काष्ठा cdbres_inquiry data;
+    पूर्णांक ret = cdb_get_inquiry(&करोp, &data);
+    अगर (ret)
+        वापस ret;
+    अक्षर venकरोr[माप(data.venकरोr)+1], product[माप(data.product)+1];
+    अक्षर rev[माप(data.rev)+1];
+    strtcpy(venकरोr, data.venकरोr, माप(venकरोr));
+    nullTrailingSpace(venकरोr);
+    strtcpy(product, data.product, माप(product));
+    nullTrailingSpace(product);
+    strtcpy(rev, data.rev, माप(rev));
+    nullTrailingSpace(rev);
+    पूर्णांक pdt = data.pdt & 0x1f;
+    पूर्णांक removable = !!(data.removable & 0x80);
+    dम_लिखो(1, "%s vendor='%s' product='%s' rev='%s' type=%d removable=%d\n"
+            , s, venकरोr, product, rev, pdt, removable);
+    drive->removable = removable;
+
+    अगर (pdt == SCSI_TYPE_CDROM) अणु
+        drive->blksize = CDROM_SECTOR_SIZE;
+        drive->sectors = (u64)-1;
+
+        अक्षर *desc = znम_लिखो(MAXDESCSIZE, "DVD/CD [%s Drive %s %s %s]"
+                              , s, venकरोr, product, rev);
+        boot_add_cd(drive, desc, prio);
+        वापस 0;
+    पूर्ण
+
+    अगर (pdt != SCSI_TYPE_DISK)
+        वापस -1;
+
+    ret = scsi_is_पढ़ोy(&करोp);
+    अगर (ret) अणु
+        dम_लिखो(1, "scsi_is_ready returned %d\n", ret);
+        वापस ret;
+    पूर्ण
+
+    काष्ठा cdbres_पढ़ो_capacity capdata;
+    ret = cdb_पढ़ो_capacity(&करोp, &capdata);
+    अगर (ret)
+        वापस ret;
+
+    // READ CAPACITY वापसs the address of the last block.
+    // We करो not bother with READ CAPACITY(16) because BIOS करोes not support
+    // 64-bit LBA anyway.
+    drive->blksize = be32_to_cpu(capdata.blksize);
+    अगर (drive->blksize != DISK_SECTOR_SIZE) अणु
+        dम_लिखो(1, "%s: unsupported block size %d\n", s, drive->blksize);
+        वापस -1;
+    पूर्ण
+    drive->sectors = (u64)be32_to_cpu(capdata.sectors) + 1;
+    dम_लिखो(1, "%s blksize=%d sectors=%u\n"
+            , s, drive->blksize, (अचिन्हित)drive->sectors);
+
+    // We करो not recover from USB stalls, so try to be safe and aव्योम
+    // sending the command अगर the (obsolete, but still provided by QEMU)
+    // fixed disk geometry page may not be supported.
+    //
+    // We could also send the command only to small disks (e.g. <504MiB)
+    // but some old USB keys only support a very small subset of SCSI which
+    // करोes not even include the MODE SENSE command!
+    //
+    अगर (CONFIG_QEMU_HARDWARE && स_भेद(venकरोr, "QEMU", 5) == 0) अणु
+        काष्ठा cdbres_mode_sense_geom geomdata;
+        ret = cdb_mode_sense_geom(&करोp, &geomdata);
+        अगर (ret == 0) अणु
+            u32 cylinders;
+            cylinders = geomdata.cyl[0] << 16;
+            cylinders |= geomdata.cyl[1] << 8;
+            cylinders |= geomdata.cyl[2];
+            अगर (cylinders && geomdata.heads &&
+                drive->sectors <= 0xFFFFFFFFULL &&
+                ((u32)drive->sectors % (geomdata.heads * cylinders) == 0)) अणु
+                drive->pchs.cylinder = cylinders;
+                drive->pchs.head = geomdata.heads;
+                drive->pchs.sector = (u32)drive->sectors / (geomdata.heads * cylinders);
+            पूर्ण
+        पूर्ण
+    पूर्ण
+
+    अक्षर *desc = znम_लिखो(MAXDESCSIZE, "%s Drive %s %s %s"
+                          , s, venकरोr, product, rev);
+    boot_add_hd(drive, desc, prio);
+    वापस 0;
+पूर्ण

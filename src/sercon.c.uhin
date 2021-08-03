@@ -1,0 +1,678 @@
+<शैली गुरु>
+// serial console support
+//
+// Copyright (C) 2016 Gerd Hoffmann <kraxel@redhat.com>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // SET_BDA
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "stacks.h" // yield
+#समावेश "output.h" // dम_लिखो
+#समावेश "util.h" // irqसमयr_calc_ticks
+#समावेश "string.h" // स_नकल
+#समावेश "romfile.h" // romfile_loadपूर्णांक
+#समावेश "hw/serialio.h" // SEROFF_IER
+#समावेश "cp437.h"
+
+अटल u8 video_rows(व्योम)
+अणु
+    वापस GET_BDA(video_rows)+1;
+पूर्ण
+
+अटल u8 video_cols(व्योम)
+अणु
+    वापस GET_BDA(video_cols);
+पूर्ण
+
+अटल u8 cursor_pos_col(व्योम)
+अणु
+    u16 pos = GET_BDA(cursor_pos[0]);
+    वापस pos & 0xff;
+पूर्ण
+
+अटल u8 cursor_pos_row(व्योम)
+अणु
+    u16 pos = GET_BDA(cursor_pos[0]);
+    वापस (pos >> 8) & 0xff;
+पूर्ण
+
+अटल व्योम cursor_pos_set(u8 row, u8 col)
+अणु
+    u16 pos = ((u16)row << 8) | col;
+    SET_BDA(cursor_pos[0], pos);
+पूर्ण
+
+/****************************************************************
+ * serial console output
+ ****************************************************************/
+
+VARLOW u16 sercon_port;
+VARLOW u8 sercon_split;
+VARLOW u8 sercon_enable;
+VARFSEG काष्ठा segoff_s sercon_real_vga_handler;
+
+/*
+ * We have a small output buffer here, क्रम lazy output.  That allows
+ * to aव्योम a whole bunch of control sequences क्रम poपूर्णांकless cursor
+ * moves, so when logging the output it'll be *alot* less cluttered.
+ *
+ * sercon_अक्षर/attr  is the actual output buffer.
+ * sercon_attr_last  is the most recent attribute sent to the terminal.
+ * sercon_col_last   is the most recent column sent to the terminal.
+ * sercon_row_last   is the most recent row sent to the terminal.
+ */
+VARLOW u8 sercon_attr_last;
+VARLOW u8 sercon_col_last;
+VARLOW u8 sercon_row_last;
+VARLOW u8 sercon_अक्षर;
+VARLOW u8 sercon_attr = 0x07;
+
+अटल VAR16 u8 sercon_cmap[8] = अणु '0', '4', '2', '6', '1', '5', '3', '7' पूर्ण;
+
+अटल पूर्णांक sercon_spliपंचांगode(व्योम)
+अणु
+    वापस GET_LOW(sercon_split);
+पूर्ण
+
+अटल व्योम sercon_अक्षर_दो(u8 chr)
+अणु
+    u16 addr = GET_LOW(sercon_port);
+    u32 end = irqसमयr_calc_ticks(0x0a);
+
+#अगर 0
+    /* क्रम visual control sequence debugging */
+    अगर (chr == '\x1b')
+        chr = '*';
+#पूर्ण_अगर
+
+    क्रम (;;) अणु
+        u8 lsr = inb(addr+SEROFF_LSR);
+        अगर ((lsr & 0x60) == 0x60) अणु
+            // Success - can ग_लिखो data
+            outb(chr, addr+SEROFF_DATA);
+            अवरोध;
+        पूर्ण
+        अगर (irqसमयr_check(end)) अणु
+            अवरोध;
+        पूर्ण
+        yield();
+    पूर्ण
+पूर्ण
+
+अटल व्योम sercon_term_reset(व्योम)
+अणु
+    sercon_अक्षर_दो('\x1b');
+    sercon_अक्षर_दो('c');
+पूर्ण
+
+अटल व्योम sercon_term_clear_screen(व्योम)
+अणु
+    sercon_अक्षर_दो('\x1b');
+    sercon_अक्षर_दो('[');
+    sercon_अक्षर_दो('2');
+    sercon_अक्षर_दो('J');
+पूर्ण
+
+अटल व्योम sercon_term_no_linewrap(व्योम)
+अणु
+    sercon_अक्षर_दो('\x1b');
+    sercon_अक्षर_दो('[');
+    sercon_अक्षर_दो('?');
+    sercon_अक्षर_दो('7');
+    sercon_अक्षर_दो('l');
+पूर्ण
+
+अटल व्योम sercon_term_cursor_जाओ(u8 row, u8 col)
+अणु
+    row++; col++;
+    sercon_अक्षर_दो('\x1b');
+    sercon_अक्षर_दो('[');
+    sercon_अक्षर_दो('0' + row / 10);
+    sercon_अक्षर_दो('0' + row % 10);
+    sercon_अक्षर_दो(';');
+    sercon_अक्षर_दो('0' + col / 10);
+    sercon_अक्षर_दो('0' + col % 10);
+    sercon_अक्षर_दो('H');
+पूर्ण
+
+अटल व्योम sercon_term_set_color(u8 fg, u8 bg, u8 bold)
+अणु
+    sercon_अक्षर_दो('\x1b');
+    sercon_अक्षर_दो('[');
+    sercon_अक्षर_दो('0');
+    अगर (fg != 7) अणु
+        sercon_अक्षर_दो(';');
+        sercon_अक्षर_दो('3');
+        sercon_अक्षर_दो(GET_GLOBAL(sercon_cmap[fg & 7]));
+    पूर्ण
+    अगर (bg != 0) अणु
+        sercon_अक्षर_दो(';');
+        sercon_अक्षर_दो('4');
+        sercon_अक्षर_दो(GET_GLOBAL(sercon_cmap[bg & 7]));
+    पूर्ण
+    अगर (bold) अणु
+        sercon_अक्षर_दो(';');
+        sercon_अक्षर_दो('1');
+    पूर्ण
+    sercon_अक्षर_दो('m');
+पूर्ण
+
+अटल व्योम sercon_set_attr(u8 attr)
+अणु
+    अगर (attr == GET_LOW(sercon_attr_last))
+        वापस;
+
+    SET_LOW(sercon_attr_last, attr);
+    sercon_term_set_color((attr >> 0) & 7,
+                          (attr >> 4) & 7,
+                          attr & 0x08);
+पूर्ण
+
+अटल व्योम sercon_prपूर्णांक_utf8(u8 chr)
+अणु
+    u16 unicode = cp437_to_unicode(chr);
+
+    अगर (unicode < 0x7f) अणु
+        sercon_अक्षर_दो(unicode);
+    पूर्ण अन्यथा अगर (unicode < 0x7ff) अणु
+        sercon_अक्षर_दो(0xc0 | ((unicode >>  6) & 0x1f));
+        sercon_अक्षर_दो(0x80 | ((unicode >>  0) & 0x3f));
+    पूर्ण अन्यथा अणु
+        sercon_अक्षर_दो(0xe0 | ((unicode >> 12) & 0x0f));
+        sercon_अक्षर_दो(0x80 | ((unicode >>  6) & 0x3f));
+        sercon_अक्षर_दो(0x80 | ((unicode >>  0) & 0x3f));
+    पूर्ण
+पूर्ण
+
+अटल व्योम sercon_cursor_pos_set(u8 row, u8 col)
+अणु
+    अगर (!sercon_spliपंचांगode()) अणु
+        cursor_pos_set(row, col);
+    पूर्ण अन्यथा अणु
+        /* let vgabios update cursor */
+    पूर्ण
+पूर्ण
+
+अटल व्योम sercon_lazy_cursor_sync(व्योम)
+अणु
+    u8 row = cursor_pos_row();
+    u8 col = cursor_pos_col();
+
+    अगर (GET_LOW(sercon_row_last) == row &&
+        GET_LOW(sercon_col_last) == col)
+        वापस;
+
+    अगर (col == 0 && GET_LOW(sercon_row_last) <= row) अणु
+        अगर (GET_LOW(sercon_col_last) != 0) अणु
+            sercon_अक्षर_दो('\r');
+            SET_LOW(sercon_col_last, 0);
+        पूर्ण
+        जबतक (GET_LOW(sercon_row_last) < row) अणु
+            sercon_अक्षर_दो('\n');
+            SET_LOW(sercon_row_last, GET_LOW(sercon_row_last)+1);
+        पूर्ण
+        अगर (GET_LOW(sercon_row_last) == row &&
+            GET_LOW(sercon_col_last) == col)
+            वापस;
+    पूर्ण
+
+    sercon_term_cursor_जाओ(row, col);
+    SET_LOW(sercon_row_last, row);
+    SET_LOW(sercon_col_last, col);
+पूर्ण
+
+अटल व्योम sercon_lazy_flush(व्योम)
+अणु
+    u8 chr, attr;
+
+    chr = GET_LOW(sercon_अक्षर);
+    attr = GET_LOW(sercon_attr);
+    अगर (chr) अणु
+        sercon_set_attr(attr);
+        sercon_prपूर्णांक_utf8(chr);
+        SET_LOW(sercon_col_last, GET_LOW(sercon_col_last) + 1);
+    पूर्ण
+
+    sercon_lazy_cursor_sync();
+
+    SET_LOW(sercon_attr, 0x07);
+    SET_LOW(sercon_अक्षर, 0x00);
+पूर्ण
+
+अटल व्योम sercon_lazy_cursor_update(u8 row, u8 col)
+अणु
+    sercon_cursor_pos_set(row, col);
+    SET_LOW(sercon_row_last, row);
+    SET_LOW(sercon_col_last, col);
+पूर्ण
+
+अटल व्योम sercon_lazy_backspace(व्योम)
+अणु
+    u8 col;
+
+    sercon_lazy_flush();
+    col = cursor_pos_col();
+    अगर (col > 0) अणु
+        sercon_अक्षर_दो(8);
+        sercon_lazy_cursor_update(cursor_pos_row(), col-1);
+    पूर्ण
+पूर्ण
+
+अटल व्योम sercon_lazy_cr(व्योम)
+अणु
+    sercon_cursor_pos_set(cursor_pos_row(), 0);
+पूर्ण
+
+अटल व्योम sercon_lazy_lf(व्योम)
+अणु
+    u8 row;
+
+    row = cursor_pos_row() + 1;
+    अगर (row >= video_rows()) अणु
+        /* scrolling up */
+        row = video_rows()-1;
+        अगर (GET_LOW(sercon_row_last) > 0) अणु
+            SET_LOW(sercon_row_last, GET_LOW(sercon_row_last) - 1);
+        पूर्ण
+    पूर्ण
+    sercon_cursor_pos_set(row, cursor_pos_col());
+पूर्ण
+
+अटल व्योम sercon_lazy_move_cursor(व्योम)
+अणु
+    u8 col;
+
+    col = cursor_pos_col() + 1;
+    अगर (col >= video_cols()) अणु
+        sercon_lazy_cr();
+        sercon_lazy_lf();
+    पूर्ण अन्यथा अणु
+        sercon_cursor_pos_set(cursor_pos_row(), col);
+    पूर्ण
+पूर्ण
+
+अटल व्योम sercon_lazy_अक्षर_दो(u8 chr, u8 attr, u8 teletype)
+अणु
+    अगर (cursor_pos_row() != GET_LOW(sercon_row_last) ||
+        cursor_pos_col() != GET_LOW(sercon_col_last)) अणु
+        sercon_lazy_flush();
+    पूर्ण
+
+    SET_LOW(sercon_अक्षर, chr);
+    अगर (teletype)
+        sercon_lazy_move_cursor();
+    अन्यथा
+        SET_LOW(sercon_attr, attr);
+पूर्ण
+
+/* Set video mode */
+अटल व्योम sercon_1000(काष्ठा bregs *regs)
+अणु
+    u8 clearscreen = !(regs->al & 0x80);
+    u8 mode = regs->al & 0x7f;
+    u8 rows, cols;
+
+    अगर (!sercon_spliपंचांगode()) अणु
+        चयन (mode) अणु
+        हाल 0x00:
+        हाल 0x01:
+        हाल 0x04: /* 320x200 */
+        हाल 0x05: /* 320x200 */
+            cols = 40;
+            rows = 25;
+            regs->al = 0x30;
+            अवरोध;
+        हाल 0x02:
+        हाल 0x03:
+        हाल 0x06: /* 640x200 */
+        हाल 0x07:
+        शेष:
+            cols = 80;
+            rows = 25;
+            regs->al = 0x30;
+            अवरोध;
+        पूर्ण
+        cursor_pos_set(0, 0);
+        SET_BDA(video_mode, mode);
+        SET_BDA(video_cols, cols);
+        SET_BDA(video_rows, rows-1);
+        SET_BDA(cursor_type, 0x0007);
+    पूर्ण अन्यथा अणु
+        /* let vgabios handle mode init */
+    पूर्ण
+
+    SET_LOW(sercon_enable, mode <= 0x07);
+    SET_LOW(sercon_col_last, 0);
+    SET_LOW(sercon_row_last, 0);
+    SET_LOW(sercon_attr_last, 0);
+
+    sercon_term_reset();
+    sercon_term_no_linewrap();
+    अगर (clearscreen)
+        sercon_term_clear_screen();
+पूर्ण
+
+/* Set text-mode cursor shape */
+अटल व्योम sercon_1001(काष्ठा bregs *regs)
+अणु
+    /* show/hide cursor? */
+    SET_BDA(cursor_type, regs->cx);
+पूर्ण
+
+/* Set cursor position */
+अटल व्योम sercon_1002(काष्ठा bregs *regs)
+अणु
+    sercon_cursor_pos_set(regs->dh, regs->dl);
+पूर्ण
+
+/* Get cursor position */
+अटल व्योम sercon_1003(काष्ठा bregs *regs)
+अणु
+    regs->cx = GET_BDA(cursor_type);
+    regs->dh = cursor_pos_row();
+    regs->dl = cursor_pos_col();
+पूर्ण
+
+/* Scroll up winकरोw */
+अटल व्योम sercon_1006(काष्ठा bregs *regs)
+अणु
+    sercon_lazy_flush();
+    अगर (regs->al == 0) अणु
+        /* clear rect, करो only in हाल this looks like a fullscreen clear */
+        अगर (regs->ch == 0 &&
+            regs->cl == 0 &&
+            regs->dh == video_rows()-1 &&
+            regs->dl == video_cols()-1) अणु
+            sercon_set_attr(regs->bh);
+            sercon_term_clear_screen();
+        पूर्ण
+    पूर्ण अन्यथा अणु
+        sercon_अक्षर_दो('\r');
+        sercon_अक्षर_दो('\n');
+    पूर्ण
+पूर्ण
+
+/* Read अक्षरacter and attribute at cursor position */
+अटल व्योम sercon_1008(काष्ठा bregs *regs)
+अणु
+    regs->ah = 0x07;
+    regs->bh = ' ';
+पूर्ण
+
+/* Write अक्षरacter and attribute at cursor position */
+अटल व्योम sercon_1009(काष्ठा bregs *regs)
+अणु
+    u16 count = regs->cx;
+
+    अगर (count == 1) अणु
+        sercon_lazy_अक्षर_दो(regs->al, regs->bl, 0);
+
+    पूर्ण अन्यथा अगर (regs->al == 0x20 &&
+               video_rows() * video_cols() == count &&
+               cursor_pos_row() == 0 &&
+               cursor_pos_col() == 0) अणु
+        /* override everything with spaces -> this is clear screen */
+        sercon_lazy_flush();
+        sercon_set_attr(regs->bl);
+        sercon_term_clear_screen();
+
+    पूर्ण अन्यथा अणु
+        sercon_lazy_flush();
+        sercon_set_attr(regs->bl);
+        जबतक (count) अणु
+            sercon_prपूर्णांक_utf8(regs->al);
+            count--;
+        पूर्ण
+        sercon_term_cursor_जाओ(cursor_pos_row(),
+                                cursor_pos_col());
+    पूर्ण
+पूर्ण
+
+/* Teletype output */
+अटल व्योम sercon_100e(काष्ठा bregs *regs)
+अणु
+    चयन (regs->al) अणु
+    हाल 7:
+        sercon_अक्षर_दो(0x07);
+        अवरोध;
+    हाल 8:
+        sercon_lazy_backspace();
+        अवरोध;
+    हाल '\r':
+        sercon_lazy_cr();
+        अवरोध;
+    हाल '\n':
+        sercon_lazy_lf();
+        अवरोध;
+    शेष:
+        sercon_lazy_अक्षर_दो(regs->al, 0, 1);
+        अवरोध;
+    पूर्ण
+पूर्ण
+
+/* Get current video mode */
+अटल व्योम sercon_100f(काष्ठा bregs *regs)
+अणु
+    regs->al = GET_BDA(video_mode);
+    regs->ah = GET_BDA(video_cols);
+पूर्ण
+
+/* VBE 2.0 */
+अटल व्योम sercon_104f(काष्ठा bregs *regs)
+अणु
+    अगर (!sercon_spliपंचांगode()) अणु
+        regs->ax = 0x0100;
+    पूर्ण अन्यथा अणु
+        // Disable sercon entry poपूर्णांक on any vesa modeset
+        अगर (regs->al == 0x02)
+            SET_LOW(sercon_enable, 0);
+    पूर्ण
+पूर्ण
+
+अटल व्योम sercon_10XX(काष्ठा bregs *regs)
+अणु
+    warn_unimplemented(regs);
+पूर्ण
+
+व्योम VISIBLE16
+handle_sercon(काष्ठा bregs *regs)
+अणु
+    अगर (!CONFIG_SERCON)
+        वापस;
+    अगर (!GET_LOW(sercon_port))
+        वापस;
+
+    चयन (regs->ah) अणु
+    हाल 0x01:
+    हाल 0x02:
+    हाल 0x03:
+    हाल 0x08:
+    हाल 0x0f:
+        अगर (sercon_spliपंचांगode())
+            /* nothing, vgabios handles it */
+            वापस;
+    पूर्ण
+
+    चयन (regs->ah) अणु
+    हाल 0x00: sercon_1000(regs); अवरोध;
+    हाल 0x01: sercon_1001(regs); अवरोध;
+    हाल 0x02: sercon_1002(regs); अवरोध;
+    हाल 0x03: sercon_1003(regs); अवरोध;
+    हाल 0x06: sercon_1006(regs); अवरोध;
+    हाल 0x08: sercon_1008(regs); अवरोध;
+    हाल 0x09: sercon_1009(regs); अवरोध;
+    हाल 0x0e: sercon_100e(regs); अवरोध;
+    हाल 0x0f: sercon_100f(regs); अवरोध;
+    हाल 0x4f: sercon_104f(regs); अवरोध;
+    शेष:   sercon_10XX(regs); अवरोध;
+    पूर्ण
+पूर्ण
+
+व्योम sercon_setup(व्योम)
+अणु
+    अगर (!CONFIG_SERCON)
+        वापस;
+
+    काष्ठा segoff_s ayebios, vgabios;
+    u16 addr;
+
+    addr = romfile_loadपूर्णांक("etc/sercon-port", 0);
+    अगर (!addr)
+        वापस;
+    dम_लिखो(1, "sercon: using ioport 0x%x\n", addr);
+
+    अगर (CONFIG_DEBUG_SERIAL)
+        अगर (addr == CONFIG_DEBUG_SERIAL_PORT)
+            ScreenAndDebug = 0;
+
+    vgabios = GET_IVT(0x10);
+    ayebios = FUNC16(entry_10);
+    अगर (vgabios.seg != ayebios.seg ||
+        vgabios.offset != ayebios.offset) अणु
+        dम_लिखो(1, "sercon: configuring in splitmode (vgabios %04x:%04x)\n",
+                vgabios.seg, vgabios.offset);
+        sercon_real_vga_handler = vgabios;
+        SET_LOW(sercon_split, 1);
+    पूर्ण अन्यथा अणु
+        dम_लिखो(1, "sercon: configuring as primary display\n");
+        sercon_real_vga_handler = ayebios;
+    पूर्ण
+
+    SET_IVT(0x10, FUNC16(entry_sercon));
+    SET_LOW(sercon_port, addr);
+    outb(0x03, addr + SEROFF_LCR); // 8N1
+    outb(0x01, addr + 0x02);       // enable fअगरo
+पूर्ण
+
+/****************************************************************
+ * serial input
+ ****************************************************************/
+
+VARLOW u8 rx_buf[16];
+VARLOW u8 rx_bytes;
+
+अटल VAR16 काष्ठा अणु
+    अक्षर seq[4];
+    u8   len;
+    u16  keycode;
+पूर्ण termseq[] = अणु
+    अणु .seq = "OP",   .len = 2, .keycode = 0x3b00 पूर्ण,    // F1
+    अणु .seq = "OQ",   .len = 2, .keycode = 0x3c00 पूर्ण,    // F2
+    अणु .seq = "OR",   .len = 2, .keycode = 0x3d00 पूर्ण,    // F3
+    अणु .seq = "OS",   .len = 2, .keycode = 0x3e00 पूर्ण,    // F4
+
+    अणु .seq = "[15~", .len = 4, .keycode = 0x3f00 पूर्ण,    // F5
+    अणु .seq = "[17~", .len = 4, .keycode = 0x4000 पूर्ण,    // F6
+    अणु .seq = "[18~", .len = 4, .keycode = 0x4100 पूर्ण,    // F7
+    अणु .seq = "[19~", .len = 4, .keycode = 0x4200 पूर्ण,    // F8
+    अणु .seq = "[20~", .len = 4, .keycode = 0x4300 पूर्ण,    // F9
+    अणु .seq = "[21~", .len = 4, .keycode = 0x4400 पूर्ण,    // F10
+    अणु .seq = "[23~", .len = 4, .keycode = 0x5700 पूर्ण,    // F11
+    अणु .seq = "[24~", .len = 4, .keycode = 0x5800 पूर्ण,    // F12
+
+    अणु .seq = "[2~",  .len = 3, .keycode = 0x52e0 पूर्ण,    // insert
+    अणु .seq = "[3~",  .len = 3, .keycode = 0x53e0 पूर्ण,    // delete
+    अणु .seq = "[5~",  .len = 3, .keycode = 0x49e0 पूर्ण,    // page up
+    अणु .seq = "[6~",  .len = 3, .keycode = 0x51e0 पूर्ण,    // page करोwn
+
+    अणु .seq = "[A",   .len = 2, .keycode = 0x48e0 पूर्ण,    // up
+    अणु .seq = "[B",   .len = 2, .keycode = 0x50e0 पूर्ण,    // करोwn
+    अणु .seq = "[C",   .len = 2, .keycode = 0x4de0 पूर्ण,    // right
+    अणु .seq = "[D",   .len = 2, .keycode = 0x4be0 पूर्ण,    // left
+
+    अणु .seq = "[H",   .len = 2, .keycode = 0x47e0 पूर्ण,    // home
+    अणु .seq = "[F",   .len = 2, .keycode = 0x4fe0 पूर्ण,    // end
+पूर्ण;
+
+अटल व्योम shअगरtbuf(पूर्णांक हटाओ)
+अणु
+    पूर्णांक i, reमुख्यing;
+
+    reमुख्यing = GET_LOW(rx_bytes) - हटाओ;
+    SET_LOW(rx_bytes, reमुख्यing);
+    क्रम (i = 0; i < reमुख्यing; i++)
+        SET_LOW(rx_buf[i], GET_LOW(rx_buf[i + हटाओ]));
+पूर्ण
+
+अटल पूर्णांक cmpbuf(पूर्णांक seq)
+अणु
+    पूर्णांक chr, len;
+
+    len = GET_GLOBAL(termseq[seq].len);
+    अगर (GET_LOW(rx_bytes) < len + 1)
+        वापस 0;
+    क्रम (chr = 0; chr < len; chr++)
+        अगर (GET_GLOBAL(termseq[seq].seq[chr]) != GET_LOW(rx_buf[chr + 1]))
+            वापस 0;
+    वापस 1;
+पूर्ण
+
+अटल पूर्णांक findseq(व्योम)
+अणु
+    पूर्णांक seq;
+
+    क्रम (seq = 0; seq < ARRAY_SIZE(termseq); seq++)
+        अगर (cmpbuf(seq))
+            वापस seq;
+    वापस -1;
+पूर्ण
+
+व्योम
+sercon_check_event(व्योम)
+अणु
+    अगर (!CONFIG_SERCON)
+        वापस;
+
+    u16 addr = GET_LOW(sercon_port);
+    u16 keycode;
+    u8 byte, count = 0;
+    पूर्णांक seq, chr;
+
+    // check to see अगर there is a active serial port
+    अगर (!addr)
+        वापस;
+    अगर (inb(addr + SEROFF_LSR) == 0xFF)
+        वापस;
+
+    // flush pending output
+    sercon_lazy_flush();
+
+    // पढ़ो all available data
+    जबतक (inb(addr + SEROFF_LSR) & 0x01) अणु
+        byte = inb(addr + SEROFF_DATA);
+        अगर (GET_LOW(rx_bytes) < माप(rx_buf)) अणु
+            SET_LOW(rx_buf[rx_bytes], byte);
+            SET_LOW(rx_bytes, GET_LOW(rx_bytes) + 1);
+            count++;
+        पूर्ण
+    पूर्ण
+
+    क्रम (;;) अणु
+        // no (more) input data
+        अगर (!GET_LOW(rx_bytes))
+            वापस;
+
+        // lookup escape sequences
+        अगर (GET_LOW(rx_bytes) > 1 && GET_LOW(rx_buf[0]) == 0x1b) अणु
+            seq = findseq();
+            अगर (seq >= 0) अणु
+                enqueue_key(GET_GLOBAL(termseq[seq].keycode));
+                shअगरtbuf(GET_GLOBAL(termseq[seq].len) + 1);
+                जारी;
+            पूर्ण
+        पूर्ण
+
+        // Seems we got a escape sequence we didn't recognise.
+        //  -> If we received data रुको क्रम more, maybe it is just incomplete.
+        अगर (GET_LOW(rx_buf[0]) == 0x1b && count)
+            वापस;
+
+        // Handle input as inभागidual अक्षर.
+        chr = GET_LOW(rx_buf[0]);
+        keycode = ascii_to_keycode(chr);
+        अगर (keycode)
+            enqueue_key(keycode);
+        shअगरtbuf(1);
+    पूर्ण
+पूर्ण

@@ -1,0 +1,177 @@
+<शैली गुरु>
+// Post memory manager (PMM) calls
+//
+// Copyright (C) 2009-2013  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // FUNC16
+#समावेश "config.h" // CONFIG_*
+#समावेश "malloc.h" // _दो_स्मृति
+#समावेश "output.h" // dम_लिखो
+#समावेश "e820map.h" // काष्ठा e820entry
+#समावेश "std/pmm.h" // PMM_SIGNATURE
+#समावेश "string.h" // checksum
+#समावेश "util.h" // pmm_init
+#समावेश "x86.h" // __ffs
+
+बाह्य काष्ठा pmmheader PMMHEADER;
+
+#अगर CONFIG_PMM
+काष्ठा pmmheader PMMHEADER __aligned(16) VARFSEG = अणु
+    .signature = PMM_SIGNATURE,
+    .version = 0x01,
+    .length = माप(PMMHEADER),
+पूर्ण;
+#पूर्ण_अगर
+
+// PMM - allocate
+अटल u32
+handle_pmm00(u16 *args)
+अणु
+    u32 length = *(u32*)&args[1], handle = *(u32*)&args[3];
+    u16 flags = args[5];
+    dम_लिखो(3, "pmm00: length=%x handle=%x flags=%x\n"
+            , length, handle, flags);
+    काष्ठा zone_s *lowzone = &ZoneTmpLow, *highzone = &ZoneTmpHigh;
+    अगर (flags & 8) अणु
+        // Permanent memory request.
+        lowzone = &ZoneLow;
+        highzone = &ZoneHigh;
+    पूर्ण
+    अगर (!length) अणु
+        // Memory size request
+        चयन (flags & 3) अणु
+        शेष:
+        हाल 0:
+            वापस 0;
+        हाल 1:
+            वापस दो_स्मृति_माला_लोpace(lowzone);
+        हाल 2:
+            वापस दो_स्मृति_माला_लोpace(highzone);
+        हाल 3: अणु
+            u32 spacelow = दो_स्मृति_माला_लोpace(lowzone);
+            u32 spacehigh = दो_स्मृति_माला_लोpace(highzone);
+            अगर (spacelow > spacehigh)
+                वापस spacelow;
+            वापस spacehigh;
+        पूर्ण
+        पूर्ण
+    पूर्ण
+    u32 size = length * 16;
+    अगर ((s32)size <= 0)
+        वापस 0;
+    u32 align = MALLOC_MIN_ALIGN;
+    अगर (flags & 4) अणु
+        align = 1<<__ffs(size);
+        अगर (align < MALLOC_MIN_ALIGN)
+            align = MALLOC_MIN_ALIGN;
+    पूर्ण
+    u32 data;
+    चयन (flags & 3) अणु
+    शेष:
+    हाल 0:
+        वापस 0;
+    हाल 1:
+        data = दो_स्मृति_palloc(lowzone, size, align);
+        अवरोध;
+    हाल 2:
+        data = दो_स्मृति_palloc(highzone, size, align);
+        अगर (!data && (flags & 8)) अणु
+            /*
+             * We are out of meory.  So go allocate from the (big)
+             * ZoneTmpHigh instead and reserve the block in the e820
+             * map so the OS will not override it.  That way we can
+             * handle big permanent allocations without needing a big
+             * ZoneHigh.
+             */
+            data = दो_स्मृति_palloc(&ZoneTmpHigh, size, align);
+            अगर (data)
+                e820_add(data, size, E820_RESERVED);
+        पूर्ण
+        अवरोध;
+    हाल 3: अणु
+        data = दो_स्मृति_palloc(lowzone, size, align);
+        अगर (!data)
+            data = दो_स्मृति_palloc(highzone, size, align);
+    पूर्ण
+    पूर्ण
+    अगर (data && handle != MALLOC_DEFAULT_HANDLE)
+        दो_स्मृति_sethandle(data, handle);
+    वापस data;
+पूर्ण
+
+// PMM - find
+अटल u32
+handle_pmm01(u16 *args)
+अणु
+    u32 handle = *(u32*)&args[1];
+    dम_लिखो(3, "pmm01: handle=%x\n", handle);
+    अगर (handle == MALLOC_DEFAULT_HANDLE)
+        वापस 0;
+    वापस दो_स्मृति_findhandle(handle);
+पूर्ण
+
+// PMM - deallocate
+अटल u32
+handle_pmm02(u16 *args)
+अणु
+    u32 buffer = *(u32*)&args[1];
+    dम_लिखो(3, "pmm02: buffer=%x\n", buffer);
+    पूर्णांक ret = दो_स्मृति_pमुक्त(buffer);
+    अगर (ret)
+        // Error
+        वापस 1;
+    वापस 0;
+पूर्ण
+
+अटल u32
+handle_pmmXX(u16 *args)
+अणु
+    वापस PMM_FUNCTION_NOT_SUPPORTED;
+पूर्ण
+
+u32 VISIBLE32INIT
+handle_pmm(u16 *args)
+अणु
+    ASSERT32FLAT();
+    अगर (! CONFIG_PMM)
+        वापस PMM_FUNCTION_NOT_SUPPORTED;
+
+    u16 arg1 = args[0];
+    dम_लिखो(DEBUG_HDL_pmm, "pmm call arg1=%x\n", arg1);
+
+    u32 ret;
+    चयन (arg1) अणु
+    हाल 0x00: ret = handle_pmm00(args); अवरोध;
+    हाल 0x01: ret = handle_pmm01(args); अवरोध;
+    हाल 0x02: ret = handle_pmm02(args); अवरोध;
+    शेष:   ret = handle_pmmXX(args); अवरोध;
+    पूर्ण
+
+    वापस ret;
+पूर्ण
+
+व्योम
+pmm_init(व्योम)
+अणु
+    अगर (! CONFIG_PMM)
+        वापस;
+
+    dम_लिखो(3, "init PMM\n");
+
+    PMMHEADER.entry = FUNC16(entry_pmm);
+    PMMHEADER.checksum -= checksum(&PMMHEADER, माप(PMMHEADER));
+पूर्ण
+
+व्योम
+pmm_prepboot(व्योम)
+अणु
+    अगर (! CONFIG_PMM)
+        वापस;
+
+    dम_लिखो(3, "finalize PMM\n");
+
+    PMMHEADER.signature = 0;
+    PMMHEADER.entry.segoff = 0;
+पूर्ण

@@ -1,0 +1,686 @@
+<शैली गुरु>
+// Support क्रम generating ACPI tables (on emulators)
+// DO NOT ADD NEW FEATURES HERE.  (See paravirt.c / biostables.c instead.)
+//
+// Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2006 Fabrice Bellard
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "byteorder.h" // cpu_to_le16
+#समावेश "config.h" // CONFIG_*
+#समावेश "dev-q35.h"
+#समावेश "dev-piix.h"
+#समावेश "hw/pcidevice.h" // pci_find_init_device
+#समावेश "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
+#समावेश "hw/pci_regs.h" // PCI_INTERRUPT_LINE
+#समावेश "malloc.h" // मुक्त
+#समावेश "output.h" // dम_लिखो
+#समावेश "paravirt.h" // RamSize
+#समावेश "romfile.h" // romfile_loadपूर्णांक
+#समावेश "std/acpi.h" // काष्ठा rsdp_descriptor
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // MaxCountCPUs
+#समावेश "x86.h" // पढ़ोl
+
+#समावेश "fw/acpi-dsdt.hex"
+
+अटल व्योम
+build_header(काष्ठा acpi_table_header *h, u32 sig, पूर्णांक len, u8 rev)
+अणु
+    h->signature = cpu_to_le32(sig);
+    h->length = cpu_to_le32(len);
+    h->revision = rev;
+    स_नकल(h->oem_id, BUILD_APPNAME6, 6);
+    स_नकल(h->oem_table_id, BUILD_APPNAME4, 4);
+    स_नकल(h->oem_table_id + 4, (व्योम*)&sig, 4);
+    h->oem_revision = cpu_to_le32(1);
+    स_नकल(h->asl_compiler_id, BUILD_APPNAME4, 4);
+    h->asl_compiler_revision = cpu_to_le32(1);
+    h->checksum -= checksum(h, len);
+पूर्ण
+
+अटल व्योम piix4_fadt_setup(काष्ठा pci_device *pci, व्योम *arg)
+अणु
+    काष्ठा fadt_descriptor_rev1 *fadt = arg;
+
+    fadt->model = 1;
+    fadt->reserved1 = 0;
+    fadt->sci_पूर्णांक = cpu_to_le16(PIIX_PM_INTRRUPT);
+    fadt->smi_cmd = cpu_to_le32(PORT_SMI_CMD);
+    fadt->acpi_enable = PIIX_ACPI_ENABLE;
+    fadt->acpi_disable = PIIX_ACPI_DISABLE;
+    fadt->pm1a_evt_blk = cpu_to_le32(acpi_pm_base);
+    fadt->pm1a_cnt_blk = cpu_to_le32(acpi_pm_base + 0x04);
+    fadt->pm_पंचांगr_blk = cpu_to_le32(acpi_pm_base + 0x08);
+    fadt->gpe0_blk = cpu_to_le32(PIIX_GPE0_BLK);
+    fadt->pm1_evt_len = 4;
+    fadt->pm1_cnt_len = 2;
+    fadt->pm_पंचांगr_len = 4;
+    fadt->gpe0_blk_len = PIIX_GPE0_BLK_LEN;
+    fadt->plvl2_lat = cpu_to_le16(0xfff); // C2 state not supported
+    fadt->plvl3_lat = cpu_to_le16(0xfff); // C3 state not supported
+    fadt->flags = cpu_to_le32(ACPI_FADT_F_WBINVD |
+                              ACPI_FADT_F_PROC_C1 |
+                              ACPI_FADT_F_SLP_BUTTON |
+                              ACPI_FADT_F_RTC_S4 |
+                              ACPI_FADT_F_USE_PLATFORM_CLOCK);
+पूर्ण
+
+/* PCI_VENDOR_ID_INTEL && PCI_DEVICE_ID_INTEL_ICH9_LPC */
+अटल व्योम ich9_lpc_fadt_setup(काष्ठा pci_device *dev, व्योम *arg)
+अणु
+    काष्ठा fadt_descriptor_rev1 *fadt = arg;
+
+    fadt->model = 1;
+    fadt->reserved1 = 0;
+    fadt->sci_पूर्णांक = cpu_to_le16(9);
+    fadt->smi_cmd = cpu_to_le32(PORT_SMI_CMD);
+    fadt->acpi_enable = ICH9_ACPI_ENABLE;
+    fadt->acpi_disable = ICH9_ACPI_DISABLE;
+    fadt->pm1a_evt_blk = cpu_to_le32(acpi_pm_base);
+    fadt->pm1a_cnt_blk = cpu_to_le32(acpi_pm_base + 0x04);
+    fadt->pm_पंचांगr_blk = cpu_to_le32(acpi_pm_base + 0x08);
+    fadt->gpe0_blk = cpu_to_le32(acpi_pm_base + ICH9_PMIO_GPE0_STS);
+    fadt->pm1_evt_len = 4;
+    fadt->pm1_cnt_len = 2;
+    fadt->pm_पंचांगr_len = 4;
+    fadt->gpe0_blk_len = ICH9_PMIO_GPE0_BLK_LEN;
+    fadt->plvl2_lat = cpu_to_le16(0xfff); // C2 state not supported
+    fadt->plvl3_lat = cpu_to_le16(0xfff); // C3 state not supported
+    fadt->flags = cpu_to_le32(ACPI_FADT_F_WBINVD |
+                              ACPI_FADT_F_PROC_C1 |
+                              ACPI_FADT_F_SLP_BUTTON |
+                              ACPI_FADT_F_RTC_S4 |
+                              ACPI_FADT_F_USE_PLATFORM_CLOCK);
+पूर्ण
+
+अटल स्थिर काष्ठा pci_device_id fadt_init_tbl[] = अणु
+    /* PIIX4 Power Management device (क्रम ACPI) */
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3,
+               piix4_fadt_setup),
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH9_LPC,
+               ich9_lpc_fadt_setup),
+    PCI_DEVICE_END
+पूर्ण;
+
+अटल व्योम fill_dsdt(काष्ठा fadt_descriptor_rev1 *fadt, व्योम *dsdt)
+अणु
+    अगर (fadt->dsdt) अणु
+        मुक्त((व्योम *)le32_to_cpu(fadt->dsdt));
+    पूर्ण
+    fadt->dsdt = cpu_to_le32((u32)dsdt);
+    fadt->checksum -= checksum(fadt, माप(*fadt));
+    dम_लिखो(1, "ACPI DSDT=%p\n", dsdt);
+पूर्ण
+
+अटल व्योम *
+build_fadt(काष्ठा pci_device *pci)
+अणु
+    काष्ठा fadt_descriptor_rev1 *fadt = दो_स्मृति_high(माप(*fadt));
+    काष्ठा facs_descriptor_rev1 *facs = memalign_high(64, माप(*facs));
+
+    अगर (!fadt || !facs) अणु
+        warn_noalloc();
+        वापस शून्य;
+    पूर्ण
+
+    /* FACS */
+    स_रखो(facs, 0, माप(*facs));
+    facs->signature = cpu_to_le32(FACS_SIGNATURE);
+    facs->length = cpu_to_le32(माप(*facs));
+
+    /* FADT */
+    स_रखो(fadt, 0, माप(*fadt));
+    fadt->firmware_ctrl = cpu_to_le32((u32)facs);
+    fadt->dsdt = 0;  /* dsdt will be filled later in acpi_setup()
+                        by fill_dsdt() */
+    pci_init_device(fadt_init_tbl, pci, fadt);
+
+    build_header((व्योम*)fadt, FACP_SIGNATURE, माप(*fadt), 1);
+
+    वापस fadt;
+पूर्ण
+
+अटल व्योम*
+build_madt(व्योम)
+अणु
+    पूर्णांक madt_size = (माप(काष्ठा multiple_apic_table)
+                     + माप(काष्ठा madt_processor_apic) * MaxCountCPUs
+                     + माप(काष्ठा madt_io_apic)
+                     + माप(काष्ठा madt_पूर्णांकsrcovr) * 16
+                     + माप(काष्ठा madt_local_nmi));
+
+    काष्ठा multiple_apic_table *madt = दो_स्मृति_high(madt_size);
+    अगर (!madt) अणु
+        warn_noalloc();
+        वापस शून्य;
+    पूर्ण
+    स_रखो(madt, 0, madt_size);
+    madt->local_apic_address = cpu_to_le32(BUILD_APIC_ADDR);
+    madt->flags = cpu_to_le32(1);
+    काष्ठा madt_processor_apic *apic = (व्योम*)&madt[1];
+    पूर्णांक i;
+    क्रम (i=0; i<MaxCountCPUs; i++) अणु
+        apic->type = APIC_PROCESSOR;
+        apic->length = माप(*apic);
+        apic->processor_id = i;
+        apic->local_apic_id = i;
+        अगर (apic_id_is_present(apic->local_apic_id))
+            apic->flags = cpu_to_le32(1);
+        अन्यथा
+            apic->flags = cpu_to_le32(0);
+        apic++;
+    पूर्ण
+    काष्ठा madt_io_apic *io_apic = (व्योम*)apic;
+    io_apic->type = APIC_IO;
+    io_apic->length = माप(*io_apic);
+    io_apic->io_apic_id = BUILD_IOAPIC_ID;
+    io_apic->address = cpu_to_le32(BUILD_IOAPIC_ADDR);
+    io_apic->पूर्णांकerrupt = cpu_to_le32(0);
+
+    काष्ठा madt_पूर्णांकsrcovr *पूर्णांकsrcovr = (व्योम*)&io_apic[1];
+    अगर (romfile_loadपूर्णांक("etc/irq0-override", 0)) अणु
+        स_रखो(पूर्णांकsrcovr, 0, माप(*पूर्णांकsrcovr));
+        पूर्णांकsrcovr->type   = APIC_XRUPT_OVERRIDE;
+        पूर्णांकsrcovr->length = माप(*पूर्णांकsrcovr);
+        पूर्णांकsrcovr->source = 0;
+        पूर्णांकsrcovr->gsi    = cpu_to_le32(2);
+        पूर्णांकsrcovr->flags  = cpu_to_le16(0); /* conक्रमms to bus specअगरications */
+        पूर्णांकsrcovr++;
+    पूर्ण
+    क्रम (i = 1; i < 16; i++) अणु
+        अगर (!(BUILD_PCI_IRQS & (1 << i)))
+            /* No need क्रम a INT source override काष्ठाure. */
+            जारी;
+        स_रखो(पूर्णांकsrcovr, 0, माप(*पूर्णांकsrcovr));
+        पूर्णांकsrcovr->type   = APIC_XRUPT_OVERRIDE;
+        पूर्णांकsrcovr->length = माप(*पूर्णांकsrcovr);
+        पूर्णांकsrcovr->source = i;
+        पूर्णांकsrcovr->gsi    = cpu_to_le32(i);
+        पूर्णांकsrcovr->flags  = cpu_to_le16(0xd); /* active high, level triggered */
+        पूर्णांकsrcovr++;
+    पूर्ण
+
+    काष्ठा madt_local_nmi *local_nmi = (व्योम*)पूर्णांकsrcovr;
+    local_nmi->type         = APIC_LOCAL_NMI;
+    local_nmi->length       = माप(*local_nmi);
+    local_nmi->processor_id = 0xff; /* all processors */
+    local_nmi->flags        = cpu_to_le16(0);
+    local_nmi->lपूर्णांक         = 1; /* LINT1 */
+    local_nmi++;
+
+    build_header((व्योम*)madt, APIC_SIGNATURE, (व्योम*)local_nmi - (व्योम*)madt, 1);
+    वापस madt;
+पूर्ण
+
+// Encode a hex value
+अटल अंतरभूत अक्षर getHex(u32 val) अणु
+    val &= 0x0f;
+    वापस (val <= 9) ? ('0' + val) : ('A' + val - 10);
+पूर्ण
+
+// Encode a length in an SSDT.
+अटल u8 *
+encodeLen(u8 *ssdt_ptr, पूर्णांक length, पूर्णांक bytes)
+अणु
+    चयन (bytes) अणु
+    शेष:
+    हाल 4: ssdt_ptr[3] = ((length >> 20) & 0xff);
+    हाल 3: ssdt_ptr[2] = ((length >> 12) & 0xff);
+    हाल 2: ssdt_ptr[1] = ((length >> 4) & 0xff);
+            ssdt_ptr[0] = (((bytes-1) & 0x3) << 6) | (length & 0x0f);
+            अवरोध;
+    हाल 1: ssdt_ptr[0] = length & 0x3f;
+    पूर्ण
+    वापस ssdt_ptr + bytes;
+पूर्ण
+
+#समावेश "fw/ssdt-proc.hex"
+
+/* 0x5B 0x83 ProcessorOp PkgLength NameString ProcID */
+#घोषणा PROC_OFFSET_CPUHEX (*ssdt_proc_name - *ssdt_proc_start + 2)
+#घोषणा PROC_OFFSET_CPUID1 (*ssdt_proc_name - *ssdt_proc_start + 4)
+#घोषणा PROC_OFFSET_CPUID2 (*ssdt_proc_id - *ssdt_proc_start)
+#घोषणा PROC_SIZखातापूर्ण (*ssdt_proc_end - *ssdt_proc_start)
+#घोषणा PROC_AML (ssdp_proc_aml + *ssdt_proc_start)
+
+/* 0x5B 0x82 DeviceOp PkgLength NameString */
+#घोषणा PCIHP_OFFSET_HEX (*ssdt_pcihp_name - *ssdt_pcihp_start + 1)
+#घोषणा PCIHP_OFFSET_ID (*ssdt_pcihp_id - *ssdt_pcihp_start)
+#घोषणा PCIHP_OFFSET_ADR (*ssdt_pcihp_adr - *ssdt_pcihp_start)
+#घोषणा PCIHP_OFFSET_EJ0 (*ssdt_pcihp_ej0 - *ssdt_pcihp_start)
+#घोषणा PCIHP_SIZखातापूर्ण (*ssdt_pcihp_end - *ssdt_pcihp_start)
+#घोषणा PCIHP_AML (ssdp_pcihp_aml + *ssdt_pcihp_start)
+#घोषणा PCI_SLOTS 32
+
+#घोषणा SSDT_SIGNATURE 0x54445353 // SSDT
+#घोषणा SSDT_HEADER_LENGTH 36
+
+#समावेश "fw/ssdt-misc.hex"
+#समावेश "fw/ssdt-pcihp.hex"
+
+#घोषणा PCI_RMV_BASE 0xae0c
+
+अटल u8*
+build_notअगरy(u8 *ssdt_ptr, स्थिर अक्षर *name, पूर्णांक skip, पूर्णांक count,
+             स्थिर अक्षर *target, पूर्णांक ofs)
+अणु
+    count -= skip;
+
+    *(ssdt_ptr++) = 0x14; // MethodOp
+    ssdt_ptr = encodeLen(ssdt_ptr, 2+5+(12*count), 2);
+    स_नकल(ssdt_ptr, name, 4);
+    ssdt_ptr += 4;
+    *(ssdt_ptr++) = 0x02; // MethodOp
+
+    पूर्णांक i;
+    क्रम (i = skip; count-- > 0; i++) अणु
+        *(ssdt_ptr++) = 0xA0; // IfOp
+        ssdt_ptr = encodeLen(ssdt_ptr, 11, 1);
+        *(ssdt_ptr++) = 0x93; // LEqualOp
+        *(ssdt_ptr++) = 0x68; // Arg0Op
+        *(ssdt_ptr++) = 0x0A; // BytePrefix
+        *(ssdt_ptr++) = i;
+        *(ssdt_ptr++) = 0x86; // NotअगरyOp
+        स_नकल(ssdt_ptr, target, 4);
+        ssdt_ptr[ofs] = getHex(i >> 4);
+        ssdt_ptr[ofs + 1] = getHex(i);
+        ssdt_ptr += 4;
+        *(ssdt_ptr++) = 0x69; // Arg1Op
+    पूर्ण
+    वापस ssdt_ptr;
+पूर्ण
+
+अटल व्योम patch_pcihp(पूर्णांक slot, u8 *ssdt_ptr, u32 eject)
+अणु
+    ssdt_ptr[PCIHP_OFFSET_HEX] = getHex(slot >> 4);
+    ssdt_ptr[PCIHP_OFFSET_HEX+1] = getHex(slot);
+    ssdt_ptr[PCIHP_OFFSET_ID] = slot;
+    ssdt_ptr[PCIHP_OFFSET_ADR + 2] = slot;
+
+    /* Runसमय patching of EJ0: to disable hotplug क्रम a slot,
+     * replace the method name: _EJ0 by EJ0_. */
+    /* Sanity check */
+    अगर (स_भेद(ssdt_ptr + PCIHP_OFFSET_EJ0, "_EJ0", 4)) अणु
+        warn_पूर्णांकernalerror();
+    पूर्ण
+    अगर (!eject) अणु
+        स_नकल(ssdt_ptr + PCIHP_OFFSET_EJ0, "EJ0_", 4);
+    पूर्ण
+पूर्ण
+
+अटल व्योम*
+build_ssdt(व्योम)
+अणु
+    पूर्णांक acpi_cpus = MaxCountCPUs > 0xff ? 0xff : MaxCountCPUs;
+    पूर्णांक length = (माप(ssdp_misc_aml)                     // _S3_ / _S4_ / _S5_
+                  + (1+3+4)                                 // Scope(_SB_)
+                  + (acpi_cpus * PROC_SIZखातापूर्ण)               // procs
+                  + (1+2+5+(12*acpi_cpus))                  // NTFY
+                  + (6+2+1+(1*acpi_cpus))                   // CPON
+                  + (1+3+4)                                 // Scope(PCI0)
+                  + ((PCI_SLOTS - 1) * PCIHP_SIZखातापूर्ण)        // slots
+                  + (1+2+5+(12*(PCI_SLOTS - 1))));          // PCNT
+    u8 *ssdt = दो_स्मृति_high(length);
+    अगर (! ssdt) अणु
+        warn_noalloc();
+        वापस शून्य;
+    पूर्ण
+    u8 *ssdt_ptr = ssdt;
+
+    // Copy header and encode fwcfg values in the S3_ / S4_ / S5_ packages
+    पूर्णांक sys_state_size;
+    अक्षर *sys_states = romfile_loadfile("etc/system-states", &sys_state_size);
+    अगर (!sys_states || sys_state_size != 6)
+        sys_states = (अक्षर[])अणु128, 0, 0, 129, 128, 128पूर्ण;
+
+    स_नकल(ssdt_ptr, ssdp_misc_aml, माप(ssdp_misc_aml));
+    अगर (!(sys_states[3] & 128))
+        ssdt_ptr[acpi_s3_name[0]] = 'X';
+    अगर (!(sys_states[4] & 128))
+        ssdt_ptr[acpi_s4_name[0]] = 'X';
+    अन्यथा
+        ssdt_ptr[acpi_s4_pkg[0] + 1] = ssdt[acpi_s4_pkg[0] + 3] = sys_states[4] & 127;
+
+    // store pci io winकरोws
+    *(u32*)&ssdt_ptr[acpi_pci32_start[0]] = cpu_to_le32(pcimem_start);
+    *(u32*)&ssdt_ptr[acpi_pci32_end[0]] = cpu_to_le32(pcimem_end - 1);
+    अगर (pcimem64_start) अणु
+        ssdt_ptr[acpi_pci64_valid[0]] = 1;
+        *(u64*)&ssdt_ptr[acpi_pci64_start[0]] = cpu_to_le64(pcimem64_start);
+        *(u64*)&ssdt_ptr[acpi_pci64_end[0]] = cpu_to_le64(pcimem64_end - 1);
+        *(u64*)&ssdt_ptr[acpi_pci64_length[0]] = cpu_to_le64(
+            pcimem64_end - pcimem64_start);
+    पूर्ण अन्यथा अणु
+        ssdt_ptr[acpi_pci64_valid[0]] = 0;
+    पूर्ण
+
+    पूर्णांक pvpanic_port = romfile_loadपूर्णांक("etc/pvpanic-port", 0x0);
+    *(u16 *)(ssdt_ptr + *ssdt_isa_pest) = pvpanic_port;
+
+    ssdt_ptr += माप(ssdp_misc_aml);
+
+    // build Scope(_SB_) header
+    *(ssdt_ptr++) = 0x10; // ScopeOp
+    ssdt_ptr = encodeLen(ssdt_ptr, length - (ssdt_ptr - ssdt), 3);
+    *(ssdt_ptr++) = '_';
+    *(ssdt_ptr++) = 'S';
+    *(ssdt_ptr++) = 'B';
+    *(ssdt_ptr++) = '_';
+
+    // build Processor object क्रम each processor
+    पूर्णांक i;
+    क्रम (i=0; i<acpi_cpus; i++) अणु
+        स_नकल(ssdt_ptr, PROC_AML, PROC_SIZखातापूर्ण);
+        ssdt_ptr[PROC_OFFSET_CPUHEX] = getHex(i >> 4);
+        ssdt_ptr[PROC_OFFSET_CPUHEX+1] = getHex(i);
+        ssdt_ptr[PROC_OFFSET_CPUID1] = i;
+        ssdt_ptr[PROC_OFFSET_CPUID2] = i;
+        ssdt_ptr += PROC_SIZखातापूर्ण;
+    पूर्ण
+
+    // build "Method(NTFY, 2) {If (LEqual(Arg0, 0x00)) {Notify(CP00, Arg1)} ...}"
+    // Arg0 = Processor ID = APIC ID
+    ssdt_ptr = build_notअगरy(ssdt_ptr, "NTFY", 0, acpi_cpus, "CP00", 2);
+
+    // build "Name(CPON, Package() { One, One, ..., Zero, Zero, ... })"
+    *(ssdt_ptr++) = 0x08; // NameOp
+    *(ssdt_ptr++) = 'C';
+    *(ssdt_ptr++) = 'P';
+    *(ssdt_ptr++) = 'O';
+    *(ssdt_ptr++) = 'N';
+    *(ssdt_ptr++) = 0x12; // PackageOp
+    ssdt_ptr = encodeLen(ssdt_ptr, 2+1+(1*acpi_cpus), 2);
+    *(ssdt_ptr++) = acpi_cpus;
+    क्रम (i=0; i<acpi_cpus; i++)
+        *(ssdt_ptr++) = (apic_id_is_present(i)) ? 0x01 : 0x00;
+
+    // build Scope(PCI0) opcode
+    *(ssdt_ptr++) = 0x10; // ScopeOp
+    ssdt_ptr = encodeLen(ssdt_ptr, length - (ssdt_ptr - ssdt), 3);
+    *(ssdt_ptr++) = 'P';
+    *(ssdt_ptr++) = 'C';
+    *(ssdt_ptr++) = 'I';
+    *(ssdt_ptr++) = '0';
+
+    // build Device object क्रम each slot
+    u32 rmvc_pcrm = inl(PCI_RMV_BASE);
+    क्रम (i=1; i<PCI_SLOTS; i++) अणु
+        u32 eject = rmvc_pcrm & (0x1 << i);
+        स_नकल(ssdt_ptr, PCIHP_AML, PCIHP_SIZखातापूर्ण);
+        patch_pcihp(i, ssdt_ptr, eject != 0);
+        ssdt_ptr += PCIHP_SIZखातापूर्ण;
+    पूर्ण
+
+    ssdt_ptr = build_notअगरy(ssdt_ptr, "PCNT", 1, PCI_SLOTS, "S00_", 1);
+
+    build_header((व्योम*)ssdt, SSDT_SIGNATURE, ssdt_ptr - ssdt, 1);
+
+    //hexdump(ssdt, ssdt_ptr - ssdt);
+
+    वापस ssdt;
+पूर्ण
+
+#घोषणा HPET_ID         0x000
+#घोषणा HPET_PERIOD     0x004
+
+अटल व्योम*
+build_hpet(व्योम)
+अणु
+    काष्ठा acpi_20_hpet *hpet;
+    स्थिर व्योम *hpet_base = (व्योम *)BUILD_HPET_ADDRESS;
+    u32 hpet_venकरोr = पढ़ोl(hpet_base + HPET_ID) >> 16;
+    u32 hpet_period = पढ़ोl(hpet_base + HPET_PERIOD);
+
+    अगर (hpet_venकरोr == 0 || hpet_venकरोr == 0xffff ||
+        hpet_period == 0 || hpet_period > 100000000)
+        वापस शून्य;
+
+    hpet = दो_स्मृति_high(माप(*hpet));
+    अगर (!hpet) अणु
+        warn_noalloc();
+        वापस शून्य;
+    पूर्ण
+
+    स_रखो(hpet, 0, माप(*hpet));
+    /* Note समयr_block_id value must be kept in sync with value advertised by
+     * emulated hpet
+     */
+    hpet->समयr_block_id = cpu_to_le32(0x8086a201);
+    hpet->addr.address = cpu_to_le64(BUILD_HPET_ADDRESS);
+    build_header((व्योम*)hpet, HPET_SIGNATURE, माप(*hpet), 1);
+
+    वापस hpet;
+पूर्ण
+
+अटल व्योम
+acpi_build_srat_memory(काष्ठा srat_memory_affinity *numamem,
+                       u64 base, u64 len, पूर्णांक node, पूर्णांक enabled)
+अणु
+    numamem->type = SRAT_MEMORY;
+    numamem->length = माप(*numamem);
+    स_रखो(numamem->proximity, 0, 4);
+    numamem->proximity[0] = node;
+    numamem->flags = cpu_to_le32(!!enabled);
+    numamem->base_addr = cpu_to_le64(base);
+    numamem->range_length = cpu_to_le64(len);
+पूर्ण
+
+अटल व्योम *
+build_srat(व्योम)
+अणु
+    पूर्णांक numadatasize, numacpusize;
+    u64 *numadata = romfile_loadfile("etc/numa-nodes", &numadatasize);
+    u64 *numacpumap = romfile_loadfile("etc/numa-cpu-map", &numacpusize);
+    अगर (!numadata || !numacpumap)
+        जाओ fail;
+    पूर्णांक max_cpu = numacpusize / माप(u64);
+    पूर्णांक nb_numa_nodes = numadatasize / माप(u64);
+
+    काष्ठा प्रणाली_resource_affinity_table *srat;
+    पूर्णांक srat_size = माप(*srat) +
+        माप(काष्ठा srat_processor_affinity) * max_cpu +
+        माप(काष्ठा srat_memory_affinity) * (nb_numa_nodes + 2);
+
+    srat = दो_स्मृति_high(srat_size);
+    अगर (!srat) अणु
+        warn_noalloc();
+        जाओ fail;
+    पूर्ण
+
+    स_रखो(srat, 0, srat_size);
+    srat->reserved1=cpu_to_le32(1);
+    काष्ठा srat_processor_affinity *core = (व्योम*)(srat + 1);
+    पूर्णांक i;
+    u64 curnode;
+
+    क्रम (i = 0; i < max_cpu; ++i) अणु
+        core->type = SRAT_PROCESSOR;
+        core->length = माप(*core);
+        core->local_apic_id = i;
+        curnode = *numacpumap++;
+        core->proximity_lo = curnode;
+        स_रखो(core->proximity_hi, 0, 3);
+        core->local_sapic_eid = 0;
+        अगर (apic_id_is_present(i))
+            core->flags = cpu_to_le32(1);
+        अन्यथा
+            core->flags = cpu_to_le32(0);
+        core++;
+    पूर्ण
+
+
+    /* the memory map is a bit tricky, it contains at least one hole
+     * from 640k-1M and possibly another one from 3.5G-4G.
+     */
+    काष्ठा srat_memory_affinity *numamem = (व्योम*)core;
+    पूर्णांक slots = 0;
+    u64 mem_len, mem_base, next_base = 0;
+
+    acpi_build_srat_memory(numamem, 0, 640*1024, 0, 1);
+    next_base = 1024 * 1024;
+    numamem++;
+    slots++;
+    क्रम (i = 1; i < nb_numa_nodes + 1; ++i) अणु
+        mem_base = next_base;
+        mem_len = *numadata++;
+        अगर (i == 1)
+            mem_len -= 1024 * 1024;
+        next_base = mem_base + mem_len;
+
+        /* Cut out the PCI hole */
+        अगर (mem_base <= RamSize && next_base > RamSize) अणु
+            mem_len -= next_base - RamSize;
+            अगर (mem_len > 0) अणु
+                acpi_build_srat_memory(numamem, mem_base, mem_len, i-1, 1);
+                numamem++;
+                slots++;
+            पूर्ण
+            mem_base = 1ULL << 32;
+            mem_len = next_base - RamSize;
+            next_base += (1ULL << 32) - RamSize;
+        पूर्ण
+        acpi_build_srat_memory(numamem, mem_base, mem_len, i-1, 1);
+        numamem++;
+        slots++;
+    पूर्ण
+    क्रम (; slots < nb_numa_nodes + 2; slots++) अणु
+        acpi_build_srat_memory(numamem, 0, 0, 0, 0);
+        numamem++;
+    पूर्ण
+
+    build_header((व्योम*)srat, SRAT_SIGNATURE, srat_size, 1);
+
+    मुक्त(numadata);
+    मुक्त(numacpumap);
+    वापस srat;
+fail:
+    मुक्त(numadata);
+    मुक्त(numacpumap);
+    वापस शून्य;
+पूर्ण
+
+अटल व्योम *
+build_mcfg_q35(व्योम)
+अणु
+    काष्ठा acpi_table_mcfg *mcfg;
+
+    पूर्णांक len = माप(*mcfg) + 1 * माप(mcfg->allocation[0]);
+    mcfg = दो_स्मृति_high(len);
+    अगर (!mcfg) अणु
+        warn_noalloc();
+        वापस शून्य;
+    पूर्ण
+    स_रखो(mcfg, 0, len);
+    mcfg->allocation[0].address = cpu_to_le64(Q35_HOST_BRIDGE_PCIEXBAR_ADDR);
+    mcfg->allocation[0].pci_segment = cpu_to_le16(Q35_HOST_PCIE_PCI_SEGMENT);
+    mcfg->allocation[0].start_bus_number = Q35_HOST_PCIE_START_BUS_NUMBER;
+    mcfg->allocation[0].end_bus_number = Q35_HOST_PCIE_END_BUS_NUMBER;
+
+    build_header((व्योम *)mcfg, MCFG_SIGNATURE, len, 1);
+    वापस mcfg;
+पूर्ण
+
+अटल स्थिर काष्ठा pci_device_id acpi_find_tbl[] = अणु
+    /* PIIX4 Power Management device. */
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3, शून्य),
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH9_LPC, शून्य),
+    PCI_DEVICE_END,
+पूर्ण;
+
+#घोषणा MAX_ACPI_TABLES 20
+व्योम
+acpi_setup(व्योम)
+अणु
+    अगर (! CONFIG_ACPI)
+        वापस;
+
+    dम_लिखो(3, "init ACPI tables\n");
+
+    // This code is hardcoded क्रम PIIX4 Power Management device.
+    काष्ठा pci_device *pci = pci_find_init_device(acpi_find_tbl, शून्य);
+    अगर (!pci)
+        // Device not found
+        वापस;
+
+    // Build ACPI tables
+    u32 tables[MAX_ACPI_TABLES], tbl_idx = 0;
+
+#घोषणा ACPI_INIT_TABLE(X)                                   \
+    करो अणु                                                     \
+        tables[tbl_idx] = cpu_to_le32((u32)(X));             \
+        अगर (le32_to_cpu(tables[tbl_idx]))                    \
+            tbl_idx++;                                       \
+    पूर्ण जबतक(0)
+
+    काष्ठा fadt_descriptor_rev1 *fadt = build_fadt(pci);
+    ACPI_INIT_TABLE(fadt);
+    ACPI_INIT_TABLE(build_ssdt());
+    ACPI_INIT_TABLE(build_madt());
+    ACPI_INIT_TABLE(build_hpet());
+    ACPI_INIT_TABLE(build_srat());
+    अगर (pci->device == PCI_DEVICE_ID_INTEL_ICH9_LPC)
+        ACPI_INIT_TABLE(build_mcfg_q35());
+
+    काष्ठा romfile_s *file = शून्य;
+    क्रम (;;) अणु
+        file = romfile_findprefix("acpi/", file);
+        अगर (!file)
+            अवरोध;
+        काष्ठा acpi_table_header *table = दो_स्मृति_high(file->size);
+        अगर (!table) अणु
+            warn_noalloc();
+            जारी;
+        पूर्ण
+        पूर्णांक ret = file->copy(file, table, file->size);
+        अगर (ret <= माप(*table))
+            जारी;
+        अगर (table->signature == DSDT_SIGNATURE) अणु
+            अगर (fadt) अणु
+                fill_dsdt(fadt, table);
+            पूर्ण
+        पूर्ण अन्यथा अणु
+            ACPI_INIT_TABLE(table);
+        पूर्ण
+        अगर (tbl_idx == MAX_ACPI_TABLES) अणु
+            warn_noalloc();
+            अवरोध;
+        पूर्ण
+    पूर्ण
+
+    अगर (CONFIG_ACPI_DSDT && fadt && !fadt->dsdt) अणु
+        /* शेष DSDT */
+        काष्ठा acpi_table_header *dsdt = दो_स्मृति_high(माप(AmlCode));
+        अगर (!dsdt) अणु
+            warn_noalloc();
+            वापस;
+        पूर्ण
+        स_नकल(dsdt, AmlCode, माप(AmlCode));
+        fill_dsdt(fadt, dsdt);
+        /* Strip out compiler-generated header अगर any */
+        स_रखो(dsdt, 0, माप *dsdt);
+        build_header(dsdt, DSDT_SIGNATURE, माप(AmlCode), 1);
+    पूर्ण
+
+    // Build final rsdt table
+    काष्ठा rsdt_descriptor_rev1 *rsdt;
+    माप_प्रकार rsdt_len = माप(*rsdt) + माप(u32) * tbl_idx;
+    rsdt = दो_स्मृति_high(rsdt_len);
+    अगर (!rsdt) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    स_रखो(rsdt, 0, rsdt_len);
+    स_नकल(rsdt->table_offset_entry, tables, माप(u32) * tbl_idx);
+    build_header((व्योम*)rsdt, RSDT_SIGNATURE, rsdt_len, 1);
+
+    // Build rsdp poपूर्णांकer table
+    काष्ठा rsdp_descriptor rsdp;
+    स_रखो(&rsdp, 0, माप(rsdp));
+    rsdp.signature = cpu_to_le64(RSDP_SIGNATURE);
+    स_नकल(rsdp.oem_id, BUILD_APPNAME6, 6);
+    rsdp.rsdt_physical_address = cpu_to_le32((u32)rsdt);
+    rsdp.checksum -= checksum(&rsdp, 20);
+    copy_acpi_rsdp(&rsdp);
+पूर्ण

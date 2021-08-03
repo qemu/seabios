@@ -1,0 +1,187 @@
+<शैली गुरु>
+// Standard VGA IO port access
+//
+// Copyright (C) 2012  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "farptr.h" // GET_FARVAR
+#समावेश "stdvga.h" // VGAREG_PEL_MASK
+#समावेश "vgautil.h" // stdvga_pelmask_पढ़ो
+#समावेश "x86.h" // inb
+
+u8
+stdvga_pelmask_पढ़ो(व्योम)
+अणु
+    वापस inb(VGAREG_PEL_MASK);
+पूर्ण
+
+व्योम
+stdvga_pelmask_ग_लिखो(u8 value)
+अणु
+    outb(value, VGAREG_PEL_MASK);
+पूर्ण
+
+
+u8
+stdvga_misc_पढ़ो(व्योम)
+अणु
+    वापस inb(VGAREG_READ_MISC_OUTPUT);
+पूर्ण
+
+व्योम
+stdvga_misc_ग_लिखो(u8 value)
+अणु
+    outb(value, VGAREG_WRITE_MISC_OUTPUT);
+पूर्ण
+
+व्योम
+stdvga_misc_mask(u8 off, u8 on)
+अणु
+    stdvga_misc_ग_लिखो((stdvga_misc_पढ़ो() & ~off) | on);
+पूर्ण
+
+
+u8
+stdvga_sequ_पढ़ो(u8 index)
+अणु
+    outb(index, VGAREG_SEQU_ADDRESS);
+    वापस inb(VGAREG_SEQU_DATA);
+पूर्ण
+
+व्योम
+stdvga_sequ_ग_लिखो(u8 index, u8 value)
+अणु
+    outw((value<<8) | index, VGAREG_SEQU_ADDRESS);
+पूर्ण
+
+व्योम
+stdvga_sequ_mask(u8 index, u8 off, u8 on)
+अणु
+    outb(index, VGAREG_SEQU_ADDRESS);
+    u8 v = inb(VGAREG_SEQU_DATA);
+    outb((v & ~off) | on, VGAREG_SEQU_DATA);
+पूर्ण
+
+
+u8
+stdvga_grdc_पढ़ो(u8 index)
+अणु
+    outb(index, VGAREG_GRDC_ADDRESS);
+    वापस inb(VGAREG_GRDC_DATA);
+पूर्ण
+
+व्योम
+stdvga_grdc_ग_लिखो(u8 index, u8 value)
+अणु
+    outw((value<<8) | index, VGAREG_GRDC_ADDRESS);
+पूर्ण
+
+व्योम
+stdvga_grdc_mask(u8 index, u8 off, u8 on)
+अणु
+    outb(index, VGAREG_GRDC_ADDRESS);
+    u8 v = inb(VGAREG_GRDC_DATA);
+    outb((v & ~off) | on, VGAREG_GRDC_DATA);
+पूर्ण
+
+
+u8
+stdvga_crtc_पढ़ो(u16 crtc_addr, u8 index)
+अणु
+    outb(index, crtc_addr);
+    वापस inb(crtc_addr + 1);
+पूर्ण
+
+व्योम
+stdvga_crtc_ग_लिखो(u16 crtc_addr, u8 index, u8 value)
+अणु
+    outw((value<<8) | index, crtc_addr);
+पूर्ण
+
+व्योम
+stdvga_crtc_mask(u16 crtc_addr, u8 index, u8 off, u8 on)
+अणु
+    outb(index, crtc_addr);
+    u8 v = inb(crtc_addr + 1);
+    outb((v & ~off) | on, crtc_addr + 1);
+पूर्ण
+
+
+u8
+stdvga_attr_पढ़ो(u8 index)
+अणु
+    inb(VGAREG_ACTL_RESET);
+    u8 orig = inb(VGAREG_ACTL_ADDRESS);
+    outb(index, VGAREG_ACTL_ADDRESS);
+    u8 v = inb(VGAREG_ACTL_READ_DATA);
+    inb(VGAREG_ACTL_RESET);
+    outb(orig, VGAREG_ACTL_ADDRESS);
+    वापस v;
+पूर्ण
+
+व्योम
+stdvga_attr_ग_लिखो(u8 index, u8 value)
+अणु
+    inb(VGAREG_ACTL_RESET);
+    u8 orig = inb(VGAREG_ACTL_ADDRESS);
+    outb(index, VGAREG_ACTL_ADDRESS);
+    outb(value, VGAREG_ACTL_WRITE_DATA);
+    outb(orig, VGAREG_ACTL_ADDRESS);
+पूर्ण
+
+व्योम
+stdvga_attr_mask(u8 index, u8 off, u8 on)
+अणु
+    inb(VGAREG_ACTL_RESET);
+    u8 orig = inb(VGAREG_ACTL_ADDRESS);
+    outb(index, VGAREG_ACTL_ADDRESS);
+    u8 v = inb(VGAREG_ACTL_READ_DATA);
+    outb((v & ~off) | on, VGAREG_ACTL_WRITE_DATA);
+    outb(orig, VGAREG_ACTL_ADDRESS);
+पूर्ण
+
+u8
+stdvga_attrindex_पढ़ो(व्योम)
+अणु
+    inb(VGAREG_ACTL_RESET);
+    वापस inb(VGAREG_ACTL_ADDRESS);
+पूर्ण
+
+व्योम
+stdvga_attrindex_ग_लिखो(u8 value)
+अणु
+    inb(VGAREG_ACTL_RESET);
+    outb(value, VGAREG_ACTL_ADDRESS);
+पूर्ण
+
+
+व्योम
+stdvga_dac_पढ़ो(u16 seg, u8 *data_far, u8 start, पूर्णांक count)
+अणु
+    outb(start, VGAREG_DAC_READ_ADDRESS);
+    जबतक (count) अणु
+        SET_FARVAR(seg, *data_far, inb(VGAREG_DAC_DATA));
+        data_far++;
+        SET_FARVAR(seg, *data_far, inb(VGAREG_DAC_DATA));
+        data_far++;
+        SET_FARVAR(seg, *data_far, inb(VGAREG_DAC_DATA));
+        data_far++;
+        count--;
+    पूर्ण
+पूर्ण
+
+व्योम
+stdvga_dac_ग_लिखो(u16 seg, u8 *data_far, u8 start, पूर्णांक count)
+अणु
+    outb(start, VGAREG_DAC_WRITE_ADDRESS);
+    जबतक (count) अणु
+        outb(GET_FARVAR(seg, *data_far), VGAREG_DAC_DATA);
+        data_far++;
+        outb(GET_FARVAR(seg, *data_far), VGAREG_DAC_DATA);
+        data_far++;
+        outb(GET_FARVAR(seg, *data_far), VGAREG_DAC_DATA);
+        data_far++;
+        count--;
+    पूर्ण
+पूर्ण

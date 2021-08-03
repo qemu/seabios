@@ -1,0 +1,101 @@
+<शैली गुरु>
+// Support क्रम MC146818 Real Time Clock chip.
+//
+// Copyright (C) 2008-2013  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2002  MandrakeSoft S.A.
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_LOW
+#समावेश "rtc.h" // rtc_पढ़ो
+#समावेश "stacks.h" // yield
+#समावेश "util.h" // समयr_calc
+#समावेश "x86.h" // inb
+
+u8
+rtc_पढ़ो(u8 index)
+अणु
+    index |= NMI_DISABLE_BIT;
+    outb(index, PORT_CMOS_INDEX);
+    वापस inb(PORT_CMOS_DATA);
+पूर्ण
+
+व्योम
+rtc_ग_लिखो(u8 index, u8 val)
+अणु
+    index |= NMI_DISABLE_BIT;
+    outb(index, PORT_CMOS_INDEX);
+    outb(val, PORT_CMOS_DATA);
+पूर्ण
+
+व्योम
+rtc_mask(u8 index, u8 off, u8 on)
+अणु
+    index |= NMI_DISABLE_BIT;
+    outb(index, PORT_CMOS_INDEX);
+    u8 val = inb(PORT_CMOS_DATA);
+    outb((val & ~off) | on, PORT_CMOS_DATA);
+पूर्ण
+
+पूर्णांक
+rtc_updating(व्योम)
+अणु
+    // This function checks to see अगर the update-in-progress bit
+    // is set in CMOS Status Register A.  If not, it वापसs 0.
+    // If it is set, it tries to रुको until there is a transition
+    // to 0, and will वापस 0 अगर such a transition occurs.  A -1
+    // is वापसed only after timing out.  The maximum period
+    // that this bit should be set is स्थिरrained to (1984+244)
+    // useconds, but we रुको क्रम दीर्घer just to be sure.
+
+    अगर ((rtc_पढ़ो(CMOS_STATUS_A) & RTC_A_UIP) == 0)
+        वापस 0;
+    u32 end = समयr_calc(15);
+    क्रम (;;) अणु
+        अगर ((rtc_पढ़ो(CMOS_STATUS_A) & RTC_A_UIP) == 0)
+            वापस 0;
+        अगर (समयr_check(end))
+            // update-in-progress never transitioned to 0
+            वापस -1;
+        yield();
+    पूर्ण
+पूर्ण
+
+व्योम
+rtc_setup(व्योम)
+अणु
+    अगर (!CONFIG_RTC_TIMER)
+        वापस;
+    rtc_ग_लिखो(CMOS_STATUS_A, 0x26);    // 32,768Khz src, 976.5625us updates
+    rtc_mask(CMOS_STATUS_B, ~RTC_B_DSE, RTC_B_24HR);
+    rtc_पढ़ो(CMOS_STATUS_C);
+    rtc_पढ़ो(CMOS_STATUS_D);
+पूर्ण
+
+पूर्णांक RTCusers VARLOW;
+
+व्योम
+rtc_use(व्योम)
+अणु
+    अगर (!CONFIG_RTC_TIMER)
+        वापस;
+    पूर्णांक count = GET_LOW(RTCusers);
+    SET_LOW(RTCusers, count+1);
+    अगर (count)
+        वापस;
+    // Turn on the Periodic Interrupt समयr
+    rtc_mask(CMOS_STATUS_B, 0, RTC_B_PIE);
+पूर्ण
+
+व्योम
+rtc_release(व्योम)
+अणु
+    अगर (!CONFIG_RTC_TIMER)
+        वापस;
+    पूर्णांक count = GET_LOW(RTCusers);
+    SET_LOW(RTCusers, count-1);
+    अगर (count != 1)
+        वापस;
+    // Clear the Periodic Interrupt.
+    rtc_mask(CMOS_STATUS_B, RTC_B_PIE, 0);
+पूर्ण

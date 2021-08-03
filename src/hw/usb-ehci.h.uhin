@@ -1,0 +1,178 @@
+<शैली गुरु>
+#अगर_अघोषित __USB_EHCI_H
+#घोषणा __USB_EHCI_H
+
+// usb-ehci.c
+व्योम ehci_setup(व्योम);
+व्योम ehci_रुको_controllers(व्योम);
+काष्ठा usbdevice_s;
+काष्ठा usb_endpoपूर्णांक_descriptor;
+काष्ठा usb_pipe;
+काष्ठा usb_pipe *ehci_पुनः_स्मृति_pipe(काष्ठा usbdevice_s *usbdev
+                                   , काष्ठा usb_pipe *upipe
+                                   , काष्ठा usb_endpoपूर्णांक_descriptor *epdesc);
+पूर्णांक ehci_send_pipe(काष्ठा usb_pipe *p, पूर्णांक dir, स्थिर व्योम *cmd
+                   , व्योम *data, पूर्णांक datasize);
+पूर्णांक ehci_poll_पूर्णांकr(काष्ठा usb_pipe *p, व्योम *data);
+
+
+/****************************************************************
+ * ehci काष्ठाs and flags
+ ****************************************************************/
+
+काष्ठा ehci_caps अणु
+    u8 caplength;
+    u8 reserved_01;
+    u16 hciversion;
+    u32 hcsparams;
+    u32 hccparams;
+    u64 portroute;
+पूर्ण PACKED;
+
+#घोषणा HCC_64BIT_ADDR 1
+
+#घोषणा HCS_N_PORTS_MASK 0xf
+
+काष्ठा ehci_regs अणु
+    u32 usbcmd;
+    u32 usbsts;
+    u32 usbपूर्णांकr;
+    u32 frindex;
+    u32 ctrldssegment;
+    u32 periodiclistbase;
+    u32 asynclistbase;
+    u32 reserved[9];
+    u32 configflag;
+    u32 portsc[0];
+पूर्ण PACKED;
+
+#घोषणा CMD_PARK        (1<<11)
+#घोषणा CMD_PARK_CNT(c) (((c)>>8)&3)
+#घोषणा CMD_LRESET      (1<<7)
+#घोषणा CMD_IAAD        (1<<6)
+#घोषणा CMD_ASE         (1<<5)
+#घोषणा CMD_PSE         (1<<4)
+#घोषणा CMD_HCRESET     (1<<1)
+#घोषणा CMD_RUN         (1<<0)
+
+#घोषणा STS_ASS         (1<<15)
+#घोषणा STS_PSS         (1<<14)
+#घोषणा STS_RECL        (1<<13)
+#घोषणा STS_HALT        (1<<12)
+#घोषणा STS_IAA         (1<<5)
+#घोषणा STS_FATAL       (1<<4)
+#घोषणा STS_FLR         (1<<3)
+#घोषणा STS_PCD         (1<<2)
+#घोषणा STS_ERR         (1<<1)
+#घोषणा STS_INT         (1<<0)
+
+#घोषणा FLAG_CF         (1<<0)
+
+#घोषणा PORT_WKOC_E     (1<<22)
+#घोषणा PORT_WKDISC_E   (1<<21)
+#घोषणा PORT_WKCONN_E   (1<<20)
+#घोषणा PORT_TEST_PKT   (0x4<<16)
+#घोषणा PORT_LED_OFF    (0<<14)
+#घोषणा PORT_LED_AMBER  (1<<14)
+#घोषणा PORT_LED_GREEN  (2<<14)
+#घोषणा PORT_LED_MASK   (3<<14)
+#घोषणा PORT_OWNER      (1<<13)
+#घोषणा PORT_POWER      (1<<12)
+#घोषणा PORT_LINESTATUS_MASK   (3<<10)
+#घोषणा PORT_LINESTATUS_KSTATE (1<<10)
+#घोषणा PORT_RESET      (1<<8)
+#घोषणा PORT_SUSPEND    (1<<7)
+#घोषणा PORT_RESUME     (1<<6)
+#घोषणा PORT_OCC        (1<<5)
+#घोषणा PORT_OC         (1<<4)
+#घोषणा PORT_PEC        (1<<3)
+#घोषणा PORT_PE         (1<<2)
+#घोषणा PORT_CSC        (1<<1)
+#घोषणा PORT_CONNECT    (1<<0)
+#घोषणा PORT_RWC_BITS   (PORT_CSC | PORT_PEC | PORT_OCC)
+
+
+#घोषणा EHCI_QH_ALIGN 128 // Can't span a 4K boundary, so increase from 32
+
+काष्ठा ehci_qh अणु
+    u32 next;
+    u32 info1;
+    u32 info2;
+    u32 current;
+
+    u32 qtd_next;
+    u32 alt_next;
+    u32 token;
+    u32 buf[5];
+    u32 buf_hi[5];
+पूर्ण PACKED;
+
+#घोषणा QH_CONTROL       (1 << 27)
+#घोषणा QH_MAXPACKET_SHIFT 16
+#घोषणा QH_MAXPACKET_MASK  (0x7ff << QH_MAXPACKET_SHIFT)
+#घोषणा QH_HEAD          (1 << 15)
+#घोषणा QH_TOGGLECONTROL (1 << 14)
+#घोषणा QH_SPEED_SHIFT   12
+#घोषणा QH_SPEED_MASK    (0x3 << QH_SPEED_SHIFT)
+#घोषणा QH_EP_SHIFT      8
+#घोषणा QH_EP_MASK       (0xf << QH_EP_SHIFT)
+#घोषणा QH_DEVADDR_SHIFT 0
+#घोषणा QH_DEVADDR_MASK  (0x7f << QH_DEVADDR_SHIFT)
+
+#घोषणा QH_SMASK_SHIFT   0
+#घोषणा QH_SMASK_MASK    (0xff << QH_SMASK_SHIFT)
+#घोषणा QH_CMASK_SHIFT   8
+#घोषणा QH_CMASK_MASK    (0xff << QH_CMASK_SHIFT)
+#घोषणा QH_HUBADDR_SHIFT 16
+#घोषणा QH_HUBADDR_MASK  (0x7f << QH_HUBADDR_SHIFT)
+#घोषणा QH_HUBPORT_SHIFT 23
+#घोषणा QH_HUBPORT_MASK  (0x7f << QH_HUBPORT_SHIFT)
+#घोषणा QH_MULT_SHIFT    30
+#घोषणा QH_MULT_MASK     (0x3 << QH_MULT_SHIFT)
+
+#घोषणा EHCI_PTR_BITS           0x001F
+#घोषणा EHCI_PTR_TERM           0x0001
+#घोषणा EHCI_PTR_QH             0x0002
+
+
+#घोषणा EHCI_QTD_ALIGN 64 // Can't span a 4K boundary, so increase from 32
+
+काष्ठा ehci_qtd अणु
+    u32 qtd_next;
+    u32 alt_next;
+    u32 token;
+    u32 buf[5];
+    u32 buf_hi[5];
+    /* keep काष्ठा size a multiple of 64 bytes, as we're allocating
+       arrays. Without this padding, the second qtd could have the
+       wrong alignment. */
+पूर्ण PACKED __aligned(EHCI_QTD_ALIGN);
+
+#घोषणा QTD_TOGGLE      (1 << 31)
+#घोषणा QTD_LENGTH_SHIFT 16
+#घोषणा QTD_LENGTH_MASK (0x7fff << QTD_LENGTH_SHIFT)
+#घोषणा QTD_CERR_SHIFT  10
+#घोषणा QTD_CERR_MASK   (0x3 << QTD_CERR_SHIFT)
+#घोषणा QTD_IOC         (1 << 15)
+#घोषणा QTD_PID_OUT     (0x0 << 8)
+#घोषणा QTD_PID_IN      (0x1 << 8)
+#घोषणा QTD_PID_SETUP   (0x2 << 8)
+#घोषणा QTD_STS_ACTIVE  (1 << 7)
+#घोषणा QTD_STS_HALT    (1 << 6)
+#घोषणा QTD_STS_DBE     (1 << 5)
+#घोषणा QTD_STS_BABBLE  (1 << 4)
+#घोषणा QTD_STS_XACT    (1 << 3)
+#घोषणा QTD_STS_MMF     (1 << 2)
+#घोषणा QTD_STS_STS     (1 << 1)
+#घोषणा QTD_STS_PING    (1 << 0)
+
+#घोषणा ehci_explen(len) (((len) << QTD_LENGTH_SHIFT) & QTD_LENGTH_MASK)
+
+#घोषणा ehci_maxerr(err) (((err) << QTD_CERR_SHIFT) & QTD_CERR_MASK)
+
+
+काष्ठा ehci_framelist अणु
+    u32 links[1024];
+पूर्ण PACKED;
+
+#पूर्ण_अगर // usb-ehci.h

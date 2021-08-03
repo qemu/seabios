@@ -1,0 +1,1044 @@
+<शैली गुरु>
+// Code to load disk image and start प्रणाली boot.
+//
+// Copyright (C) 2008-2013  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2002  MandrakeSoft S.A.
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "block.h" // काष्ठा drive_s
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "config.h" // CONFIG_*
+#समावेश "fw/paravirt.h" // qemu_cfg_show_boot_menu
+#समावेश "hw/pci.h" // pci_bdf_to_*
+#समावेश "hw/pcidevice.h" // काष्ठा pci_device
+#समावेश "hw/rtc.h" // rtc_पढ़ो
+#समावेश "hw/usb.h" // काष्ठा usbdevice_s
+#समावेश "list.h" // hlist_node
+#समावेश "malloc.h" // मुक्त
+#समावेश "output.h" // dम_लिखो
+#समावेश "romfile.h" // romfile_loadपूर्णांक
+#समावेश "std/disk.h" // काष्ठा mbr_s
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // irqसमयr_calc
+#समावेश "tcgbios.h" // tpm_*
+
+/****************************************************************
+ * Helper search functions
+ ****************************************************************/
+
+// See अगर 'str' starts with 'glob' - if glob contains an '*' अक्षरacter
+// it will match any number of अक्षरacters in str that aren't a '/' or
+// the next glob अक्षरacter.
+अटल अक्षर *
+glob_prefix(स्थिर अक्षर *glob, स्थिर अक्षर *str)
+अणु
+    क्रम (;;) अणु
+        अगर (!*glob && (!*str || *str == '/'))
+            वापस (अक्षर*)str;
+        अगर (*glob == '*') अणु
+            अगर (!*str || *str == '/' || *str == glob[1])
+                glob++;
+            अन्यथा
+                str++;
+            जारी;
+        पूर्ण
+        अगर (*glob != *str)
+            वापस शून्य;
+        glob++;
+        str++;
+    पूर्ण
+पूर्ण
+
+#घोषणा FW_PCI_DOMAIN "/pci@i0cf8"
+
+अटल अक्षर *
+build_pci_path(अक्षर *buf, पूर्णांक max, स्थिर अक्षर *devname, काष्ठा pci_device *pci)
+अणु
+    // Build the string path of a bdf - क्रम example: /pci@i0cf8/isa@1,2
+    अक्षर *p = buf;
+    अगर (pci->parent) अणु
+        p = build_pci_path(p, max, "pci-bridge", pci->parent);
+    पूर्ण अन्यथा अणु
+        p += snम_लिखो(p, buf+max-p, "%s", FW_PCI_DOMAIN);
+        अगर (pci->rootbus)
+            p += snम_लिखो(p, buf+max-p, ",%x", pci->rootbus);
+    पूर्ण
+
+    पूर्णांक dev = pci_bdf_to_dev(pci->bdf), fn = pci_bdf_to_fn(pci->bdf);
+    p += snम_लिखो(p, buf+max-p, "/%s@%x", devname, dev);
+    अगर (fn)
+        p += snम_लिखो(p, buf+max-p, ",%x", fn);
+    वापस p;
+पूर्ण
+
+अटल अक्षर *
+build_scsi_path(अक्षर *buf, पूर्णांक max,
+                काष्ठा pci_device *pci, पूर्णांक target, पूर्णांक lun)
+अणु
+    // Build the string path of a scsi drive - क्रम example:
+    // /pci@i0cf8/scsi@5/channel@0/disk@1,0
+    अक्षर *p;
+    p = build_pci_path(buf, max, "*", pci);
+    p += snम_लिखो(p, buf+max-p, "/*@0/*@%x,%x", target, lun);
+    वापस p;
+पूर्ण
+
+अटल अक्षर *
+build_ata_path(अक्षर *buf, पूर्णांक max,
+               काष्ठा pci_device *pci, पूर्णांक chanid, पूर्णांक slave)
+अणु
+    // Build the string path of an ata drive - क्रम example:
+    // /pci@i0cf8/ide@1,1/drive@1/disk@0
+    अक्षर *p;
+    p = build_pci_path(buf, max, "*", pci);
+    p += snम_लिखो(p, buf+max-p, "/drive@%x/disk@%x", chanid, slave);
+    वापस p;
+पूर्ण
+
+
+/****************************************************************
+ * Boot device logical geometry
+ ****************************************************************/
+
+प्रकार काष्ठा BootDeviceLCHS अणु
+    अक्षर *name;
+    u32 lcyls;
+    u32 lheads;
+    u32 lsecs;
+पूर्ण BootDeviceLCHS;
+
+अटल BootDeviceLCHS *BiosGeometry VARVERIFY32INIT;
+अटल पूर्णांक BiosGeometryCount;
+
+अटल अक्षर *
+parse_u32(अक्षर *cur, u32 *n)
+अणु
+    u32 m = 0;
+    अगर (cur) अणु
+        जबतक ('0' <= *cur && *cur <= '9') अणु
+            m = 10 * m + (*cur - '0');
+            cur++;
+        पूर्ण
+        अगर (*cur != '\0')
+            cur++;
+    पूर्ण
+    *n = m;
+    वापस cur;
+पूर्ण
+
+अटल व्योम
+loadBiosGeometry(व्योम)
+अणु
+    अगर (!CONFIG_HOST_BIOS_GEOMETRY)
+        वापस;
+    अक्षर *f = romfile_loadfile("bios-geometry", शून्य);
+    अगर (!f)
+        वापस;
+
+    पूर्णांक i = 0;
+    BiosGeometryCount = 1;
+    जबतक (f[i]) अणु
+        अगर (f[i] == '\n')
+            BiosGeometryCount++;
+        i++;
+    पूर्ण
+    BiosGeometry = दो_स्मृति_पंचांगphigh(BiosGeometryCount * माप(BootDeviceLCHS));
+    अगर (!BiosGeometry) अणु
+        warn_noalloc();
+        मुक्त(f);
+        BiosGeometryCount = 0;
+        वापस;
+    पूर्ण
+
+    dम_लिखो(1, "bios geometry:\n");
+    i = 0;
+    करो अणु
+        BootDeviceLCHS *d = &BiosGeometry[i];
+        d->name = f;
+        f = म_अक्षर(f, '\n');
+        अगर (f)
+            *(f++) = '\0';
+        अक्षर *chs_values = म_अक्षर(d->name, ' ');
+        अगर (chs_values)
+            *(chs_values++) = '\0';
+        chs_values = parse_u32(chs_values, &d->lcyls);
+        chs_values = parse_u32(chs_values, &d->lheads);
+        chs_values = parse_u32(chs_values, &d->lsecs);
+        dम_लिखो(1, "%s: (%u, %u, %u)\n",
+                d->name, d->lcyls, d->lheads, d->lsecs);
+        i++;
+    पूर्ण जबतक (f);
+पूर्ण
+
+// Search the bios-geometry list क्रम the given glob pattern.
+अटल BootDeviceLCHS *
+boot_lchs_find(स्थिर अक्षर *glob)
+अणु
+    dम_लिखो(1, "Searching bios-geometry for: %s\n", glob);
+    पूर्णांक i;
+    क्रम (i = 0; i < BiosGeometryCount; i++)
+        अगर (glob_prefix(glob, BiosGeometry[i].name))
+            वापस &BiosGeometry[i];
+    वापस शून्य;
+पूर्ण
+
+पूर्णांक boot_lchs_find_pci_device(काष्ठा pci_device *pci, काष्ठा chs_s *chs)
+अणु
+    अगर (!CONFIG_HOST_BIOS_GEOMETRY)
+        वापस -1;
+    अक्षर desc[256];
+    build_pci_path(desc, माप(desc), "*", pci);
+    BootDeviceLCHS *b = boot_lchs_find(desc);
+    अगर (!b)
+        वापस -1;
+    chs->cylinder = (u16)b->lcyls;
+    chs->head = (u16)b->lheads;
+    chs->sector = (u16)b->lsecs;
+    वापस 0;
+पूर्ण
+
+पूर्णांक boot_lchs_find_scsi_device(काष्ठा pci_device *pci, पूर्णांक target, पूर्णांक lun,
+                               काष्ठा chs_s *chs)
+अणु
+    अगर (!CONFIG_HOST_BIOS_GEOMETRY)
+        वापस -1;
+    अगर (!pci)
+        // support only pci machine क्रम now
+        वापस -1;
+    // Find scsi drive - क्रम example: /pci@i0cf8/scsi@5/channel@0/disk@1,0
+    अक्षर desc[256];
+    build_scsi_path(desc, माप(desc), pci, target, lun);
+    BootDeviceLCHS *b = boot_lchs_find(desc);
+    अगर (!b)
+        वापस -1;
+    chs->cylinder = (u16)b->lcyls;
+    chs->head = (u16)b->lheads;
+    chs->sector = (u16)b->lsecs;
+    वापस 0;
+पूर्ण
+
+पूर्णांक boot_lchs_find_ata_device(काष्ठा pci_device *pci, पूर्णांक chanid, पूर्णांक slave,
+                              काष्ठा chs_s *chs)
+अणु
+    अगर (!CONFIG_HOST_BIOS_GEOMETRY)
+        वापस -1;
+    अगर (!pci)
+        // support only pci machine क्रम now
+        वापस -1;
+    // Find ata drive - क्रम example: /pci@i0cf8/ide@1,1/drive@1/disk@0
+    अक्षर desc[256];
+    build_ata_path(desc, माप(desc), pci, chanid, slave);
+    BootDeviceLCHS *b = boot_lchs_find(desc);
+    अगर (!b)
+        वापस -1;
+    chs->cylinder = (u16)b->lcyls;
+    chs->head = (u16)b->lheads;
+    chs->sector = (u16)b->lsecs;
+    वापस 0;
+पूर्ण
+
+
+/****************************************************************
+ * Boot priority ordering
+ ****************************************************************/
+
+अटल अक्षर **Bootorder VARVERIFY32INIT;
+अटल पूर्णांक BootorderCount;
+
+अटल व्योम
+loadBootOrder(व्योम)
+अणु
+    अगर (!CONFIG_BOOTORDER)
+        वापस;
+
+    अक्षर *f = romfile_loadfile("bootorder", शून्य);
+    अगर (!f)
+        वापस;
+
+    पूर्णांक i = 0;
+    BootorderCount = 1;
+    जबतक (f[i]) अणु
+        अगर (f[i] == '\n')
+            BootorderCount++;
+        i++;
+    पूर्ण
+    Bootorder = दो_स्मृति_पंचांगphigh(BootorderCount*माप(अक्षर*));
+    अगर (!Bootorder) अणु
+        warn_noalloc();
+        मुक्त(f);
+        BootorderCount = 0;
+        वापस;
+    पूर्ण
+
+    dम_लिखो(1, "boot order:\n");
+    i = 0;
+    करो अणु
+        Bootorder[i] = f;
+        f = म_अक्षर(f, '\n');
+        अगर (f)
+            *(f++) = '\0';
+        Bootorder[i] = nullTrailingSpace(Bootorder[i]);
+        dम_लिखो(1, "%d: %s\n", i+1, Bootorder[i]);
+        i++;
+    पूर्ण जबतक (f);
+पूर्ण
+
+// Search the bootorder list क्रम the given glob pattern.
+अटल पूर्णांक
+find_prio(स्थिर अक्षर *glob)
+अणु
+    dम_लिखो(1, "Searching bootorder for: %s\n", glob);
+    पूर्णांक i;
+    क्रम (i = 0; i < BootorderCount; i++)
+        अगर (glob_prefix(glob, Bootorder[i]))
+            वापस i+1;
+    वापस -1;
+पूर्ण
+
+u8 is_bootprio_strict(व्योम)
+अणु
+    अटल पूर्णांक prio_halt = -2;
+
+    अगर (prio_halt == -2)
+        prio_halt = find_prio("HALT");
+    वापस prio_halt >= 0;
+पूर्ण
+
+पूर्णांक bootprio_find_pci_device(काष्ठा pci_device *pci)
+अणु
+    अगर (CONFIG_CSM)
+        वापस csm_bootprio_pci(pci);
+    अगर (!CONFIG_BOOTORDER)
+        वापस -1;
+    // Find pci device - क्रम example: /pci@i0cf8/ethernet@5
+    अक्षर desc[256];
+    build_pci_path(desc, माप(desc), "*", pci);
+    वापस find_prio(desc);
+पूर्ण
+
+पूर्णांक bootprio_find_mmio_device(व्योम *mmio)
+अणु
+    अगर (!CONFIG_BOOTORDER)
+        वापस -1;
+    अक्षर desc[256];
+    snम_लिखो(desc, माप(desc), "/virtio-mmio@%016x/*", (u32)mmio);
+    वापस find_prio(desc);
+पूर्ण
+
+पूर्णांक bootprio_find_scsi_device(काष्ठा pci_device *pci, पूर्णांक target, पूर्णांक lun)
+अणु
+    अगर (!CONFIG_BOOTORDER)
+        वापस -1;
+    अगर (!pci)
+        // support only pci machine क्रम now
+        वापस -1;
+    अक्षर desc[256];
+    build_scsi_path(desc, माप(desc), pci, target, lun);
+    वापस find_prio(desc);
+पूर्ण
+
+पूर्णांक bootprio_find_scsi_mmio_device(व्योम *mmio, पूर्णांक target, पूर्णांक lun)
+अणु
+    अगर (!CONFIG_BOOTORDER)
+        वापस -1;
+    अक्षर desc[256];
+    snम_लिखो(desc, माप(desc), "/virtio-mmio@%016x/*@0/*@%x,%x",
+             (u32)mmio, target, lun);
+    वापस find_prio(desc);
+पूर्ण
+
+पूर्णांक bootprio_find_ata_device(काष्ठा pci_device *pci, पूर्णांक chanid, पूर्णांक slave)
+अणु
+    अगर (CONFIG_CSM)
+        वापस csm_bootprio_ata(pci, chanid, slave);
+    अगर (!CONFIG_BOOTORDER)
+        वापस -1;
+    अगर (!pci)
+        // support only pci machine क्रम now
+        वापस -1;
+    अक्षर desc[256];
+    build_ata_path(desc, माप(desc), pci, chanid, slave);
+    वापस find_prio(desc);
+पूर्ण
+
+पूर्णांक bootprio_find_fdc_device(काष्ठा pci_device *pci, पूर्णांक port, पूर्णांक fdid)
+अणु
+    अगर (CONFIG_CSM)
+        वापस csm_bootprio_fdc(pci, port, fdid);
+    अगर (!CONFIG_BOOTORDER)
+        वापस -1;
+    अगर (!pci)
+        // support only pci machine क्रम now
+        वापस -1;
+    // Find floppy - क्रम example: /pci@i0cf8/isa@1/fdc@03f1/floppy@0
+    अक्षर desc[256], *p;
+    p = build_pci_path(desc, माप(desc), "isa", pci);
+    snम_लिखो(p, desc+माप(desc)-p, "/fdc@%04x/floppy@%x", port, fdid);
+    वापस find_prio(desc);
+पूर्ण
+
+पूर्णांक bootprio_find_pci_rom(काष्ठा pci_device *pci, पूर्णांक instance)
+अणु
+    अगर (!CONFIG_BOOTORDER)
+        वापस -1;
+    // Find pci rom - क्रम example: /pci@i0cf8/scsi@3:rom2
+    अक्षर desc[256], *p;
+    p = build_pci_path(desc, माप(desc), "*", pci);
+    अगर (instance)
+        snम_लिखो(p, desc+माप(desc)-p, ":rom%x", instance);
+    वापस find_prio(desc);
+पूर्ण
+
+पूर्णांक bootprio_find_named_rom(स्थिर अक्षर *name, पूर्णांक instance)
+अणु
+    अगर (!CONFIG_BOOTORDER)
+        वापस -1;
+    // Find named rom - क्रम example: /rom@genroms/linuxboot.bin
+    अक्षर desc[256], *p;
+    p = desc + snम_लिखो(desc, माप(desc), "/rom@%s", name);
+    अगर (instance)
+        snम_लिखो(p, desc+माप(desc)-p, ":rom%x", instance);
+    वापस find_prio(desc);
+पूर्ण
+
+अटल पूर्णांक usb_porपंचांगap(काष्ठा usbdevice_s *usbdev)
+अणु
+    अगर (usbdev->hub->op->porपंचांगap)
+        वापस usbdev->hub->op->porपंचांगap(usbdev->hub, usbdev->port);
+    वापस usbdev->port + 1;
+पूर्ण
+
+अटल अक्षर *
+build_usb_path(अक्षर *buf, पूर्णांक max, काष्ठा usbhub_s *hub)
+अणु
+    अगर (!hub->usbdev)
+        // Root hub - nothing to add.
+        वापस buf;
+    अक्षर *p = build_usb_path(buf, max, hub->usbdev->hub);
+    p += snम_लिखो(p, buf+max-p, "/hub@%x", usb_porपंचांगap(hub->usbdev));
+    वापस p;
+पूर्ण
+
+पूर्णांक bootprio_find_usb(काष्ठा usbdevice_s *usbdev, पूर्णांक lun)
+अणु
+    अगर (!CONFIG_BOOTORDER)
+        वापस -1;
+    // Find usb - examples:
+    //   pci:  /pci@i0cf8/usb@1,2/storage@1/channel@0/disk@0,0
+    //   mmio: /sysbus-xhci@00000000fe900000/storage@1/channel@0/disk@0,0
+    अक्षर desc[256], *p;
+
+    अगर (usbdev->hub->cntl->pci)
+        p = build_pci_path(desc, माप(desc), "usb", usbdev->hub->cntl->pci);
+    अन्यथा अगर (usbdev->hub->cntl->mmio)
+        p = desc + snम_लिखो(desc, माप(desc), "/*@%016x"
+                            , (u32)usbdev->hub->cntl->mmio);
+    अन्यथा
+        वापस -1;
+
+    p = build_usb_path(p, desc+माप(desc)-p, usbdev->hub);
+    snम_लिखो(p, desc+माप(desc)-p, "/storage@%x/*@0/*@0,%x"
+             , usb_porपंचांगap(usbdev), lun);
+    पूर्णांक ret = find_prio(desc);
+    अगर (ret >= 0)
+        वापस ret;
+    // Try usb-host/redir - क्रम example: /pci@i0cf8/usb@1,2/usb-host@1
+    snम_लिखो(p, desc+माप(desc)-p, "/usb-*@%x", usb_porपंचांगap(usbdev));
+    वापस find_prio(desc);
+पूर्ण
+
+
+/****************************************************************
+ * Boot setup
+ ****************************************************************/
+
+अटल पूर्णांक BootRetryTime;
+अटल पूर्णांक CheckFloppySig = 1;
+
+#घोषणा DEFAULT_PRIO           9999
+
+अटल पूर्णांक DefaultFloppyPrio = 101;
+अटल पूर्णांक DefaultCDPrio     = 102;
+अटल पूर्णांक DefaultHDPrio     = 103;
+अटल पूर्णांक DefaultBEVPrio    = 104;
+
+व्योम
+boot_init(व्योम)
+अणु
+    अगर (! CONFIG_BOOT)
+        वापस;
+
+    अगर (CONFIG_QEMU) अणु
+        // On emulators, get boot order from nvram.
+        अगर (rtc_पढ़ो(CMOS_BIOS_BOOTFLAG1) & 1)
+            CheckFloppySig = 0;
+        u32 bootorder = (rtc_पढ़ो(CMOS_BIOS_BOOTFLAG2)
+                         | ((rtc_पढ़ो(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4));
+        DefaultFloppyPrio = DefaultCDPrio = DefaultHDPrio
+            = DefaultBEVPrio = DEFAULT_PRIO;
+        पूर्णांक i;
+        क्रम (i=101; i<104; i++) अणु
+            u32 val = bootorder & 0x0f;
+            bootorder >>= 4;
+            चयन (val) अणु
+            हाल 1: DefaultFloppyPrio = i; अवरोध;
+            हाल 2: DefaultHDPrio = i;     अवरोध;
+            हाल 3: DefaultCDPrio = i;     अवरोध;
+            हाल 4: DefaultBEVPrio = i;    अवरोध;
+            पूर्ण
+        पूर्ण
+    पूर्ण
+
+    BootRetryTime = romfile_loadपूर्णांक("etc/boot-fail-wait", 60*1000);
+
+    loadBootOrder();
+    loadBiosGeometry();
+पूर्ण
+
+
+/****************************************************************
+ * BootList handling
+ ****************************************************************/
+
+काष्ठा bootentry_s अणु
+    पूर्णांक type;
+    जोड़ अणु
+        u32 data;
+        काष्ठा segoff_s vector;
+        काष्ठा drive_s *drive;
+    पूर्ण;
+    पूर्णांक priority;
+    स्थिर अक्षर *description;
+    काष्ठा hlist_node node;
+पूर्ण;
+अटल काष्ठा hlist_head BootList VARVERIFY32INIT;
+
+#घोषणा IPL_TYPE_FLOPPY      0x01
+#घोषणा IPL_TYPE_HARDDISK    0x02
+#घोषणा IPL_TYPE_CDROM       0x03
+#घोषणा IPL_TYPE_CBFS        0x20
+#घोषणा IPL_TYPE_BEV         0x80
+#घोषणा IPL_TYPE_BCV         0x81
+#घोषणा IPL_TYPE_HALT        0xf0
+
+अटल व्योम
+bootentry_add(पूर्णांक type, पूर्णांक prio, u32 data, स्थिर अक्षर *desc)
+अणु
+    अगर (! CONFIG_BOOT)
+        वापस;
+    काष्ठा bootentry_s *be = दो_स्मृति_पंचांगp(माप(*be));
+    अगर (!be) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    be->type = type;
+    be->priority = prio;
+    be->data = data;
+    be->description = desc ?: "?";
+    dम_लिखो(3, "Registering bootable: %s (type:%d prio:%d data:%x)\n"
+            , be->description, type, prio, data);
+
+    // Add entry in sorted order.
+    काष्ठा hlist_node **pprev;
+    काष्ठा bootentry_s *pos;
+    hlist_क्रम_each_entry_pprev(pos, pprev, &BootList, node) अणु
+        अगर (be->priority < pos->priority)
+            अवरोध;
+        अगर (be->priority > pos->priority)
+            जारी;
+        अगर (be->type < pos->type)
+            अवरोध;
+        अगर (be->type > pos->type)
+            जारी;
+        अगर (be->type <= IPL_TYPE_CDROM
+            && (be->drive->type < pos->drive->type
+                || (be->drive->type == pos->drive->type
+                    && be->drive->cntl_id < pos->drive->cntl_id)))
+            अवरोध;
+    पूर्ण
+    hlist_add(&be->node, pprev);
+पूर्ण
+
+// Return the given priority अगर it's set - शेषprio otherwise.
+अटल अंतरभूत पूर्णांक defPrio(पूर्णांक priority, पूर्णांक शेषprio) अणु
+    वापस (priority < 0) ? शेषprio : priority;
+पूर्ण
+
+// Add a BEV vector क्रम a given pnp compatible option rom.
+व्योम
+boot_add_bev(u16 seg, u16 bev, u16 desc, पूर्णांक prio)
+अणु
+    bootentry_add(IPL_TYPE_BEV, defPrio(prio, DefaultBEVPrio)
+                  , SEGOFF(seg, bev).segoff
+                  , desc ? MAKE_FLATPTR(seg, desc) : "Unknown");
+    DefaultBEVPrio = DEFAULT_PRIO;
+पूर्ण
+
+// Add a bcv entry क्रम an expansion card harddrive or legacy option rom
+व्योम
+boot_add_bcv(u16 seg, u16 ip, u16 desc, पूर्णांक prio)
+अणु
+    bootentry_add(IPL_TYPE_BCV, defPrio(prio, DefaultHDPrio)
+                  , SEGOFF(seg, ip).segoff
+                  , desc ? MAKE_FLATPTR(seg, desc) : "Legacy option rom");
+पूर्ण
+
+व्योम
+boot_add_floppy(काष्ठा drive_s *drive, स्थिर अक्षर *desc, पूर्णांक prio)
+अणु
+    bootentry_add(IPL_TYPE_FLOPPY, defPrio(prio, DefaultFloppyPrio)
+                  , (u32)drive, desc);
+पूर्ण
+
+व्योम
+boot_add_hd(काष्ठा drive_s *drive, स्थिर अक्षर *desc, पूर्णांक prio)
+अणु
+    bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
+                  , (u32)drive, desc);
+पूर्ण
+
+व्योम
+boot_add_cd(काष्ठा drive_s *drive, स्थिर अक्षर *desc, पूर्णांक prio)
+अणु
+    अगर (GET_GLOBAL(Platक्रमmRunningOn) & PF_QEMU) अणु
+        // We want लघु boot बार.  But on physical hardware even
+        // the test unit पढ़ोy can take several seconds.  So करो media
+        // access on qemu only, where we know it will be fast.
+        अक्षर *extra = cdrom_media_info(drive);
+        अगर (extra) अणु
+            desc = znम_लिखो(MAXDESCSIZE, "%s (%s)", desc, extra);
+            मुक्त(extra);
+        पूर्ण
+    पूर्ण
+    bootentry_add(IPL_TYPE_CDROM, defPrio(prio, DefaultCDPrio)
+                  , (u32)drive, desc);
+पूर्ण
+
+// Add a CBFS payload entry
+व्योम
+boot_add_cbfs(व्योम *data, स्थिर अक्षर *desc, पूर्णांक prio)
+अणु
+    bootentry_add(IPL_TYPE_CBFS, defPrio(prio, DEFAULT_PRIO), (u32)data, desc);
+पूर्ण
+
+
+/****************************************************************
+ * Keyboard calls
+ ****************************************************************/
+
+// See अगर a keystroke is pending in the keyboard buffer.
+अटल पूर्णांक
+check_क्रम_keystroke(व्योम)
+अणु
+    काष्ठा bregs br;
+    स_रखो(&br, 0, माप(br));
+    br.flags = F_IF|F_ZF;
+    br.ah = 1;
+    call16_पूर्णांक(0x16, &br);
+    वापस !(br.flags & F_ZF);
+पूर्ण
+
+// Return a keystroke - रुकोing क्रमever अगर necessary.
+अटल पूर्णांक
+get_raw_keystroke(व्योम)
+अणु
+    काष्ठा bregs br;
+    स_रखो(&br, 0, माप(br));
+    br.flags = F_IF;
+    call16_पूर्णांक(0x16, &br);
+    वापस br.ax;
+पूर्ण
+
+// Read a keystroke - रुकोing up to 'msec' milliseconds.
+// वापसs both scancode and ascii code.
+पूर्णांक
+get_keystroke_full(पूर्णांक msec)
+अणु
+    u32 end = irqसमयr_calc(msec);
+    क्रम (;;) अणु
+        अगर (check_क्रम_keystroke())
+            वापस get_raw_keystroke();
+        अगर (irqसमयr_check(end))
+            वापस -1;
+        yield_toirq();
+    पूर्ण
+पूर्ण
+
+// Read a keystroke - रुकोing up to 'msec' milliseconds.
+// वापसs scancode only.
+पूर्णांक
+get_keystroke(पूर्णांक msec)
+अणु
+    पूर्णांक keystroke = get_keystroke_full(msec);
+
+    अगर (keystroke < 0)
+        वापस keystroke;
+    वापस keystroke >> 8;
+पूर्ण
+
+/****************************************************************
+ * Boot menu and BCV execution
+ ****************************************************************/
+
+#घोषणा DEFAULT_BOOTMENU_WAIT 2500
+
+अटल स्थिर अक्षर menuअक्षरs[] = अणु
+    '1', '2', '3', '4', '5', '6', '7', '8', '9',
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i',
+    'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r',
+    's', /* skip t (tpm menu) */
+    'u', 'v', 'w', 'x', 'y', 'z'
+पूर्ण;
+
+// Show IPL option menu.
+व्योम
+पूर्णांकeractive_booपंचांगenu(व्योम)
+अणु
+    अगर (! CONFIG_BOOTMENU)
+        वापस;
+    पूर्णांक show_boot_menu = romfile_loadपूर्णांक("etc/show-boot-menu", 1);
+    अगर (!show_boot_menu)
+        वापस;
+
+    // skip menu अगर only one boot device and no TPM
+    अगर (show_boot_menu == 2 && !tpm_can_show_menu()
+        && !hlist_empty(&BootList) && !BootList.first->next) अणु
+        dम_लिखो(1, "Only one boot device present. Skip boot menu.\n");
+        म_लिखो("\n");
+        वापस;
+    पूर्ण
+
+    जबतक (get_keystroke(0) >= 0)
+        ;
+
+    अक्षर *booपंचांगsg = romfile_loadfile("etc/boot-menu-message", शून्य);
+    पूर्णांक menukey = romfile_loadपूर्णांक("etc/boot-menu-key", 1);
+    म_लिखो("%s", booपंचांगsg ?: "\nPress ESC for boot menu.\n\n");
+    मुक्त(booपंचांगsg);
+
+    u32 menuसमय = romfile_loadपूर्णांक("etc/boot-menu-wait", DEFAULT_BOOTMENU_WAIT);
+    enable_bootsplash();
+    पूर्णांक scan_code = get_keystroke(menuसमय);
+    disable_bootsplash();
+    अगर (scan_code != menukey)
+        वापस;
+
+    जबतक (get_keystroke(0) >= 0)
+        ;
+
+    म_लिखो("Select boot device:\n\n");
+    रुको_thपढ़ोs();
+
+    // Show menu items
+    पूर्णांक maxmenu = 0;
+    काष्ठा bootentry_s *pos, *boot = शून्य;
+    hlist_क्रम_each_entry(pos, &BootList, node) अणु
+        अक्षर desc[77];
+        अगर (maxmenu >= ARRAY_SIZE(menuअक्षरs)) अणु
+            अवरोध;
+        पूर्ण
+        म_लिखो("%c. %s\n", menuअक्षरs[maxmenu]
+               , strtcpy(desc, pos->description, ARRAY_SIZE(desc)));
+        maxmenu++;
+    पूर्ण
+    अगर (tpm_can_show_menu()) अणु
+        म_लिखो("\nt. TPM Configuration\n");
+    पूर्ण
+
+    // Get key press.  If the menu key is ESC, करो not restart boot unless
+    // 1.5 seconds have passed.  Otherwise users (trained by years of
+    // repeatedly hitting keys to enter the BIOS) will end up hitting ESC
+    // multiple बार and immediately booting the primary boot device.
+    पूर्णांक esc_accepted_समय = irqसमयr_calc(menukey == 1 ? 1500 : 0);
+    क्रम (;;) अणु
+        पूर्णांक keystroke = get_keystroke_full(1000);
+        अगर (keystroke == 0x011b && !irqसमयr_check(esc_accepted_समय))
+            जारी;
+        अगर (keystroke < 0) // समयout
+            जारी;
+
+        scan_code = keystroke >> 8;
+        पूर्णांक key_ascii = keystroke & 0xff;
+        अगर (tpm_can_show_menu() && key_ascii == 't') अणु
+            म_लिखो("\n");
+            tpm_menu();
+        पूर्ण
+        अगर (scan_code == 1) अणु
+            // ESC
+            म_लिखो("\n");
+            वापस;
+        पूर्ण
+
+        maxmenu = 0;
+        hlist_क्रम_each_entry(pos, &BootList, node) अणु
+            अगर (maxmenu >= ARRAY_SIZE(menuअक्षरs))
+                अवरोध;
+            अगर (key_ascii == menuअक्षरs[maxmenu]) अणु
+                boot = pos;
+                अवरोध;
+            पूर्ण
+            maxmenu++;
+        पूर्ण
+        अगर (boot)
+            अवरोध;
+    पूर्ण
+    म_लिखो("\n");
+
+    // Find entry and make top priority.
+    hlist_del(&boot->node);
+    boot->priority = 0;
+    hlist_add_head(&boot->node, &BootList);
+पूर्ण
+
+// BEV (Boot Execution Vector) list
+काष्ठा bev_s अणु
+    पूर्णांक type;
+    u32 vector;
+पूर्ण;
+अटल काष्ठा bev_s BEV[20];
+अटल पूर्णांक BEVCount;
+अटल पूर्णांक HaveHDBoot, HaveFDBoot;
+
+अटल व्योम
+add_bev(पूर्णांक type, u32 vector)
+अणु
+    अगर (type == IPL_TYPE_HARDDISK && HaveHDBoot++)
+        वापस;
+    अगर (type == IPL_TYPE_FLOPPY && HaveFDBoot++)
+        वापस;
+    अगर (BEVCount >= ARRAY_SIZE(BEV))
+        वापस;
+    काष्ठा bev_s *bev = &BEV[BEVCount++];
+    bev->type = type;
+    bev->vector = vector;
+पूर्ण
+
+// Prepare क्रम boot - show menu and run bcvs.
+व्योम
+bcv_prepboot(व्योम)
+अणु
+    अगर (! CONFIG_BOOT)
+        वापस;
+
+    पूर्णांक haltprio = find_prio("HALT");
+    अगर (haltprio >= 0)
+        bootentry_add(IPL_TYPE_HALT, haltprio, 0, "HALT");
+
+    // Map drives and populate BEV list
+    काष्ठा bootentry_s *pos;
+    hlist_क्रम_each_entry(pos, &BootList, node) अणु
+        चयन (pos->type) अणु
+        हाल IPL_TYPE_BCV:
+            call_bcv(pos->vector.seg, pos->vector.offset);
+            add_bev(IPL_TYPE_HARDDISK, 0);
+            अवरोध;
+        हाल IPL_TYPE_FLOPPY:
+            map_floppy_drive(pos->drive);
+            add_bev(IPL_TYPE_FLOPPY, 0);
+            अवरोध;
+        हाल IPL_TYPE_HARDDISK:
+            map_hd_drive(pos->drive);
+            add_bev(IPL_TYPE_HARDDISK, 0);
+            अवरोध;
+        हाल IPL_TYPE_CDROM:
+            map_cd_drive(pos->drive);
+            // NO BREAK
+        शेष:
+            add_bev(pos->type, pos->data);
+            अवरोध;
+        पूर्ण
+    पूर्ण
+
+    // If nothing added a floppy/hd boot - add it manually.
+    add_bev(IPL_TYPE_FLOPPY, 0);
+    add_bev(IPL_TYPE_HARDDISK, 0);
+पूर्ण
+
+
+/****************************************************************
+ * Boot code (पूर्णांक 18/19)
+ ****************************************************************/
+
+// Jump to a bootup entry poपूर्णांक.
+अटल व्योम
+call_boot_entry(काष्ठा segoff_s bootsegip, u8 bootdrv)
+अणु
+    dम_लिखो(1, "Booting from %04x:%04x\n", bootsegip.seg, bootsegip.offset);
+    काष्ठा bregs br;
+    स_रखो(&br, 0, माप(br));
+    br.flags = F_IF;
+    br.code = bootsegip;
+    // Set the magic number in ax and the boot drive in dl.
+    br.dl = bootdrv;
+    br.ax = 0xaa55;
+    farcall16(&br);
+पूर्ण
+
+// Boot from a disk (either floppy or harddrive)
+अटल व्योम
+boot_disk(u8 bootdrv, पूर्णांक checksig)
+अणु
+    u16 bootseg = 0x07c0;
+
+    // Read sector
+    काष्ठा bregs br;
+    स_रखो(&br, 0, माप(br));
+    br.flags = F_IF;
+    br.dl = bootdrv;
+    br.es = bootseg;
+    br.ah = 2;
+    br.al = 1;
+    br.cl = 1;
+    call16_पूर्णांक(0x13, &br);
+
+    अगर (br.flags & F_CF) अणु
+        म_लिखो("Boot failed: could not read the boot disk\n\n");
+        वापस;
+    पूर्ण
+
+    अगर (checksig) अणु
+        काष्ठा mbr_s *mbr = (व्योम*)0;
+        अगर (GET_FARVAR(bootseg, mbr->signature) != MBR_SIGNATURE) अणु
+            म_लिखो("Boot failed: not a bootable disk\n\n");
+            वापस;
+        पूर्ण
+    पूर्ण
+
+    tpm_add_bcv(bootdrv, MAKE_FLATPTR(bootseg, 0), 512);
+
+    /* Canonicalize bootseg:bootip */
+    u16 bootip = (bootseg & 0x0fff) << 4;
+    bootseg &= 0xf000;
+
+    call_boot_entry(SEGOFF(bootseg, bootip), bootdrv);
+पूर्ण
+
+// Boot from a CD-ROM
+अटल व्योम
+boot_cdrom(काष्ठा drive_s *drive)
+अणु
+    अगर (! CONFIG_CDROM_BOOT)
+        वापस;
+    म_लिखो("Booting from DVD/CD...\n");
+
+    पूर्णांक status = cdrom_boot(drive);
+    अगर (status) अणु
+        म_लिखो("Boot failed: Could not read from CDROM (code %04x)\n", status);
+        वापस;
+    पूर्ण
+
+    u8 bootdrv = CDEmu.emulated_drive;
+    u16 bootseg = CDEmu.load_segment;
+
+    tpm_add_cdrom(bootdrv, MAKE_FLATPTR(bootseg, 0), 512);
+
+    /* Canonicalize bootseg:bootip */
+    u16 bootip = (bootseg & 0x0fff) << 4;
+    bootseg &= 0xf000;
+
+    call_boot_entry(SEGOFF(bootseg, bootip), bootdrv);
+पूर्ण
+
+// Boot from a CBFS payload
+अटल व्योम
+boot_cbfs(काष्ठा cbfs_file *file)
+अणु
+    अगर (!CONFIG_COREBOOT_FLASH)
+        वापस;
+    म_लिखो("Booting from CBFS...\n");
+    cbfs_run_payload(file);
+पूर्ण
+
+// Boot from a BEV entry on an optionrom.
+अटल व्योम
+boot_rom(u32 vector)
+अणु
+    म_लिखो("Booting from ROM...\n");
+    काष्ठा segoff_s so;
+    so.segoff = vector;
+    call_boot_entry(so, 0);
+पूर्ण
+
+// Unable to find bootable device - warn user and eventually retry.
+अटल व्योम
+boot_fail(व्योम)
+अणु
+    अगर (BootRetryTime == (u32)-1)
+        म_लिखो("No bootable device.\n");
+    अन्यथा
+        म_लिखो("No bootable device.  Retrying in %d seconds.\n"
+               , BootRetryTime/1000);
+    // Wait क्रम 'BootRetryTime' milliseconds and then reboot.
+    u32 end = irqसमयr_calc(BootRetryTime);
+    क्रम (;;) अणु
+        अगर (BootRetryTime != (u32)-1 && irqसमयr_check(end))
+            अवरोध;
+        yield_toirq();
+    पूर्ण
+    म_लिखो("Rebooting.\n");
+    reset();
+पूर्ण
+
+// Determine next boot method and attempt a boot using it.
+अटल व्योम
+करो_boot(पूर्णांक seq_nr)
+अणु
+    अगर (! CONFIG_BOOT)
+        panic("Boot support not compiled in.\n");
+
+    अगर (seq_nr >= BEVCount)
+        boot_fail();
+
+    // Boot the given BEV type.
+    काष्ठा bev_s *ie = &BEV[seq_nr];
+    चयन (ie->type) अणु
+    हाल IPL_TYPE_FLOPPY:
+        म_लिखो("Booting from Floppy...\n");
+        boot_disk(0x00, CheckFloppySig);
+        अवरोध;
+    हाल IPL_TYPE_HARDDISK:
+        म_लिखो("Booting from Hard Disk...\n");
+        boot_disk(0x80, 1);
+        अवरोध;
+    हाल IPL_TYPE_CDROM:
+        boot_cdrom((व्योम*)ie->vector);
+        अवरोध;
+    हाल IPL_TYPE_CBFS:
+        boot_cbfs((व्योम*)ie->vector);
+        अवरोध;
+    हाल IPL_TYPE_BEV:
+        boot_rom(ie->vector);
+        अवरोध;
+    हाल IPL_TYPE_HALT:
+        boot_fail();
+        अवरोध;
+    पूर्ण
+
+    // Boot failed: invoke the boot recovery function
+    काष्ठा bregs br;
+    स_रखो(&br, 0, माप(br));
+    br.flags = F_IF;
+    call16_पूर्णांक(0x18, &br);
+पूर्ण
+
+पूर्णांक BootSequence VARLOW = -1;
+
+// Boot Failure recovery: try the next device.
+व्योम VISIBLE32FLAT
+handle_18(व्योम)
+अणु
+    debug_enter(शून्य, DEBUG_HDL_18);
+    पूर्णांक seq = BootSequence + 1;
+    BootSequence = seq;
+    करो_boot(seq);
+पूर्ण
+
+// INT 19h Boot Load Service Entry Poपूर्णांक
+व्योम VISIBLE32FLAT
+handle_19(व्योम)
+अणु
+    debug_enter(शून्य, DEBUG_HDL_19);
+    BootSequence = 0;
+    करो_boot(0);
+पूर्ण

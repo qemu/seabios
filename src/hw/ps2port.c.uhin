@@ -1,0 +1,548 @@
+<शैली गुरु>
+// Support क्रम handling the PS/2 mouse/keyboard ports.
+//
+// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Several ideas taken from code Copyright (c) 1999-2004 Vojtech Pavlik
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_LOW
+#समावेश "output.h" // dम_लिखो
+#समावेश "pic.h" // pic_eoi1
+#समावेश "ps2port.h" // ps2_kbd_command
+#समावेश "romfile.h" // romfile_loadपूर्णांक
+#समावेश "stacks.h" // yield
+#समावेश "util.h" // udelay
+#समावेश "x86.h" // inb
+
+
+/****************************************************************
+ * Low level i8042 commands.
+ ****************************************************************/
+
+// Timeout value.
+#घोषणा I8042_CTL_TIMEOUT       10000
+
+#घोषणा I8042_BUFFER_SIZE       16
+
+अटल पूर्णांक
+i8042_रुको_पढ़ो(व्योम)
+अणु
+    dम_लिखो(7, "i8042_wait_read\n");
+    पूर्णांक i;
+    क्रम (i=0; i<I8042_CTL_TIMEOUT; i++) अणु
+        u8 status = inb(PORT_PS2_STATUS);
+        अगर (status & I8042_STR_OBF)
+            वापस 0;
+        udelay(50);
+    पूर्ण
+    warn_समयout();
+    वापस -1;
+पूर्ण
+
+अटल पूर्णांक
+i8042_रुको_ग_लिखो(व्योम)
+अणु
+    dम_लिखो(7, "i8042_wait_write\n");
+    पूर्णांक i;
+    क्रम (i=0; i<I8042_CTL_TIMEOUT; i++) अणु
+        u8 status = inb(PORT_PS2_STATUS);
+        अगर (! (status & I8042_STR_IBF))
+            वापस 0;
+        udelay(50);
+    पूर्ण
+    warn_समयout();
+    वापस -1;
+पूर्ण
+
+अटल पूर्णांक
+i8042_flush(व्योम)
+अणु
+    dम_लिखो(7, "i8042_flush\n");
+    पूर्णांक i;
+    क्रम (i=0; i<I8042_BUFFER_SIZE; i++) अणु
+        u8 status = inb(PORT_PS2_STATUS);
+        अगर (! (status & I8042_STR_OBF))
+            वापस 0;
+        udelay(50);
+        u8 data = inb(PORT_PS2_DATA);
+        dम_लिखो(7, "i8042 flushed %x (status=%x)\n", data, status);
+    पूर्ण
+
+    warn_समयout();
+    वापस -1;
+पूर्ण
+
+अटल पूर्णांक
+__i8042_command(पूर्णांक command, u8 *param)
+अणु
+    पूर्णांक receive = (command >> 8) & 0xf;
+    पूर्णांक send = (command >> 12) & 0xf;
+
+    // Send the command.
+    पूर्णांक ret = i8042_रुको_ग_लिखो();
+    अगर (ret)
+        वापस ret;
+    outb(command, PORT_PS2_STATUS);
+
+    // Send parameters (अगर any).
+    पूर्णांक i;
+    क्रम (i = 0; i < send; i++) अणु
+        ret = i8042_रुको_ग_लिखो();
+        अगर (ret)
+            वापस ret;
+        outb(param[i], PORT_PS2_DATA);
+    पूर्ण
+
+    // Receive parameters (अगर any).
+    क्रम (i = 0; i < receive; i++) अणु
+        ret = i8042_रुको_पढ़ो();
+        अगर (ret)
+            वापस ret;
+        param[i] = inb(PORT_PS2_DATA);
+        dम_लिखो(7, "i8042 param=%x\n", param[i]);
+    पूर्ण
+
+    वापस 0;
+पूर्ण
+
+अटल पूर्णांक
+i8042_command(पूर्णांक command, u8 *param)
+अणु
+    dम_लिखो(7, "i8042_command cmd=%x\n", command);
+    पूर्णांक ret = __i8042_command(command, param);
+    अगर (ret)
+        dम_लिखो(2, "i8042 command %x failed\n", command);
+    वापस ret;
+पूर्ण
+
+अटल पूर्णांक
+i8042_kbd_ग_लिखो(u8 c)
+अणु
+    dम_लिखो(7, "i8042_kbd_write c=%d\n", c);
+    पूर्णांक ret = i8042_रुको_ग_लिखो();
+    अगर (! ret)
+        outb(c, PORT_PS2_DATA);
+    वापस ret;
+पूर्ण
+
+अटल पूर्णांक
+i8042_aux_ग_लिखो(u8 c)
+अणु
+    वापस i8042_command(I8042_CMD_AUX_SEND, &c);
+पूर्ण
+
+व्योम
+i8042_reboot(व्योम)
+अणु
+    अगर (! CONFIG_PS2PORT)
+       वापस;
+    पूर्णांक i;
+    क्रम (i=0; i<10; i++) अणु
+        i8042_रुको_ग_लिखो();
+        udelay(50);
+        outb(0xfe, PORT_PS2_STATUS); /* pulse reset low */
+        udelay(50);
+    पूर्ण
+पूर्ण
+
+
+/****************************************************************
+ * Device commands.
+ ****************************************************************/
+
+#घोषणा PS2_RET_ACK             0xfa
+#घोषणा PS2_RET_NAK             0xfe
+
+अटल पूर्णांक
+ps2_recvbyte(पूर्णांक aux, पूर्णांक needack, पूर्णांक समयout)
+अणु
+    u32 end = समयr_calc(समयout);
+    क्रम (;;) अणु
+        u8 status = inb(PORT_PS2_STATUS);
+        अगर (status & I8042_STR_OBF) अणु
+            u8 data = inb(PORT_PS2_DATA);
+            dम_लिखो(7, "ps2 read %x\n", data);
+
+            अगर (!!(status & I8042_STR_AUXDATA) == aux) अणु
+                अगर (!needack)
+                    वापस data;
+                अगर (data == PS2_RET_ACK)
+                    वापस data;
+                अगर (data == PS2_RET_NAK) अणु
+                    dम_लिखो(1, "Got ps2 nak (status=%x)\n", status);
+                    वापस data;
+                पूर्ण
+            पूर्ण
+
+            // This data not part of command - just discard it.
+            dम_लिखो(1, "Discarding ps2 data %02x (status=%02x)\n", data, status);
+        पूर्ण
+
+        अगर (समयr_check(end)) अणु
+            warn_समयout();
+            वापस -1;
+        पूर्ण
+        yield();
+    पूर्ण
+पूर्ण
+
+अटल पूर्णांक
+ps2_sendbyte(पूर्णांक aux, u8 command, पूर्णांक समयout)
+अणु
+    dम_लिखो(7, "ps2_sendbyte aux=%d cmd=%x\n", aux, command);
+    पूर्णांक ret;
+    अगर (aux)
+        ret = i8042_aux_ग_लिखो(command);
+    अन्यथा
+        ret = i8042_kbd_ग_लिखो(command);
+    अगर (ret)
+        वापस ret;
+
+    // Read ack.
+    ret = ps2_recvbyte(aux, 1, समयout);
+    अगर (ret < 0)
+        वापस ret;
+    अगर (ret != PS2_RET_ACK)
+        वापस -1;
+
+    वापस 0;
+पूर्ण
+
+u8 Ps2ctr VARLOW = I8042_CTR_KBDDIS | I8042_CTR_AUXDIS;
+
+अटल पूर्णांक
+__ps2_command(पूर्णांक aux, पूर्णांक command, u8 *param)
+अणु
+    पूर्णांक ret2;
+    पूर्णांक receive = (command >> 8) & 0xf;
+    पूर्णांक send = (command >> 12) & 0xf;
+
+    // Disable पूर्णांकerrupts and keyboard/mouse.
+    u8 ps2ctr = GET_LOW(Ps2ctr);
+    u8 newctr = ((ps2ctr | I8042_CTR_AUXDIS | I8042_CTR_KBDDIS)
+                 & ~(I8042_CTR_KBDINT|I8042_CTR_AUXINT));
+    dम_लिखो(6, "i8042 ctr old=%x new=%x\n", ps2ctr, newctr);
+    पूर्णांक ret = i8042_command(I8042_CMD_CTL_WCTR, &newctr);
+    अगर (ret)
+        वापस ret;
+
+    // Flush any पूर्णांकerrupts alपढ़ोy pending.
+    yield();
+
+    // Enable port command is being sent to.
+    SET_LOW(Ps2ctr, newctr);
+    अगर (aux)
+        newctr &= ~I8042_CTR_AUXDIS;
+    अन्यथा
+        newctr &= ~I8042_CTR_KBDDIS;
+    ret = i8042_command(I8042_CMD_CTL_WCTR, &newctr);
+    अगर (ret)
+        जाओ fail;
+
+    अगर ((u8)command == (u8)ATKBD_CMD_RESET_BAT) अणु
+        // Reset is special wrt समयouts.
+
+        // Send command.
+        ret = ps2_sendbyte(aux, command, 1000);
+        अगर (ret)
+            जाओ fail;
+
+        // Receive parameters.
+        ret = ps2_recvbyte(aux, 0, 4000);
+        अगर (ret < 0)
+            जाओ fail;
+        param[0] = ret;
+        अगर (receive > 1) अणु
+            ret = ps2_recvbyte(aux, 0, 500);
+            अगर (ret < 0)
+                जाओ fail;
+            param[1] = ret;
+        पूर्ण
+    पूर्ण अन्यथा अगर (command == ATKBD_CMD_GETID) अणु
+        // Getid is special wrt bytes received.
+
+        // Send command.
+        ret = ps2_sendbyte(aux, command, 200);
+        अगर (ret)
+            जाओ fail;
+
+        // Receive parameters.
+        ret = ps2_recvbyte(aux, 0, 500);
+        अगर (ret < 0)
+            जाओ fail;
+        param[0] = ret;
+        अगर (ret == 0xab || ret == 0xac || ret == 0x2b || ret == 0x5d
+            || ret == 0x60 || ret == 0x47) अणु
+            // These ids (keyboards) वापस two bytes.
+            ret = ps2_recvbyte(aux, 0, 500);
+            अगर (ret < 0)
+                जाओ fail;
+            param[1] = ret;
+        पूर्ण अन्यथा अणु
+            param[1] = 0;
+        पूर्ण
+    पूर्ण अन्यथा अणु
+        // Send command.
+        ret = ps2_sendbyte(aux, command, 200);
+        अगर (ret)
+            जाओ fail;
+
+        // Send parameters (अगर any).
+        पूर्णांक i;
+        क्रम (i = 0; i < send; i++) अणु
+            ret = ps2_sendbyte(aux, param[i], 200);
+            अगर (ret)
+                जाओ fail;
+        पूर्ण
+
+        // Receive parameters (अगर any).
+        क्रम (i = 0; i < receive; i++) अणु
+            ret = ps2_recvbyte(aux, 0, 500);
+            अगर (ret < 0)
+                जाओ fail;
+            param[i] = ret;
+        पूर्ण
+    पूर्ण
+
+    ret = 0;
+
+fail:
+    // Restore पूर्णांकerrupts and keyboard/mouse.
+    SET_LOW(Ps2ctr, ps2ctr);
+    ret2 = i8042_command(I8042_CMD_CTL_WCTR, &ps2ctr);
+    अगर (ret2)
+        वापस ret2;
+
+    वापस ret;
+पूर्ण
+
+अटल पूर्णांक
+ps2_command(पूर्णांक aux, पूर्णांक command, u8 *param)
+अणु
+    dम_लिखो(7, "ps2_command aux=%d cmd=%x\n", aux, command);
+    पूर्णांक ret = __ps2_command(aux, command, param);
+    अगर (ret)
+        dम_लिखो(2, "ps2 command %x failed (aux=%d)\n", command, aux);
+    वापस ret;
+पूर्ण
+
+पूर्णांक
+ps2_kbd_command(पूर्णांक command, u8 *param)
+अणु
+    अगर (! CONFIG_PS2PORT)
+        वापस -1;
+    वापस ps2_command(0, command, param);
+पूर्ण
+
+पूर्णांक
+ps2_mouse_command(पूर्णांक command, u8 *param)
+अणु
+    अगर (! CONFIG_PS2PORT)
+        वापस -1;
+
+    // Update ps2ctr क्रम mouse enable/disable.
+    अगर (command == PSMOUSE_CMD_ENABLE || command == PSMOUSE_CMD_DISABLE) अणु
+        u8 ps2ctr = GET_LOW(Ps2ctr);
+        अगर (command == PSMOUSE_CMD_ENABLE)
+            ps2ctr = ((ps2ctr | (CONFIG_HARDWARE_IRQ ? I8042_CTR_AUXINT : 0))
+                      & ~I8042_CTR_AUXDIS);
+        अन्यथा
+            ps2ctr = (ps2ctr | I8042_CTR_AUXDIS) & ~I8042_CTR_AUXINT;
+        SET_LOW(Ps2ctr, ps2ctr);
+    पूर्ण
+
+    वापस ps2_command(1, command, param);
+पूर्ण
+
+
+/****************************************************************
+ * IRQ handlers
+ ****************************************************************/
+
+// INT74h : PS/2 mouse hardware पूर्णांकerrupt
+व्योम VISIBLE16
+handle_74(व्योम)
+अणु
+    अगर (! CONFIG_PS2PORT)
+        वापस;
+
+    debug_isr(DEBUG_ISR_74);
+
+    u8 v = inb(PORT_PS2_STATUS);
+    अगर ((v & (I8042_STR_OBF|I8042_STR_AUXDATA))
+        != (I8042_STR_OBF|I8042_STR_AUXDATA)) अणु
+        dम_लिखो(1, "ps2 mouse irq but no mouse data.\n");
+        जाओ करोne;
+    पूर्ण
+    v = inb(PORT_PS2_DATA);
+
+    अगर (!(GET_LOW(Ps2ctr) & I8042_CTR_AUXINT))
+        // Interrupts not enabled.
+        जाओ करोne;
+
+    process_mouse(v);
+
+करोne:
+    pic_eoi2();
+पूर्ण
+
+// INT09h : Keyboard Hardware Service Entry Poपूर्णांक
+व्योम VISIBLE16
+handle_09(व्योम)
+अणु
+    अगर (! CONFIG_PS2PORT)
+        वापस;
+
+    debug_isr(DEBUG_ISR_09);
+
+    // पढ़ो key from keyboard controller
+    u8 v = inb(PORT_PS2_STATUS);
+    अगर (v & I8042_STR_AUXDATA) अणु
+        dम_लिखो(1, "ps2 keyboard irq but found mouse data?!\n");
+        जाओ करोne;
+    पूर्ण
+    v = inb(PORT_PS2_DATA);
+
+    अगर (!(GET_LOW(Ps2ctr) & I8042_CTR_KBDINT))
+        // Interrupts not enabled.
+        जाओ करोne;
+
+    process_key(v);
+
+    // Some old programs expect ISR to turn keyboard back on.
+    i8042_command(I8042_CMD_KBD_ENABLE, शून्य);
+
+करोne:
+    pic_eoi1();
+पूर्ण
+
+// Check क्रम ps2 activity on machines without hardware irqs
+व्योम
+ps2_check_event(व्योम)
+अणु
+    अगर (! CONFIG_PS2PORT || CONFIG_HARDWARE_IRQ)
+        वापस;
+    u8 ps2ctr = GET_LOW(Ps2ctr);
+    अगर ((ps2ctr & (I8042_CTR_KBDDIS|I8042_CTR_AUXDIS))
+        == (I8042_CTR_KBDDIS|I8042_CTR_AUXDIS))
+        वापस;
+    क्रम (;;) अणु
+        u8 status = inb(PORT_PS2_STATUS);
+        अगर (!(status & I8042_STR_OBF))
+            अवरोध;
+        u8 data = inb(PORT_PS2_DATA);
+        अगर (status & I8042_STR_AUXDATA) अणु
+            अगर (!(ps2ctr & I8042_CTR_AUXDIS))
+                process_mouse(data);
+        पूर्ण अन्यथा अणु
+            अगर (!(ps2ctr & I8042_CTR_KBDDIS))
+                process_key(data);
+        पूर्ण
+    पूर्ण
+पूर्ण
+
+
+/****************************************************************
+ * Setup
+ ****************************************************************/
+
+अटल व्योम
+ps2_keyboard_setup(व्योम *data)
+अणु
+    // flush incoming keys (also verअगरies port is likely present)
+    पूर्णांक ret = i8042_flush();
+    अगर (ret)
+        वापस;
+
+    // Disable keyboard / mouse and drain any input they may have sent
+    ret = i8042_command(I8042_CMD_KBD_DISABLE, शून्य);
+    अगर (ret)
+        वापस;
+    ret = i8042_command(I8042_CMD_AUX_DISABLE, शून्य);
+    अगर (ret)
+        वापस;
+    ret = i8042_flush();
+    अगर (ret)
+        वापस;
+
+    // Controller self-test.
+    u8 param[2];
+    ret = i8042_command(I8042_CMD_CTL_TEST, param);
+    अगर (ret)
+        वापस;
+    अगर (param[0] != 0x55) अणु
+        dम_लिखो(1, "i8042 self test failed (got %x not 0x55)\n", param[0]);
+        वापस;
+    पूर्ण
+
+    // Controller keyboard test.
+    ret = i8042_command(I8042_CMD_KBD_TEST, param);
+    अगर (ret)
+        वापस;
+    अगर (param[0] != 0x00) अणु
+        dम_लिखो(1, "i8042 keyboard test failed (got %x not 0x00)\n", param[0]);
+        वापस;
+    पूर्ण
+
+
+    /* ------------------- keyboard side ------------------------*/
+    /* reset keyboard and self test  (keyboard side) */
+    पूर्णांक spinupdelay = romfile_loadपूर्णांक("etc/ps2-keyboard-spinup", 0);
+    u32 end = समयr_calc(spinupdelay);
+    क्रम (;;) अणु
+        ret = ps2_kbd_command(ATKBD_CMD_RESET_BAT, param);
+        अगर (!ret)
+            अवरोध;
+        अगर (समयr_check(end)) अणु
+            अगर (spinupdelay)
+                warn_समयout();
+            वापस;
+        पूर्ण
+        yield();
+    पूर्ण
+    अगर (param[0] != 0xaa) अणु
+        dम_लिखो(1, "keyboard self test failed (got %x not 0xaa)\n", param[0]);
+        वापस;
+    पूर्ण
+
+    /* Disable keyboard */
+    ret = ps2_kbd_command(ATKBD_CMD_RESET_DIS, शून्य);
+    अगर (ret)
+        वापस;
+
+    // Set scancode command (mode 2)
+    param[0] = 0x02;
+    ret = ps2_kbd_command(ATKBD_CMD_SSCANSET, param);
+    अगर (ret)
+        वापस;
+
+    // Keyboard Mode: disable mouse, scan code convert, enable kbd IRQ
+    Ps2ctr = (I8042_CTR_AUXDIS | I8042_CTR_XLATE
+              | (CONFIG_HARDWARE_IRQ ? I8042_CTR_KBDINT : 0));
+
+    /* Enable keyboard */
+    ret = ps2_kbd_command(ATKBD_CMD_ENABLE, शून्य);
+    अगर (ret)
+        वापस;
+
+    dम_लिखो(1, "PS2 keyboard initialized\n");
+पूर्ण
+
+व्योम
+ps2port_setup(व्योम)
+अणु
+    ASSERT32FLAT();
+    अगर (! CONFIG_PS2PORT)
+        वापस;
+    अगर (acpi_dsdt_present_eisaid(0x0303) == 0) अणु
+        dम_लिखो(1, "ACPI: no PS/2 keyboard present\n");
+        वापस;
+    पूर्ण
+    dम_लिखो(3, "init ps2port\n");
+
+    enable_hwirq(1, FUNC16(entry_09));
+    enable_hwirq(12, FUNC16(entry_74));
+
+    run_thपढ़ो(ps2_keyboard_setup, शून्य);
+पूर्ण

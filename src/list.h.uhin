@@ -1,0 +1,92 @@
+<शैली गुरु>
+#अगर_अघोषित __LIST_H
+#घोषणा __LIST_H
+
+#समावेश "types.h" // container_of
+
+
+/****************************************************************
+ * hlist - Double linked lists with a single poपूर्णांकer list head
+ ****************************************************************/
+
+काष्ठा hlist_node अणु
+    काष्ठा hlist_node *next, **pprev;
+पूर्ण;
+
+काष्ठा hlist_head अणु
+    काष्ठा hlist_node *first;
+पूर्ण;
+
+अटल अंतरभूत पूर्णांक
+hlist_empty(स्थिर काष्ठा hlist_head *h)
+अणु
+    वापस !h->first;
+पूर्ण
+
+अटल अंतरभूत व्योम
+hlist_del(काष्ठा hlist_node *n)
+अणु
+    काष्ठा hlist_node *next = n->next;
+    काष्ठा hlist_node **pprev = n->pprev;
+    *pprev = next;
+    अगर (next)
+        next->pprev = pprev;
+पूर्ण
+
+अटल अंतरभूत व्योम
+hlist_add(काष्ठा hlist_node *n, काष्ठा hlist_node **pprev)
+अणु
+    काष्ठा hlist_node *next = *pprev;
+    n->pprev = pprev;
+    n->next = next;
+    अगर (next)
+        next->pprev = &n->next;
+    *pprev = n;
+पूर्ण
+
+अटल अंतरभूत व्योम
+hlist_add_head(काष्ठा hlist_node *n, काष्ठा hlist_head *h)
+अणु
+    hlist_add(n, &h->first);
+पूर्ण
+
+अटल अंतरभूत व्योम
+hlist_add_beक्रमe(काष्ठा hlist_node *n, काष्ठा hlist_node *next)
+अणु
+    hlist_add(n, next->pprev);
+पूर्ण
+
+अटल अंतरभूत व्योम
+hlist_add_after(काष्ठा hlist_node *n, काष्ठा hlist_node *prev)
+अणु
+    hlist_add(n, &prev->next);
+पूर्ण
+
+अटल अंतरभूत व्योम
+hlist_replace(काष्ठा hlist_node *old, काष्ठा hlist_node *new)
+अणु
+    new->next = old->next;
+    अगर (new->next)
+        new->next->pprev = &new->next;
+    new->pprev = old->pprev;
+    *new->pprev = new;
+पूर्ण
+
+#घोषणा hlist_क्रम_each_entry(pos, head, member)                         \
+    क्रम (pos = container_of((head)->first, typeof(*pos), member)        \
+         ; pos != container_of(शून्य, typeof(*pos), member)              \
+         ; pos = container_of(pos->member.next, typeof(*pos), member))
+
+#घोषणा hlist_क्रम_each_entry_safe(pos, n, head, member)                 \
+    क्रम (pos = container_of((head)->first, typeof(*pos), member)        \
+         ; pos != container_of(शून्य, typeof(*pos), member)              \
+             && (अणु n = pos->member.next; 1; पूर्ण)                          \
+         ; pos = container_of(n, typeof(*pos), member))
+
+#घोषणा hlist_क्रम_each_entry_pprev(pos, pprev, head, member)            \
+    क्रम (pprev = &(head)->first                                         \
+         ; *pprev && (अणु pos=container_of(*pprev, typeof(*pos), member); 1; पूर्ण) \
+         ; pprev = &(*pprev)->next)
+
+
+#पूर्ण_अगर // list.h

@@ -1,0 +1,651 @@
+<शैली गुरु>
+// Code क्रम handling EHCI USB controllers.
+//
+// Copyright (C) 2010-2013  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_LOWFLAT
+#समावेश "config.h" // CONFIG_*
+#समावेश "output.h" // dम_लिखो
+#समावेश "malloc.h" // मुक्त
+#समावेश "memmap.h" // PAGE_SIZE
+#समावेश "pcidevice.h" // क्रमeachpci
+#समावेश "pci_ids.h" // PCI_CLASS_SERIAL_USB_UHCI
+#समावेश "pci_regs.h" // PCI_BASE_ADDRESS_0
+#समावेश "string.h" // स_रखो
+#समावेश "usb.h" // काष्ठा usb_s
+#समावेश "usb-ehci.h" // काष्ठा ehci_qh
+#समावेश "util.h" // msleep
+#समावेश "x86.h" // पढ़ोl
+
+काष्ठा usb_ehci_s अणु
+    काष्ठा usb_s usb;
+    काष्ठा ehci_caps *caps;
+    काष्ठा ehci_regs *regs;
+    काष्ठा ehci_qh *async_qh;
+    पूर्णांक checkports;
+पूर्ण;
+
+काष्ठा ehci_pipe अणु
+    काष्ठा ehci_qh qh;
+    काष्ठा ehci_qtd *next_td, *tds;
+    व्योम *data;
+    काष्ठा usb_pipe pipe;
+पूर्ण;
+
+अटल पूर्णांक PendingEHCI;
+
+
+/****************************************************************
+ * Root hub
+ ****************************************************************/
+
+#घोषणा EHCI_TIME_POSTPOWER 20
+#घोषणा EHCI_TIME_POSTRESET 2
+
+// Check अगर device attached to port
+अटल पूर्णांक
+ehci_hub_detect(काष्ठा usbhub_s *hub, u32 port)
+अणु
+    काष्ठा usb_ehci_s *cntl = container_of(hub->cntl, काष्ठा usb_ehci_s, usb);
+    u32 *portreg = &cntl->regs->portsc[port];
+    u32 portsc = पढ़ोl(portreg);
+
+    अगर (!(portsc & PORT_CONNECT))
+        // No device present
+        वापस 0;
+
+    अगर ((portsc & PORT_LINESTATUS_MASK) == PORT_LINESTATUS_KSTATE) अणु
+        // low speed device
+        ग_लिखोl(portreg, portsc | PORT_OWNER);
+        वापस -1;
+    पूर्ण
+
+    // XXX - अगर just घातered up, need to रुको क्रम USB_TIME_ATTDB?
+
+    // Begin reset on port
+    portsc = (portsc & ~PORT_PE) | PORT_RESET;
+    ग_लिखोl(portreg, portsc);
+    msleep(USB_TIME_DRSTR);
+    वापस 1;
+पूर्ण
+
+// Reset device on port
+अटल पूर्णांक
+ehci_hub_reset(काष्ठा usbhub_s *hub, u32 port)
+अणु
+    काष्ठा usb_ehci_s *cntl = container_of(hub->cntl, काष्ठा usb_ehci_s, usb);
+    u32 *portreg = &cntl->regs->portsc[port];
+    u32 portsc = पढ़ोl(portreg);
+
+    // Finish reset on port
+    portsc &= ~PORT_RESET;
+    ग_लिखोl(portreg, portsc);
+    msleep(EHCI_TIME_POSTRESET);
+
+    portsc = पढ़ोl(portreg);
+    अगर (!(portsc & PORT_CONNECT))
+        // No दीर्घer connected
+        वापस -1;
+    अगर (!(portsc & PORT_PE)) अणु
+        // full speed device
+        ग_लिखोl(portreg, portsc | PORT_OWNER);
+        वापस -1;
+    पूर्ण
+
+    वापस USB_HIGHSPEED;
+पूर्ण
+
+// Disable port
+अटल व्योम
+ehci_hub_disconnect(काष्ठा usbhub_s *hub, u32 port)
+अणु
+    काष्ठा usb_ehci_s *cntl = container_of(hub->cntl, काष्ठा usb_ehci_s, usb);
+    u32 *portreg = &cntl->regs->portsc[port];
+    u32 portsc = पढ़ोl(portreg);
+    ग_लिखोl(portreg, portsc & ~PORT_PE);
+पूर्ण
+
+अटल काष्ठा usbhub_op_s ehci_HubOp = अणु
+    .detect = ehci_hub_detect,
+    .reset = ehci_hub_reset,
+    .disconnect = ehci_hub_disconnect,
+पूर्ण;
+
+// Find any devices connected to the root hub.
+अटल पूर्णांक
+check_ehci_ports(काष्ठा usb_ehci_s *cntl)
+अणु
+    // Power up ports.
+    पूर्णांक i;
+    क्रम (i=0; i<cntl->checkports; i++) अणु
+        u32 *portreg = &cntl->regs->portsc[i];
+        u32 portsc = पढ़ोl(portreg);
+        अगर (!(portsc & PORT_POWER)) अणु
+            portsc |= PORT_POWER;
+            ग_लिखोl(portreg, portsc);
+        पूर्ण
+    पूर्ण
+    msleep(EHCI_TIME_POSTPOWER);
+
+    काष्ठा usbhub_s hub;
+    स_रखो(&hub, 0, माप(hub));
+    hub.cntl = &cntl->usb;
+    hub.portcount = cntl->checkports;
+    hub.op = &ehci_HubOp;
+    usb_क्रमागतerate(&hub);
+    वापस hub.devcount;
+पूर्ण
+
+
+/****************************************************************
+ * Setup
+ ****************************************************************/
+
+// Wait क्रम next USB async frame to start - क्रम ensuring safe memory release.
+अटल व्योम
+ehci_रुकोtick(काष्ठा usb_ehci_s *cntl)
+अणु
+    अगर (MODE16) अणु
+        msleep(10);
+        वापस;
+    पूर्ण
+    // Wait क्रम access to "doorbell"
+    barrier();
+    u32 cmd, sts;
+    u32 end = समयr_calc(100);
+    क्रम (;;) अणु
+        sts = पढ़ोl(&cntl->regs->usbsts);
+        अगर (!(sts & STS_IAA)) अणु
+            cmd = पढ़ोl(&cntl->regs->usbcmd);
+            अगर (!(cmd & CMD_IAAD))
+                अवरोध;
+        पूर्ण
+        अगर (समयr_check(end)) अणु
+            warn_समयout();
+            वापस;
+        पूर्ण
+        yield();
+    पूर्ण
+    // Ring "doorbell"
+    ग_लिखोl(&cntl->regs->usbcmd, cmd | CMD_IAAD);
+    // Wait क्रम completion
+    क्रम (;;) अणु
+        sts = पढ़ोl(&cntl->regs->usbsts);
+        अगर (sts & STS_IAA)
+            अवरोध;
+        अगर (समयr_check(end)) अणु
+            warn_समयout();
+            वापस;
+        पूर्ण
+        yield();
+    पूर्ण
+    // Ack completion
+    ग_लिखोl(&cntl->regs->usbsts, STS_IAA);
+पूर्ण
+
+अटल व्योम
+ehci_मुक्त_pipes(काष्ठा usb_ehci_s *cntl)
+अणु
+    dम_लिखो(7, "ehci_free_pipes %p\n", cntl);
+
+    काष्ठा ehci_qh *start = cntl->async_qh;
+    काष्ठा ehci_qh *pos = start;
+    क्रम (;;) अणु
+        काष्ठा ehci_qh *next = (व्योम*)(pos->next & ~EHCI_PTR_BITS);
+        अगर (next == start)
+            अवरोध;
+        काष्ठा ehci_pipe *pipe = container_of(next, काष्ठा ehci_pipe, qh);
+        अगर (usb_is_मुक्तlist(&cntl->usb, &pipe->pipe))
+            pos->next = next->next;
+        अन्यथा
+            pos = next;
+    पूर्ण
+    ehci_रुकोtick(cntl);
+    क्रम (;;) अणु
+        काष्ठा usb_pipe *usbpipe = cntl->usb.मुक्तlist;
+        अगर (!usbpipe)
+            अवरोध;
+        cntl->usb.मुक्तlist = usbpipe->मुक्तnext;
+        काष्ठा ehci_pipe *pipe = container_of(usbpipe, काष्ठा ehci_pipe, pipe);
+        मुक्त(pipe);
+    पूर्ण
+पूर्ण
+
+अटल व्योम
+configure_ehci(व्योम *data)
+अणु
+    काष्ठा usb_ehci_s *cntl = data;
+
+    // Allocate ram क्रम schedule storage
+    काष्ठा ehci_framelist *fl = memalign_high(माप(*fl), माप(*fl));
+    काष्ठा ehci_qh *पूर्णांकr_qh = memalign_high(EHCI_QH_ALIGN, माप(*पूर्णांकr_qh));
+    काष्ठा ehci_qh *async_qh = memalign_high(EHCI_QH_ALIGN, माप(*async_qh));
+    अगर (!fl || !पूर्णांकr_qh || !async_qh) अणु
+        warn_noalloc();
+        PendingEHCI--;
+        जाओ fail;
+    पूर्ण
+
+    // XXX - check क्रम halted?
+
+    // Reset the HC
+    u32 cmd = पढ़ोl(&cntl->regs->usbcmd);
+    ग_लिखोl(&cntl->regs->usbcmd, (cmd & ~(CMD_ASE | CMD_PSE)) | CMD_HCRESET);
+    u32 end = समयr_calc(250);
+    क्रम (;;) अणु
+        cmd = पढ़ोl(&cntl->regs->usbcmd);
+        अगर (!(cmd & CMD_HCRESET))
+            अवरोध;
+        अगर (समयr_check(end)) अणु
+            warn_समयout();
+            PendingEHCI--;
+            जाओ fail;
+        पूर्ण
+        yield();
+    पूर्ण
+
+    // Disable पूर्णांकerrupts (just to be safe).
+    ग_लिखोl(&cntl->regs->usbपूर्णांकr, 0);
+
+    // Set schedule to poपूर्णांक to primary पूर्णांकr queue head
+    स_रखो(पूर्णांकr_qh, 0, माप(*पूर्णांकr_qh));
+    पूर्णांकr_qh->next = EHCI_PTR_TERM;
+    पूर्णांकr_qh->info2 = (0x01 << QH_SMASK_SHIFT);
+    पूर्णांकr_qh->token = QTD_STS_HALT;
+    पूर्णांकr_qh->qtd_next = पूर्णांकr_qh->alt_next = EHCI_PTR_TERM;
+    पूर्णांक i;
+    क्रम (i=0; i<ARRAY_SIZE(fl->links); i++)
+        fl->links[i] = (u32)पूर्णांकr_qh | EHCI_PTR_QH;
+    ग_लिखोl(&cntl->regs->periodiclistbase, (u32)fl);
+
+    // Set async list to poपूर्णांक to primary async queue head
+    स_रखो(async_qh, 0, माप(*async_qh));
+    async_qh->next = (u32)async_qh | EHCI_PTR_QH;
+    async_qh->info1 = QH_HEAD;
+    async_qh->token = QTD_STS_HALT;
+    async_qh->qtd_next = async_qh->alt_next = EHCI_PTR_TERM;
+    cntl->async_qh = async_qh;
+    ग_लिखोl(&cntl->regs->asynclistbase, (u32)async_qh);
+
+    // Enable queues
+    ग_लिखोl(&cntl->regs->usbcmd, cmd | CMD_ASE | CMD_PSE | CMD_RUN);
+
+    // Set शेष of high speed क्रम root hub.
+    ग_लिखोl(&cntl->regs->configflag, 1);
+    PendingEHCI--;
+
+    // Find devices
+    पूर्णांक count = check_ehci_ports(cntl);
+    ehci_मुक्त_pipes(cntl);
+    अगर (count)
+        // Success
+        वापस;
+
+    // No devices found - shutकरोwn and मुक्त controller.
+    ग_लिखोl(&cntl->regs->usbcmd, cmd & ~CMD_RUN);
+    msleep(4);  // 2ms to stop पढ़ोing memory - XXX
+fail:
+    मुक्त(fl);
+    मुक्त(पूर्णांकr_qh);
+    मुक्त(async_qh);
+    मुक्त(cntl);
+पूर्ण
+
+अटल व्योम
+ehci_controller_setup(काष्ठा pci_device *pci)
+अणु
+    काष्ठा ehci_caps *caps = pci_enable_membar(pci, PCI_BASE_ADDRESS_0);
+    अगर (!caps)
+        वापस;
+    u32 hcc_params = पढ़ोl(&caps->hccparams);
+
+    काष्ठा usb_ehci_s *cntl = दो_स्मृति_पंचांगphigh(माप(*cntl));
+    अगर (!cntl) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    स_रखो(cntl, 0, माप(*cntl));
+    cntl->usb.pci = pci;
+    cntl->usb.type = USB_TYPE_EHCI;
+    cntl->caps = caps;
+    cntl->checkports = पढ़ोl(&cntl->caps->hcsparams) & HCS_N_PORTS_MASK;
+    cntl->regs = (व्योम*)caps + पढ़ोb(&caps->caplength);
+    अगर (hcc_params & HCC_64BIT_ADDR)
+        cntl->regs->ctrldssegment = 0;
+    PendingEHCI++;
+
+    dम_लिखो(1, "EHCI init on dev %pP (regs=%p)\n", pci, cntl->regs);
+
+    pci_enable_busmaster(pci);
+
+    // XXX - check क्रम and disable SMM control?
+
+    run_thपढ़ो(configure_ehci, cntl);
+पूर्ण
+
+व्योम
+ehci_setup(व्योम)
+अणु
+    अगर (! CONFIG_USB_EHCI)
+        वापस;
+    काष्ठा pci_device *pci;
+    क्रमeachpci(pci) अणु
+        अगर (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_EHCI)
+            ehci_controller_setup(pci);
+    पूर्ण
+पूर्ण
+
+// Wait क्रम all EHCI controllers to initialize.  This क्रमces OHCI/UHCI
+// setup to always be after any EHCI ports are routed to EHCI.
+व्योम
+ehci_रुको_controllers(व्योम)
+अणु
+    जबतक (CONFIG_USB_EHCI && CONFIG_THREADS && PendingEHCI)
+        yield();
+पूर्ण
+
+
+/****************************************************************
+ * End poपूर्णांक communication
+ ****************************************************************/
+
+// Setup fields in qh
+अटल व्योम
+ehci_desc2pipe(काष्ठा ehci_pipe *pipe, काष्ठा usbdevice_s *usbdev
+               , काष्ठा usb_endpoपूर्णांक_descriptor *epdesc)
+अणु
+    usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
+
+    pipe->qh.info1 = ((pipe->pipe.maxpacket << QH_MAXPACKET_SHIFT)
+                      | (pipe->pipe.speed << QH_SPEED_SHIFT)
+                      | (pipe->pipe.ep << QH_EP_SHIFT)
+                      | (pipe->pipe.devaddr << QH_DEVADDR_SHIFT));
+
+    pipe->qh.info2 = (1 << QH_MULT_SHIFT);
+    काष्ठा usbdevice_s *hubdev = usbdev->hub->usbdev;
+    अगर (hubdev) अणु
+        काष्ठा ehci_pipe *hpipe = container_of(
+            hubdev->defpipe, काष्ठा ehci_pipe, pipe);
+        अगर (hpipe->pipe.speed == USB_HIGHSPEED)
+            pipe->qh.info2 |= (((usbdev->port+1) << QH_HUBPORT_SHIFT)
+                               | (hpipe->pipe.devaddr << QH_HUBADDR_SHIFT));
+        अन्यथा
+            pipe->qh.info2 = hpipe->qh.info2;
+    पूर्ण
+
+    u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+    अगर (eptype == USB_ENDPOINT_XFER_CONTROL)
+        pipe->qh.info1 |= ((pipe->pipe.speed != USB_HIGHSPEED ? QH_CONTROL : 0)
+                           | QH_TOGGLECONTROL);
+    अन्यथा अगर (eptype == USB_ENDPOINT_XFER_INT)
+        pipe->qh.info2 |= (0x01 << QH_SMASK_SHIFT) | (0x1c << QH_CMASK_SHIFT);
+पूर्ण
+
+अटल काष्ठा usb_pipe *
+ehci_alloc_पूर्णांकr_pipe(काष्ठा usbdevice_s *usbdev
+                     , काष्ठा usb_endpoपूर्णांक_descriptor *epdesc)
+अणु
+    काष्ठा usb_ehci_s *cntl = container_of(
+        usbdev->hub->cntl, काष्ठा usb_ehci_s, usb);
+    पूर्णांक frameexp = usb_get_period(usbdev, epdesc);
+    dम_लिखो(7, "ehci_alloc_intr_pipe %p %d\n", &cntl->usb, frameexp);
+
+    अगर (frameexp > 10)
+        frameexp = 10;
+    पूर्णांक maxpacket = epdesc->wMaxPacketSize;
+    // Determine number of entries needed क्रम 2 समयr ticks.
+    पूर्णांक ms = 1<<frameexp;
+    पूर्णांक count = DIV_ROUND_UP(ticks_to_ms(2), ms);
+    काष्ठा ehci_pipe *pipe = memalign_low(EHCI_QH_ALIGN, माप(*pipe));
+    काष्ठा ehci_qtd *tds = memalign_low(EHCI_QTD_ALIGN, माप(*tds) * count);
+    व्योम *data = दो_स्मृति_low(maxpacket * count);
+    अगर (!pipe || !tds || !data) अणु
+        warn_noalloc();
+        जाओ fail;
+    पूर्ण
+    स_रखो(pipe, 0, माप(*pipe));
+    स_रखो(tds, 0, माप(*tds) * count);
+    स_रखो(data, 0, maxpacket * count);
+    ehci_desc2pipe(pipe, usbdev, epdesc);
+    pipe->next_td = pipe->tds = tds;
+    pipe->data = data;
+    pipe->qh.qtd_next = (u32)tds;
+
+    पूर्णांक i;
+    क्रम (i=0; i<count; i++) अणु
+        काष्ठा ehci_qtd *td = &tds[i];
+        td->qtd_next = (i==count-1 ? (u32)tds : (u32)&td[1]);
+        td->alt_next = EHCI_PTR_TERM;
+        td->token = (ehci_explen(maxpacket) | QTD_STS_ACTIVE
+                     | QTD_PID_IN | ehci_maxerr(3));
+        td->buf[0] = (u32)data + maxpacket * i;
+    पूर्ण
+
+    // Add to पूर्णांकerrupt schedule.
+    काष्ठा ehci_framelist *fl = (व्योम*)पढ़ोl(&cntl->regs->periodiclistbase);
+    अगर (frameexp == 0) अणु
+        // Add to existing पूर्णांकerrupt entry.
+        काष्ठा ehci_qh *पूर्णांकr_qh = (व्योम*)(fl->links[0] & ~EHCI_PTR_BITS);
+        pipe->qh.next = पूर्णांकr_qh->next;
+        barrier();
+        पूर्णांकr_qh->next = (u32)&pipe->qh | EHCI_PTR_QH;
+    पूर्ण अन्यथा अणु
+        पूर्णांक startpos = 1<<(frameexp-1);
+        pipe->qh.next = fl->links[startpos];
+        barrier();
+        क्रम (i=startpos; i<ARRAY_SIZE(fl->links); i+=ms)
+            fl->links[i] = (u32)&pipe->qh | EHCI_PTR_QH;
+    पूर्ण
+
+    वापस &pipe->pipe;
+fail:
+    मुक्त(pipe);
+    मुक्त(tds);
+    मुक्त(data);
+    वापस शून्य;
+पूर्ण
+
+काष्ठा usb_pipe *
+ehci_पुनः_स्मृति_pipe(काष्ठा usbdevice_s *usbdev, काष्ठा usb_pipe *upipe
+                  , काष्ठा usb_endpoपूर्णांक_descriptor *epdesc)
+अणु
+    अगर (! CONFIG_USB_EHCI)
+        वापस शून्य;
+    usb_add_मुक्तlist(upipe);
+    अगर (!epdesc)
+        वापस शून्य;
+    u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+    अगर (eptype == USB_ENDPOINT_XFER_INT)
+        वापस ehci_alloc_पूर्णांकr_pipe(usbdev, epdesc);
+    काष्ठा usb_ehci_s *cntl = container_of(
+        usbdev->hub->cntl, काष्ठा usb_ehci_s, usb);
+    dम_लिखो(7, "ehci_alloc_async_pipe %p %d\n", &cntl->usb, eptype);
+
+    काष्ठा usb_pipe *usbpipe = usb_get_मुक्तlist(&cntl->usb, eptype);
+    अगर (usbpipe) अणु
+        // Use previously allocated pipe.
+        काष्ठा ehci_pipe *pipe = container_of(usbpipe, काष्ठा ehci_pipe, pipe);
+        ehci_desc2pipe(pipe, usbdev, epdesc);
+        pipe->qh.token = 0;
+        वापस usbpipe;
+    पूर्ण
+
+    // Allocate a new queue head.
+    काष्ठा ehci_pipe *pipe;
+    अगर (eptype == USB_ENDPOINT_XFER_CONTROL)
+        pipe = memalign_पंचांगphigh(EHCI_QH_ALIGN, माप(*pipe));
+    अन्यथा
+        pipe = memalign_low(EHCI_QH_ALIGN, माप(*pipe));
+    अगर (!pipe) अणु
+        warn_noalloc();
+        वापस शून्य;
+    पूर्ण
+    स_रखो(pipe, 0, माप(*pipe));
+    ehci_desc2pipe(pipe, usbdev, epdesc);
+    pipe->qh.qtd_next = pipe->qh.alt_next = EHCI_PTR_TERM;
+
+    // Add queue head to controller list.
+    काष्ठा ehci_qh *async_qh = cntl->async_qh;
+    pipe->qh.next = async_qh->next;
+    barrier();
+    async_qh->next = (u32)&pipe->qh | EHCI_PTR_QH;
+    वापस &pipe->pipe;
+पूर्ण
+
+अटल व्योम
+ehci_reset_pipe(काष्ठा ehci_pipe *pipe)
+अणु
+    SET_LOWFLAT(pipe->qh.qtd_next, EHCI_PTR_TERM);
+    SET_LOWFLAT(pipe->qh.alt_next, EHCI_PTR_TERM);
+    barrier();
+    SET_LOWFLAT(pipe->qh.token, GET_LOWFLAT(pipe->qh.token) & QTD_TOGGLE);
+पूर्ण
+
+अटल पूर्णांक
+ehci_रुको_td(काष्ठा ehci_pipe *pipe, काष्ठा ehci_qtd *td, u32 end)
+अणु
+    u32 status;
+    क्रम (;;) अणु
+        status = td->token;
+        अगर (!(status & QTD_STS_ACTIVE))
+            अवरोध;
+        अगर (समयr_check(end)) अणु
+            u32 cur = GET_LOWFLAT(pipe->qh.current);
+            u32 tok = GET_LOWFLAT(pipe->qh.token);
+            u32 next = GET_LOWFLAT(pipe->qh.qtd_next);
+            warn_समयout();
+            dम_लिखो(1, "ehci pipe=%p cur=%08x tok=%08x next=%x td=%p status=%x\n"
+                    , pipe, cur, tok, next, td, status);
+            ehci_reset_pipe(pipe);
+            काष्ठा usb_ehci_s *cntl = container_of(
+                GET_LOWFLAT(pipe->pipe.cntl), काष्ठा usb_ehci_s, usb);
+            ehci_रुकोtick(cntl);
+            वापस -1;
+        पूर्ण
+        yield();
+    पूर्ण
+    अगर (status & QTD_STS_HALT) अणु
+        dम_लिखो(1, "ehci_wait_td error - status=%x\n", status);
+        ehci_reset_pipe(pipe);
+        वापस -2;
+    पूर्ण
+    वापस 0;
+पूर्ण
+
+अटल व्योम
+ehci_fill_tdbuf(काष्ठा ehci_qtd *td, u32 dest, पूर्णांक transfer)
+अणु
+    u32 *pos = td->buf, end = dest + transfer;
+    क्रम (; dest < end; dest = ALIGN_DOWN(dest + PAGE_SIZE, PAGE_SIZE))
+        *pos++ = dest;
+पूर्ण
+
+#घोषणा STACKQTDS 6
+
+पूर्णांक
+ehci_send_pipe(काष्ठा usb_pipe *p, पूर्णांक dir, स्थिर व्योम *cmd
+               , व्योम *data, पूर्णांक datasize)
+अणु
+    अगर (! CONFIG_USB_EHCI)
+        वापस -1;
+    काष्ठा ehci_pipe *pipe = container_of(p, काष्ठा ehci_pipe, pipe);
+    dम_लिखो(7, "ehci_send_pipe qh=%p dir=%d data=%p size=%d\n"
+            , &pipe->qh, dir, data, datasize);
+
+    // Allocate tds on stack (with required alignment)
+    u8 tdsbuf[माप(काष्ठा ehci_qtd) * STACKQTDS + EHCI_QTD_ALIGN - 1];
+    काष्ठा ehci_qtd *tds = (व्योम*)ALIGN((u32)tdsbuf, EHCI_QTD_ALIGN), *td = tds;
+    स_रखो(tds, 0, माप(*tds) * STACKQTDS);
+
+    // Setup transfer descriptors
+    u16 maxpacket = GET_LOWFLAT(pipe->pipe.maxpacket);
+    u32 toggle = 0;
+    अगर (cmd) अणु
+        // Send setup pid on control transfers
+        td->qtd_next = (u32)MAKE_FLATPTR(GET_SEG(SS), td+1);
+        td->alt_next = EHCI_PTR_TERM;
+        td->token = (ehci_explen(USB_CONTROL_SETUP_SIZE) | QTD_STS_ACTIVE
+                     | QTD_PID_SETUP | ehci_maxerr(3));
+        ehci_fill_tdbuf(td, (u32)cmd, USB_CONTROL_SETUP_SIZE);
+        td++;
+        toggle = QTD_TOGGLE;
+    पूर्ण
+    u32 dest = (u32)data, dataend = dest + datasize;
+    जबतक (dest < dataend) अणु
+        // Send data pids
+        अगर (td >= &tds[STACKQTDS]) अणु
+            warn_noalloc();
+            वापस -1;
+        पूर्ण
+        पूर्णांक maxtransfer = 5*PAGE_SIZE - (dest & (PAGE_SIZE-1));
+        पूर्णांक transfer = dataend - dest;
+        अगर (transfer > maxtransfer)
+            transfer = ALIGN_DOWN(maxtransfer, maxpacket);
+        td->qtd_next = (u32)MAKE_FLATPTR(GET_SEG(SS), td+1);
+        td->alt_next = EHCI_PTR_TERM;
+        td->token = (ehci_explen(transfer) | toggle | QTD_STS_ACTIVE
+                     | (dir ? QTD_PID_IN : QTD_PID_OUT) | ehci_maxerr(3));
+        ehci_fill_tdbuf(td, dest, transfer);
+        td++;
+        dest += transfer;
+    पूर्ण
+    अगर (cmd) अणु
+        // Send status pid on control transfers
+        अगर (td >= &tds[STACKQTDS]) अणु
+            warn_noalloc();
+            वापस -1;
+        पूर्ण
+        td->qtd_next = EHCI_PTR_TERM;
+        td->alt_next = EHCI_PTR_TERM;
+        td->token = (QTD_TOGGLE | QTD_STS_ACTIVE
+                     | (dir ? QTD_PID_OUT : QTD_PID_IN) | ehci_maxerr(3));
+        td++;
+    पूर्ण
+
+    // Transfer data
+    (td-1)->qtd_next = EHCI_PTR_TERM;
+    barrier();
+    SET_LOWFLAT(pipe->qh.qtd_next, (u32)MAKE_FLATPTR(GET_SEG(SS), tds));
+    u32 end = समयr_calc(usb_xfer_समय(p, datasize));
+    पूर्णांक i;
+    क्रम (i=0, td=tds; i<STACKQTDS; i++, td++) अणु
+        पूर्णांक ret = ehci_रुको_td(pipe, td, end);
+        अगर (ret)
+            वापस -1;
+    पूर्ण
+
+    वापस 0;
+पूर्ण
+
+पूर्णांक
+ehci_poll_पूर्णांकr(काष्ठा usb_pipe *p, व्योम *data)
+अणु
+    ASSERT16();
+    अगर (! CONFIG_USB_EHCI)
+        वापस -1;
+    काष्ठा ehci_pipe *pipe = container_of(p, काष्ठा ehci_pipe, pipe);
+    काष्ठा ehci_qtd *td = GET_LOWFLAT(pipe->next_td);
+    u32 token = GET_LOWFLAT(td->token);
+    अगर (token & QTD_STS_ACTIVE)
+        // No पूर्णांकrs found.
+        वापस -1;
+    // XXX - check क्रम errors.
+
+    // Copy data.
+    पूर्णांक maxpacket = GET_LOWFLAT(pipe->pipe.maxpacket);
+    पूर्णांक pos = td - GET_LOWFLAT(pipe->tds);
+    व्योम *tddata = GET_LOWFLAT(pipe->data) + maxpacket * pos;
+    स_नकल_far(GET_SEG(SS), data, SEG_LOW, LOWFLAT2LOW(tddata), maxpacket);
+
+    // Reenable this td.
+    काष्ठा ehci_qtd *next = (व्योम*)(GET_LOWFLAT(td->qtd_next) & ~EHCI_PTR_BITS);
+    SET_LOWFLAT(pipe->next_td, next);
+    SET_LOWFLAT(td->buf[0], (u32)tddata);
+    barrier();
+    SET_LOWFLAT(td->token, (ehci_explen(maxpacket) | QTD_STS_ACTIVE
+                            | QTD_PID_IN | ehci_maxerr(3)));
+
+    वापस 0;
+पूर्ण

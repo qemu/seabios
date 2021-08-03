@@ -1,0 +1,58 @@
+<शैली गुरु>
+#अगर_अघोषित __BOCHSVGA_H
+#घोषणा __BOCHSVGA_H
+
+#समावेश "types.h" // u8
+
+#घोषणा VBE_DISPI_BANK_ADDRESS           0xA0000
+#घोषणा VBE_DISPI_BANK_SIZE_KB           64
+
+#घोषणा VBE_DISPI_MAX_XRES               2560
+#घोषणा VBE_DISPI_MAX_YRES               1600
+
+#घोषणा VBE_DISPI_IOPORT_INDEX           0x01CE
+#घोषणा VBE_DISPI_IOPORT_DATA            0x01CF
+
+#घोषणा VBE_DISPI_INDEX_ID               0x0
+#घोषणा VBE_DISPI_INDEX_XRES             0x1
+#घोषणा VBE_DISPI_INDEX_YRES             0x2
+#घोषणा VBE_DISPI_INDEX_BPP              0x3
+#घोषणा VBE_DISPI_INDEX_ENABLE           0x4
+#घोषणा VBE_DISPI_INDEX_BANK             0x5
+#घोषणा VBE_DISPI_INDEX_VIRT_WIDTH       0x6
+#घोषणा VBE_DISPI_INDEX_VIRT_HEIGHT      0x7
+#घोषणा VBE_DISPI_INDEX_X_OFFSET         0x8
+#घोषणा VBE_DISPI_INDEX_Y_OFFSET         0x9
+#घोषणा VBE_DISPI_INDEX_VIDEO_MEMORY_64K 0xa
+
+#घोषणा VBE_DISPI_ID0                    0xB0C0
+#घोषणा VBE_DISPI_ID1                    0xB0C1
+#घोषणा VBE_DISPI_ID2                    0xB0C2
+#घोषणा VBE_DISPI_ID3                    0xB0C3
+#घोषणा VBE_DISPI_ID4                    0xB0C4
+#घोषणा VBE_DISPI_ID5                    0xB0C5
+
+#घोषणा VBE_DISPI_DISABLED               0x00
+#घोषणा VBE_DISPI_ENABLED                0x01
+#घोषणा VBE_DISPI_GETCAPS                0x02
+#घोषणा VBE_DISPI_8BIT_DAC               0x20
+#घोषणा VBE_DISPI_LFB_ENABLED            0x40
+#घोषणा VBE_DISPI_NOCLEARMEM             0x80
+
+#घोषणा VBE_DISPI_LFB_PHYSICAL_ADDRESS   0xE0000000
+
+काष्ठा vgamode_s *bochsvga_find_mode(पूर्णांक mode);
+व्योम bochsvga_list_modes(u16 seg, u16 *dest, u16 *last);
+पूर्णांक bochsvga_get_winकरोw(काष्ठा vgamode_s *vmode_g, पूर्णांक winकरोw);
+पूर्णांक bochsvga_set_winकरोw(काष्ठा vgamode_s *vmode_g, पूर्णांक winकरोw, पूर्णांक val);
+पूर्णांक bochsvga_get_linelength(काष्ठा vgamode_s *vmode_g);
+पूर्णांक bochsvga_set_linelength(काष्ठा vgamode_s *vmode_g, पूर्णांक val);
+पूर्णांक bochsvga_get_displaystart(काष्ठा vgamode_s *vmode_g);
+पूर्णांक bochsvga_set_displaystart(काष्ठा vgamode_s *vmode_g, पूर्णांक val);
+पूर्णांक bochsvga_get_dacक्रमmat(काष्ठा vgamode_s *vmode_g);
+पूर्णांक bochsvga_set_dacक्रमmat(काष्ठा vgamode_s *vmode_g, पूर्णांक val);
+पूर्णांक bochsvga_save_restore(पूर्णांक cmd, u16 seg, व्योम *data);
+पूर्णांक bochsvga_set_mode(काष्ठा vgamode_s *vmode_g, पूर्णांक flags);
+पूर्णांक bochsvga_setup(व्योम);
+
+#पूर्ण_अगर // bochsvga.h

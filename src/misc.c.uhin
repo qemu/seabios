@@ -1,0 +1,196 @@
+<शैली गुरु>
+// Code क्रम misc 16bit handlers and variables.
+//
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2002  MandrakeSoft S.A.
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_BDA
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "hw/pic.h" // enable_hwirq
+#समावेश "output.h" // debug_enter
+#समावेश "stacks.h" // call16_पूर्णांक
+#समावेश "string.h" // स_रखो
+
+#घोषणा PORT_MATH_CLEAR        0x00f0
+
+// Indicator अगर POST phase has been started (and अगर it has completed).
+पूर्णांक HaveRunPost VARFSEG;
+
+पूर्णांक
+in_post(व्योम)
+अणु
+    वापस GET_GLOBAL(HaveRunPost) == 1;
+पूर्ण
+
+
+/****************************************************************
+ * Misc 16bit ISRs
+ ****************************************************************/
+
+// INT 12h Memory Size Service Entry Poपूर्णांक
+व्योम VISIBLE16
+handle_12(काष्ठा bregs *regs)
+अणु
+    debug_enter(regs, DEBUG_HDL_12);
+    regs->ax = GET_BDA(mem_size_kb);
+पूर्ण
+
+// INT 11h Equipment List Service Entry Poपूर्णांक
+व्योम VISIBLE16
+handle_11(काष्ठा bregs *regs)
+अणु
+    debug_enter(regs, DEBUG_HDL_11);
+    regs->ax = GET_BDA(equipment_list_flags);
+पूर्ण
+
+// INT 05h Prपूर्णांक Screen Service Entry Poपूर्णांक
+व्योम VISIBLE16
+handle_05(काष्ठा bregs *regs)
+अणु
+    debug_enter(regs, DEBUG_HDL_05);
+पूर्ण
+
+// NMI handler
+व्योम VISIBLE16
+handle_02(व्योम)
+अणु
+    debug_isr(DEBUG_ISR_02);
+पूर्ण
+
+व्योम
+mathcp_setup(व्योम)
+अणु
+    dम_लिखो(3, "math cp init\n");
+    // 80x87 coprocessor installed
+    set_equipment_flags(0x02, 0x02);
+    enable_hwirq(13, FUNC16(entry_75));
+पूर्ण
+
+// INT 75 - IRQ13 - MATH COPROCESSOR EXCEPTION
+व्योम VISIBLE16
+handle_75(व्योम)
+अणु
+    debug_isr(DEBUG_ISR_75);
+
+    // clear irq13
+    outb(0, PORT_MATH_CLEAR);
+    // clear पूर्णांकerrupt
+    pic_eoi2();
+    // legacy nmi call
+    काष्ठा bregs br;
+    स_रखो(&br, 0, माप(br));
+    br.flags = F_IF;
+    call16_पूर्णांक(0x02, &br);
+पूर्ण
+
+
+/****************************************************************
+ * BIOS_CONFIG_TABLE
+ ****************************************************************/
+
+// DMA channel 3 used by hard disk BIOS
+#घोषणा CBT_F1_DMA3USED (1<<7)
+// 2nd पूर्णांकerrupt controller (8259) installed
+#घोषणा CBT_F1_2NDPIC   (1<<6)
+// Real-Time Clock installed
+#घोषणा CBT_F1_RTC      (1<<5)
+// INT 15/AH=4Fh called upon INT 09h
+#घोषणा CBT_F1_INT154F  (1<<4)
+// रुको क्रम बाह्यal event (INT 15/AH=41h) supported
+#घोषणा CBT_F1_WAITEXT  (1<<3)
+// extended BIOS area allocated (usually at top of RAM)
+#घोषणा CBT_F1_EBDA     (1<<2)
+// bus is Micro Channel instead of ISA
+#घोषणा CBT_F1_MCA      (1<<1)
+// प्रणाली has dual bus (Micro Channel + ISA)
+#घोषणा CBT_F1_MCAISA   (1<<0)
+
+// INT 16/AH=09h (keyboard functionality) supported
+#घोषणा CBT_F2_INT1609  (1<<6)
+
+काष्ठा bios_config_table_s BIOS_CONFIG_TABLE VARFSEGFIXED(0xe6f5) = अणु
+    .size     = माप(BIOS_CONFIG_TABLE) - 2,
+    .model    = BUILD_MODEL_ID,
+    .submodel = BUILD_SUBMODEL_ID,
+    .biosrev  = BUILD_BIOS_REVISION,
+    .feature1 = (
+        CBT_F1_2NDPIC | CBT_F1_RTC | CBT_F1_EBDA
+        | (CONFIG_KBD_CALL_INT15_4F ? CBT_F1_INT154F : 0)),
+    .feature2 = CBT_F2_INT1609,
+    .feature3 = 0,
+    .feature4 = 0,
+    .feature5 = 0,
+पूर्ण;
+
+
+/****************************************************************
+ * GDT and IDT tables
+ ****************************************************************/
+
+// Real mode IDT descriptor
+काष्ठा descloc_s rmode_IDT_info VARFSEG = अणु
+    .length = माप(काष्ठा rmode_IVT) - 1,
+    .addr = (u32)MAKE_FLATPTR(SEG_IVT, 0),
+पूर्ण;
+
+// Dummy IDT that क्रमces a machine shutकरोwn अगर an irq happens in
+// रक्षित mode.
+u8 dummy_IDT VARFSEG;
+
+// Protected mode IDT descriptor
+काष्ठा descloc_s pmode_IDT_info VARFSEG = अणु
+    .length = माप(dummy_IDT) - 1,
+    .addr = (u32)&dummy_IDT,
+पूर्ण;
+
+// GDT
+u64 rombios32_gdt[] VARFSEG __aligned(8) = अणु
+    // First entry can't be used.
+    0x0000000000000000LL,
+    // 32 bit flat code segment (SEG32_MODE32_CS)
+    GDT_GRANLIMIT(0xffffffff) | GDT_CODE | GDT_B,
+    // 32 bit flat data segment (SEG32_MODE32_DS)
+    GDT_GRANLIMIT(0xffffffff) | GDT_DATA | GDT_B,
+    // 16 bit code segment base=0xf0000 limit=0xffff (SEG32_MODE16_CS)
+    GDT_LIMIT(BUILD_BIOS_SIZE-1) | GDT_CODE | GDT_BASE(BUILD_BIOS_ADDR),
+    // 16 bit data segment base=0x0 limit=0xffff (SEG32_MODE16_DS)
+    GDT_LIMIT(0x0ffff) | GDT_DATA,
+    // 16 bit code segment base=0xf0000 limit=0xffffffff (SEG32_MODE16BIG_CS)
+    GDT_GRANLIMIT(0xffffffff) | GDT_CODE | GDT_BASE(BUILD_BIOS_ADDR),
+    // 16 bit data segment base=0 limit=0xffffffff (SEG32_MODE16BIG_DS)
+    GDT_GRANLIMIT(0xffffffff) | GDT_DATA,
+पूर्ण;
+
+// GDT descriptor
+काष्ठा descloc_s rombios32_gdt_48 VARFSEG = अणु
+    .length = माप(rombios32_gdt) - 1,
+    .addr = (u32)rombios32_gdt,
+पूर्ण;
+
+
+/****************************************************************
+ * Misc fixed vars
+ ****************************************************************/
+
+// BIOS build date
+अक्षर BiosDate[] VARFSEGFIXED(0xfff5) = "06/23/99";
+
+u8 BiosModelId VARFSEGFIXED(0xfffe) = BUILD_MODEL_ID;
+
+u8 BiosChecksum VARFSEGFIXED(0xffff);
+
+काष्ठा floppy_dbt_s diskette_param_table VARFSEGFIXED(0xefc7);
+
+// Old Fixed Disk Parameter Table (newer tables are in the ebda).
+काष्ठा fdpt_s OldFDPT VARFSEGFIXED(0xe401);
+
+// XXX - Baud Rate Generator Table
+u8 BaudTable[16] VARFSEGFIXED(0xe729);
+
+// XXX - Initial Interrupt Vector Offsets Loaded by POST
+u8 InitVectors[13] VARFSEGFIXED(0xfef3);
+
+// XXX - INT 1D - SYSTEM DATA - VIDEO PARAMETER TABLES
+u8 VideoParams[88] VARFSEGFIXED(0xf0a4);

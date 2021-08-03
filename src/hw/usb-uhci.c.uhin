@@ -1,0 +1,572 @@
+<शैली गुरु>
+// Code क्रम handling UHCI USB controllers.
+//
+// Copyright (C) 2009  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_LOWFLAT
+#समावेश "config.h" // CONFIG_*
+#समावेश "malloc.h" // मुक्त
+#समावेश "output.h" // dम_लिखो
+#समावेश "pci.h" // pci_config_ग_लिखोw
+#समावेश "pcidevice.h" // क्रमeachpci
+#समावेश "pci_ids.h" // PCI_CLASS_SERIAL_USB_UHCI
+#समावेश "pci_regs.h" // PCI_BASE_ADDRESS_4
+#समावेश "string.h" // स_रखो
+#समावेश "usb.h" // काष्ठा usb_s
+#समावेश "usb-ehci.h" // ehci_रुको_controllers
+#समावेश "usb-uhci.h" // USBLEGSUP
+#समावेश "util.h" // msleep
+#समावेश "x86.h" // outw
+
+काष्ठा usb_uhci_s अणु
+    काष्ठा usb_s usb;
+    u16 iobase;
+    काष्ठा uhci_qh *control_qh;
+    काष्ठा uhci_framelist *framelist;
+पूर्ण;
+
+काष्ठा uhci_pipe अणु
+    काष्ठा uhci_qh qh;
+    काष्ठा uhci_td *next_td;
+    काष्ठा usb_pipe pipe;
+    u16 iobase;
+    u8 toggle;
+पूर्ण;
+
+
+/****************************************************************
+ * Root hub
+ ****************************************************************/
+
+// Check अगर device attached to a given port
+अटल पूर्णांक
+uhci_hub_detect(काष्ठा usbhub_s *hub, u32 port)
+अणु
+    काष्ठा usb_uhci_s *cntl = container_of(hub->cntl, काष्ठा usb_uhci_s, usb);
+    u16 ioport = cntl->iobase + USBPORTSC1 + port * 2;
+    u16 status = inw(ioport);
+    अगर (!(status & USBPORTSC_CCS))
+        // No device found.
+        वापस 0;
+
+    // XXX - अगर just घातered up, need to रुको क्रम USB_TIME_ATTDB?
+
+    // Begin reset on port
+    outw(USBPORTSC_PR, ioport);
+    msleep(USB_TIME_DRSTR);
+    वापस 1;
+पूर्ण
+
+// Reset device on port
+अटल पूर्णांक
+uhci_hub_reset(काष्ठा usbhub_s *hub, u32 port)
+अणु
+    काष्ठा usb_uhci_s *cntl = container_of(hub->cntl, काष्ठा usb_uhci_s, usb);
+    u16 ioport = cntl->iobase + USBPORTSC1 + port * 2;
+
+    // Finish reset on port
+    outw(0, ioport);
+    udelay(6); // 64 high-speed bit बार
+    u16 status = inw(ioport);
+    अगर (!(status & USBPORTSC_CCS))
+        // No दीर्घer connected
+        वापस -1;
+    outw(USBPORTSC_PE, ioport);
+    वापस !!(status & USBPORTSC_LSDA);
+पूर्ण
+
+// Disable port
+अटल व्योम
+uhci_hub_disconnect(काष्ठा usbhub_s *hub, u32 port)
+अणु
+    काष्ठा usb_uhci_s *cntl = container_of(hub->cntl, काष्ठा usb_uhci_s, usb);
+    u16 ioport = cntl->iobase + USBPORTSC1 + port * 2;
+    outw(0, ioport);
+पूर्ण
+
+अटल काष्ठा usbhub_op_s uhci_HubOp = अणु
+    .detect = uhci_hub_detect,
+    .reset = uhci_hub_reset,
+    .disconnect = uhci_hub_disconnect,
+पूर्ण;
+
+// Find any devices connected to the root hub.
+अटल पूर्णांक
+check_uhci_ports(काष्ठा usb_uhci_s *cntl)
+अणु
+    ASSERT32FLAT();
+    // Wait क्रम ehci init - in हाल this is a "companion controller"
+    ehci_रुको_controllers();
+
+    काष्ठा usbhub_s hub;
+    स_रखो(&hub, 0, माप(hub));
+    hub.cntl = &cntl->usb;
+    hub.portcount = 2;
+    hub.op = &uhci_HubOp;
+    usb_क्रमागतerate(&hub);
+    वापस hub.devcount;
+पूर्ण
+
+
+/****************************************************************
+ * Setup
+ ****************************************************************/
+
+// Wait क्रम next USB frame to start - क्रम ensuring safe memory release.
+अटल व्योम
+uhci_रुकोtick(u16 iobase)
+अणु
+    barrier();
+    u16 startframe = inw(iobase + USBFRNUM);
+    u32 end = समयr_calc(1000 * 5);
+    क्रम (;;) अणु
+        अगर (inw(iobase + USBFRNUM) != startframe)
+            अवरोध;
+        अगर (समयr_check(end)) अणु
+            warn_समयout();
+            वापस;
+        पूर्ण
+        yield();
+    पूर्ण
+पूर्ण
+
+अटल व्योम
+uhci_मुक्त_pipes(काष्ठा usb_uhci_s *cntl)
+अणु
+    dम_लिखो(7, "uhci_free_pipes %p\n", cntl);
+
+    काष्ठा uhci_qh *pos = (व्योम*)(cntl->framelist->links[0] & ~UHCI_PTR_BITS);
+    क्रम (;;) अणु
+        u32 link = pos->link;
+        अगर (link == UHCI_PTR_TERM)
+            अवरोध;
+        काष्ठा uhci_qh *next = (व्योम*)(link & ~UHCI_PTR_BITS);
+        काष्ठा uhci_pipe *pipe = container_of(next, काष्ठा uhci_pipe, qh);
+        अगर (usb_is_मुक्तlist(&cntl->usb, &pipe->pipe))
+            pos->link = next->link;
+        अन्यथा
+            pos = next;
+    पूर्ण
+    uhci_रुकोtick(cntl->iobase);
+    क्रम (;;) अणु
+        काष्ठा usb_pipe *usbpipe = cntl->usb.मुक्तlist;
+        अगर (!usbpipe)
+            अवरोध;
+        cntl->usb.मुक्तlist = usbpipe->मुक्तnext;
+        काष्ठा uhci_pipe *pipe = container_of(usbpipe, काष्ठा uhci_pipe, pipe);
+        मुक्त(pipe);
+    पूर्ण
+पूर्ण
+
+अटल व्योम
+reset_uhci(काष्ठा usb_uhci_s *cntl, u16 bdf)
+अणु
+    // XXX - करोn't reset अगर not needed.
+
+    // Reset PIRQ and SMI
+    pci_config_ग_लिखोw(bdf, USBLEGSUP, USBLEGSUP_RWC);
+
+    // Reset the HC
+    outw(USBCMD_HCRESET, cntl->iobase + USBCMD);
+    udelay(5);
+
+    // Disable पूर्णांकerrupts and commands (just to be safe).
+    outw(0, cntl->iobase + USBINTR);
+    outw(0, cntl->iobase + USBCMD);
+पूर्ण
+
+अटल व्योम
+configure_uhci(व्योम *data)
+अणु
+    काष्ठा usb_uhci_s *cntl = data;
+
+    // Allocate ram क्रम schedule storage
+    काष्ठा uhci_td *term_td = दो_स्मृति_high(माप(*term_td));
+    काष्ठा uhci_framelist *fl = memalign_high(माप(*fl), माप(*fl));
+    काष्ठा uhci_pipe *पूर्णांकr_pipe = दो_स्मृति_high(माप(*पूर्णांकr_pipe));
+    काष्ठा uhci_pipe *term_pipe = दो_स्मृति_high(माप(*term_pipe));
+    अगर (!term_td || !fl || !पूर्णांकr_pipe || !term_pipe) अणु
+        warn_noalloc();
+        जाओ fail;
+    पूर्ण
+
+    // Work around क्रम PIIX errata
+    स_रखो(term_td, 0, माप(*term_td));
+    term_td->link = UHCI_PTR_TERM;
+    term_td->token = (uhci_explen(0) | (0x7f << TD_TOKEN_DEVADDR_SHIFT)
+                      | USB_PID_IN);
+    स_रखो(term_pipe, 0, माप(*term_pipe));
+    term_pipe->qh.element = (u32)term_td;
+    term_pipe->qh.link = UHCI_PTR_TERM;
+    term_pipe->pipe.cntl = &cntl->usb;
+
+    // Set schedule to poपूर्णांक to primary पूर्णांकr queue head
+    स_रखो(पूर्णांकr_pipe, 0, माप(*पूर्णांकr_pipe));
+    पूर्णांकr_pipe->qh.element = UHCI_PTR_TERM;
+    पूर्णांकr_pipe->qh.link = (u32)&term_pipe->qh | UHCI_PTR_QH;
+    पूर्णांकr_pipe->pipe.cntl = &cntl->usb;
+    पूर्णांक i;
+    क्रम (i=0; i<ARRAY_SIZE(fl->links); i++)
+        fl->links[i] = (u32)&पूर्णांकr_pipe->qh | UHCI_PTR_QH;
+    cntl->framelist = fl;
+    cntl->control_qh = &पूर्णांकr_pipe->qh;
+    barrier();
+
+    // Set the frame length to the शेष: 1 ms exactly
+    outb(USBSOF_DEFAULT, cntl->iobase + USBSOF);
+
+    // Store the frame list base address
+    outl((u32)fl->links, cntl->iobase + USBFLBASEADD);
+
+    // Set the current frame number
+    outw(0, cntl->iobase + USBFRNUM);
+
+    // Mark as configured and running with a 64-byte max packet.
+    outw(USBCMD_RS | USBCMD_CF | USBCMD_MAXP, cntl->iobase + USBCMD);
+
+    // Find devices
+    पूर्णांक count = check_uhci_ports(cntl);
+    uhci_मुक्त_pipes(cntl);
+    अगर (count)
+        // Success
+        वापस;
+
+    // No devices found - shutकरोwn and मुक्त controller.
+    outw(0, cntl->iobase + USBCMD);
+fail:
+    मुक्त(term_td);
+    मुक्त(fl);
+    मुक्त(पूर्णांकr_pipe);
+    मुक्त(term_pipe);
+    मुक्त(cntl);
+पूर्ण
+
+अटल व्योम
+uhci_controller_setup(काष्ठा pci_device *pci)
+अणु
+    u16 iobase = pci_enable_iobar(pci, PCI_BASE_ADDRESS_4);
+    अगर (!iobase)
+        वापस;
+
+    काष्ठा usb_uhci_s *cntl = दो_स्मृति_पंचांगphigh(माप(*cntl));
+    अगर (!cntl) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    स_रखो(cntl, 0, माप(*cntl));
+    cntl->usb.pci = pci;
+    cntl->usb.type = USB_TYPE_UHCI;
+    cntl->iobase = iobase;
+
+    dम_लिखो(1, "UHCI init on dev %pP (io=%x)\n", pci, cntl->iobase);
+
+    pci_enable_busmaster(pci);
+
+    reset_uhci(cntl, pci->bdf);
+
+    run_thपढ़ो(configure_uhci, cntl);
+पूर्ण
+
+व्योम
+uhci_setup(व्योम)
+अणु
+    अगर (! CONFIG_USB_UHCI)
+        वापस;
+    काष्ठा pci_device *pci;
+    क्रमeachpci(pci) अणु
+        अगर (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_UHCI)
+            uhci_controller_setup(pci);
+    पूर्ण
+पूर्ण
+
+
+/****************************************************************
+ * End poपूर्णांक communication
+ ****************************************************************/
+
+अटल काष्ठा usb_pipe *
+uhci_alloc_पूर्णांकr_pipe(काष्ठा usbdevice_s *usbdev
+                     , काष्ठा usb_endpoपूर्णांक_descriptor *epdesc)
+अणु
+    काष्ठा usb_uhci_s *cntl = container_of(
+        usbdev->hub->cntl, काष्ठा usb_uhci_s, usb);
+    पूर्णांक frameexp = usb_get_period(usbdev, epdesc);
+    dम_लिखो(7, "uhci_alloc_intr_pipe %p %d\n", &cntl->usb, frameexp);
+
+    अगर (frameexp > 10)
+        frameexp = 10;
+    पूर्णांक maxpacket = epdesc->wMaxPacketSize;
+    // Determine number of entries needed क्रम 2 समयr ticks.
+    पूर्णांक ms = 1<<frameexp;
+    पूर्णांक count = DIV_ROUND_UP(ticks_to_ms(2), ms);
+    count = ALIGN(count, 2);
+    काष्ठा uhci_pipe *pipe = दो_स्मृति_low(माप(*pipe));
+    काष्ठा uhci_td *tds = दो_स्मृति_low(माप(*tds) * count);
+    व्योम *data = दो_स्मृति_low(maxpacket * count);
+    अगर (!pipe || !tds || !data) अणु
+        warn_noalloc();
+        जाओ fail;
+    पूर्ण
+    स_रखो(pipe, 0, माप(*pipe));
+    usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
+    पूर्णांक lowspeed = pipe->pipe.speed;
+    पूर्णांक devaddr = pipe->pipe.devaddr | (pipe->pipe.ep << 7);
+    pipe->qh.element = (u32)tds;
+    pipe->next_td = &tds[0];
+    pipe->iobase = cntl->iobase;
+
+    पूर्णांक toggle = 0;
+    पूर्णांक i;
+    क्रम (i=0; i<count; i++) अणु
+        tds[i].link = (i==count-1 ? (u32)&tds[0] : (u32)&tds[i+1]);
+        tds[i].status = (uhci_maxerr(3) | (lowspeed ? TD_CTRL_LS : 0)
+                         | TD_CTRL_ACTIVE);
+        tds[i].token = (uhci_explen(maxpacket) | toggle
+                        | (devaddr << TD_TOKEN_DEVADDR_SHIFT)
+                        | USB_PID_IN);
+        tds[i].buffer = data + maxpacket * i;
+        toggle ^= TD_TOKEN_TOGGLE;
+    पूर्ण
+
+    // Add to पूर्णांकerrupt schedule.
+    काष्ठा uhci_framelist *fl = cntl->framelist;
+    अगर (frameexp == 0) अणु
+        // Add to existing पूर्णांकerrupt entry.
+        काष्ठा uhci_qh *पूर्णांकr_qh = (व्योम*)(fl->links[0] & ~UHCI_PTR_BITS);
+        pipe->qh.link = पूर्णांकr_qh->link;
+        barrier();
+        पूर्णांकr_qh->link = (u32)&pipe->qh | UHCI_PTR_QH;
+        अगर (cntl->control_qh == पूर्णांकr_qh)
+            cntl->control_qh = &pipe->qh;
+    पूर्ण अन्यथा अणु
+        पूर्णांक startpos = 1<<(frameexp-1);
+        pipe->qh.link = fl->links[startpos];
+        barrier();
+        क्रम (i=startpos; i<ARRAY_SIZE(fl->links); i+=ms)
+            fl->links[i] = (u32)&pipe->qh | UHCI_PTR_QH;
+    पूर्ण
+
+    वापस &pipe->pipe;
+fail:
+    मुक्त(pipe);
+    मुक्त(tds);
+    मुक्त(data);
+    वापस शून्य;
+पूर्ण
+
+काष्ठा usb_pipe *
+uhci_पुनः_स्मृति_pipe(काष्ठा usbdevice_s *usbdev, काष्ठा usb_pipe *upipe
+                  , काष्ठा usb_endpoपूर्णांक_descriptor *epdesc)
+अणु
+    अगर (! CONFIG_USB_UHCI)
+        वापस शून्य;
+    usb_add_मुक्तlist(upipe);
+    अगर (!epdesc)
+        वापस शून्य;
+    u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+    अगर (eptype == USB_ENDPOINT_XFER_INT)
+        वापस uhci_alloc_पूर्णांकr_pipe(usbdev, epdesc);
+    काष्ठा usb_uhci_s *cntl = container_of(
+        usbdev->hub->cntl, काष्ठा usb_uhci_s, usb);
+    dम_लिखो(7, "uhci_alloc_async_pipe %p %d\n", &cntl->usb, eptype);
+
+    काष्ठा usb_pipe *usbpipe = usb_get_मुक्तlist(&cntl->usb, eptype);
+    अगर (usbpipe) अणु
+        // Use previously allocated pipe.
+        usb_desc2pipe(usbpipe, usbdev, epdesc);
+        वापस usbpipe;
+    पूर्ण
+
+    // Allocate a new queue head.
+    काष्ठा uhci_pipe *pipe;
+    अगर (eptype == USB_ENDPOINT_XFER_CONTROL)
+        pipe = दो_स्मृति_पंचांगphigh(माप(*pipe));
+    अन्यथा
+        pipe = दो_स्मृति_low(माप(*pipe));
+    अगर (!pipe) अणु
+        warn_noalloc();
+        वापस शून्य;
+    पूर्ण
+    स_रखो(pipe, 0, माप(*pipe));
+    usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
+    pipe->qh.element = UHCI_PTR_TERM;
+    pipe->iobase = cntl->iobase;
+
+    // Add queue head to controller list.
+    काष्ठा uhci_qh *control_qh = cntl->control_qh;
+    pipe->qh.link = control_qh->link;
+    barrier();
+    control_qh->link = (u32)&pipe->qh | UHCI_PTR_QH;
+    अगर (eptype == USB_ENDPOINT_XFER_CONTROL)
+        cntl->control_qh = &pipe->qh;
+    वापस &pipe->pipe;
+पूर्ण
+
+अटल पूर्णांक
+रुको_pipe(काष्ठा uhci_pipe *pipe, u32 end)
+अणु
+    क्रम (;;) अणु
+        u32 el_link = GET_LOWFLAT(pipe->qh.element);
+        अगर (el_link & UHCI_PTR_TERM)
+            वापस 0;
+        अगर (समयr_check(end)) अणु
+            warn_समयout();
+            u16 iobase = GET_LOWFLAT(pipe->iobase);
+            काष्ठा uhci_td *td = (व्योम*)(el_link & ~UHCI_PTR_BITS);
+            dम_लिखो(1, "Timeout on wait_pipe %p (td=%p s=%x c=%x/%x)\n"
+                    , pipe, (व्योम*)el_link, GET_LOWFLAT(td->status)
+                    , inw(iobase + USBCMD)
+                    , inw(iobase + USBSTS));
+            SET_LOWFLAT(pipe->qh.element, UHCI_PTR_TERM);
+            uhci_रुकोtick(iobase);
+            वापस -1;
+        पूर्ण
+        yield();
+    पूर्ण
+पूर्ण
+
+अटल पूर्णांक
+रुको_td(काष्ठा uhci_td *td, u32 end)
+अणु
+    u32 status;
+    क्रम (;;) अणु
+        status = td->status;
+        अगर (!(status & TD_CTRL_ACTIVE))
+            अवरोध;
+        अगर (समयr_check(end)) अणु
+            warn_समयout();
+            वापस -1;
+        पूर्ण
+        yield();
+    पूर्ण
+    अगर (status & TD_CTRL_ANY_ERROR) अणु
+        dम_लिखो(1, "wait_td error - status=%x\n", status);
+        वापस -2;
+    पूर्ण
+    वापस 0;
+पूर्ण
+
+#घोषणा STACKTDS 16
+#घोषणा TDALIGN 16
+
+पूर्णांक
+uhci_send_pipe(काष्ठा usb_pipe *p, पूर्णांक dir, स्थिर व्योम *cmd
+               , व्योम *data, पूर्णांक datasize)
+अणु
+    अगर (! CONFIG_USB_UHCI)
+        वापस -1;
+    काष्ठा uhci_pipe *pipe = container_of(p, काष्ठा uhci_pipe, pipe);
+    dम_लिखो(7, "uhci_send_pipe qh=%p dir=%d data=%p size=%d\n"
+            , &pipe->qh, dir, data, datasize);
+    पूर्णांक maxpacket = GET_LOWFLAT(pipe->pipe.maxpacket);
+    पूर्णांक lowspeed = GET_LOWFLAT(pipe->pipe.speed);
+    पूर्णांक devaddr = (GET_LOWFLAT(pipe->pipe.devaddr)
+                   | (GET_LOWFLAT(pipe->pipe.ep) << 7));
+    पूर्णांक toggle = GET_LOWFLAT(pipe->toggle) ? TD_TOKEN_TOGGLE : 0;
+
+    // Allocate 16 tds on stack (16byte aligned)
+    u8 tdsbuf[माप(काष्ठा uhci_td) * STACKTDS + TDALIGN - 1];
+    काष्ठा uhci_td *tds = (व्योम*)ALIGN((u32)tdsbuf, TDALIGN);
+    स_रखो(tds, 0, माप(*tds) * STACKTDS);
+    पूर्णांक tdpos = 0;
+
+    // Enable tds
+    u32 end = समयr_calc(usb_xfer_समय(p, datasize));
+    barrier();
+    SET_LOWFLAT(pipe->qh.element, (u32)MAKE_FLATPTR(GET_SEG(SS), tds));
+
+    // Setup transfer descriptors
+    अगर (cmd) अणु
+        // Send setup pid on control transfers
+        काष्ठा uhci_td *td = &tds[tdpos++ % STACKTDS];
+        u32 nexttd = (u32)MAKE_FLATPTR(GET_SEG(SS), &tds[tdpos % STACKTDS]);
+        td->link = nexttd | UHCI_PTR_DEPTH;
+        td->token = (uhci_explen(USB_CONTROL_SETUP_SIZE)
+                     | (devaddr << TD_TOKEN_DEVADDR_SHIFT) | USB_PID_SETUP);
+        td->buffer = (व्योम*)cmd;
+        barrier();
+        td->status = (uhci_maxerr(3) | (lowspeed ? TD_CTRL_LS : 0)
+                      | TD_CTRL_ACTIVE);
+        toggle = TD_TOKEN_TOGGLE;
+    पूर्ण
+    जबतक (datasize) अणु
+        // Send data pids
+        काष्ठा uhci_td *td = &tds[tdpos++ % STACKTDS];
+        पूर्णांक ret = रुको_td(td, end);
+        अगर (ret)
+            जाओ fail;
+
+        पूर्णांक transfer = datasize;
+        अगर (transfer > maxpacket)
+            transfer = maxpacket;
+        u32 nexttd = (u32)MAKE_FLATPTR(GET_SEG(SS), &tds[tdpos % STACKTDS]);
+        td->link = ((transfer==datasize && !cmd)
+                    ? UHCI_PTR_TERM : (nexttd | UHCI_PTR_DEPTH));
+        td->token = (uhci_explen(transfer) | toggle
+                     | (devaddr << TD_TOKEN_DEVADDR_SHIFT)
+                     | (dir ? USB_PID_IN : USB_PID_OUT));
+        td->buffer = data;
+        barrier();
+        td->status = (uhci_maxerr(3) | (lowspeed ? TD_CTRL_LS : 0)
+                      | TD_CTRL_ACTIVE);
+        toggle ^= TD_TOKEN_TOGGLE;
+
+        data += transfer;
+        datasize -= transfer;
+    पूर्ण
+    अगर (cmd) अणु
+        // Send status pid on control transfers
+        काष्ठा uhci_td *td = &tds[tdpos++ % STACKTDS];
+        पूर्णांक ret = रुको_td(td, end);
+        अगर (ret)
+            जाओ fail;
+        td->link = UHCI_PTR_TERM;
+        td->token = (uhci_explen(0) | TD_TOKEN_TOGGLE
+                     | (devaddr << TD_TOKEN_DEVADDR_SHIFT)
+                     | (dir ? USB_PID_OUT : USB_PID_IN));
+        td->buffer = 0;
+        barrier();
+        td->status = (uhci_maxerr(0) | (lowspeed ? TD_CTRL_LS : 0)
+                      | TD_CTRL_ACTIVE);
+    पूर्ण
+    SET_LOWFLAT(pipe->toggle, !!toggle);
+    वापस रुको_pipe(pipe, end);
+fail:
+    dम_लिखो(1, "uhci_send_bulk failed\n");
+    SET_LOWFLAT(pipe->qh.element, UHCI_PTR_TERM);
+    uhci_रुकोtick(GET_LOWFLAT(pipe->iobase));
+    वापस -1;
+पूर्ण
+
+पूर्णांक
+uhci_poll_पूर्णांकr(काष्ठा usb_pipe *p, व्योम *data)
+अणु
+    ASSERT16();
+    अगर (! CONFIG_USB_UHCI)
+        वापस -1;
+
+    काष्ठा uhci_pipe *pipe = container_of(p, काष्ठा uhci_pipe, pipe);
+    काष्ठा uhci_td *td = GET_LOWFLAT(pipe->next_td);
+    u32 status = GET_LOWFLAT(td->status);
+    u32 token = GET_LOWFLAT(td->token);
+    अगर (status & TD_CTRL_ACTIVE)
+        // No पूर्णांकrs found.
+        वापस -1;
+    // XXX - check क्रम errors.
+
+    // Copy data.
+    व्योम *tddata = GET_LOWFLAT(td->buffer);
+    स_नकल_far(GET_SEG(SS), data, SEG_LOW, LOWFLAT2LOW(tddata)
+               , uhci_expected_length(token));
+
+    // Reenable this td.
+    काष्ठा uhci_td *next = (व्योम*)(GET_LOWFLAT(td->link) & ~UHCI_PTR_BITS);
+    SET_LOWFLAT(pipe->next_td, next);
+    barrier();
+    SET_LOWFLAT(td->status, (uhci_maxerr(0) | (status & TD_CTRL_LS)
+                             | TD_CTRL_ACTIVE));
+
+    वापस 0;
+पूर्ण

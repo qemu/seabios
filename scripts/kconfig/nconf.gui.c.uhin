@@ -1,0 +1,657 @@
+<शैली गुरु>
+/*
+ * Copyright (C) 2008 Nir Tzaअक्षर <nir.tzaअक्षर@gmail.com?
+ * Released under the terms of the GNU GPL v2.0.
+ *
+ * Derived from menuconfig.
+ *
+ */
+#समावेश "nconf.h"
+
+/* a list of all the dअगरferent widमाला_लो we use */
+attributes_t attributes[ATTR_MAX+1] = अणु0पूर्ण;
+
+/* available colors:
+   COLOR_BLACK   0
+   COLOR_RED     1
+   COLOR_GREEN   2
+   COLOR_YELLOW  3
+   COLOR_BLUE    4
+   COLOR_MAGENTA 5
+   COLOR_CYAN    6
+   COLOR_WHITE   7
+   */
+अटल व्योम set_normal_colors(व्योम)
+अणु
+	init_pair(NORMAL, -1, -1);
+	init_pair(MAIN_HEADING, COLOR_MAGENTA, -1);
+
+	/* FORE is क्रम the selected item */
+	init_pair(MAIN_MENU_FORE, -1, -1);
+	/* BACK क्रम all the rest */
+	init_pair(MAIN_MENU_BACK, -1, -1);
+	init_pair(MAIN_MENU_GREY, -1, -1);
+	init_pair(MAIN_MENU_HEADING, COLOR_GREEN, -1);
+	init_pair(MAIN_MENU_BOX, COLOR_YELLOW, -1);
+
+	init_pair(SCROLLWIN_TEXT, -1, -1);
+	init_pair(SCROLLWIN_HEADING, COLOR_GREEN, -1);
+	init_pair(SCROLLWIN_BOX, COLOR_YELLOW, -1);
+
+	init_pair(DIALOG_TEXT, -1, -1);
+	init_pair(DIALOG_BOX, COLOR_YELLOW, -1);
+	init_pair(DIALOG_MENU_BACK, COLOR_YELLOW, -1);
+	init_pair(DIALOG_MENU_FORE, COLOR_RED, -1);
+
+	init_pair(INPUT_BOX, COLOR_YELLOW, -1);
+	init_pair(INPUT_HEADING, COLOR_GREEN, -1);
+	init_pair(INPUT_TEXT, -1, -1);
+	init_pair(INPUT_FIELD, -1, -1);
+
+	init_pair(FUNCTION_HIGHLIGHT, -1, -1);
+	init_pair(FUNCTION_TEXT, COLOR_YELLOW, -1);
+पूर्ण
+
+/* available attributes:
+   A_NORMAL        Normal display (no highlight)
+   A_STANDOUT      Best highlighting mode of the terminal.
+   A_UNDERLINE     Underlining
+   A_REVERSE       Reverse video
+   A_BLINK         Blinking
+   A_DIM           Half bright
+   A_BOLD          Extra bright or bold
+   A_PROTECT       Protected mode
+   A_INVIS         Invisible or blank mode
+   A_ALTCHARSET    Alternate अक्षरacter set
+   A_CHARTEXT      Bit-mask to extract a अक्षरacter
+   COLOR_PAIR(n)   Color-pair number n
+   */
+अटल व्योम normal_color_theme(व्योम)
+अणु
+	/* स्वतःmatically add color... */
+#घोषणा mkattr(name, attr) करो अणु \
+attributes[name] = attr | COLOR_PAIR(name); पूर्ण जबतक (0)
+	mkattr(NORMAL, NORMAL);
+	mkattr(MAIN_HEADING, A_BOLD | A_UNDERLINE);
+
+	mkattr(MAIN_MENU_FORE, A_REVERSE);
+	mkattr(MAIN_MENU_BACK, A_NORMAL);
+	mkattr(MAIN_MENU_GREY, A_NORMAL);
+	mkattr(MAIN_MENU_HEADING, A_BOLD);
+	mkattr(MAIN_MENU_BOX, A_NORMAL);
+
+	mkattr(SCROLLWIN_TEXT, A_NORMAL);
+	mkattr(SCROLLWIN_HEADING, A_BOLD);
+	mkattr(SCROLLWIN_BOX, A_BOLD);
+
+	mkattr(DIALOG_TEXT, A_BOLD);
+	mkattr(DIALOG_BOX, A_BOLD);
+	mkattr(DIALOG_MENU_FORE, A_STANDOUT);
+	mkattr(DIALOG_MENU_BACK, A_NORMAL);
+
+	mkattr(INPUT_BOX, A_NORMAL);
+	mkattr(INPUT_HEADING, A_BOLD);
+	mkattr(INPUT_TEXT, A_NORMAL);
+	mkattr(INPUT_FIELD, A_UNDERLINE);
+
+	mkattr(FUNCTION_HIGHLIGHT, A_BOLD);
+	mkattr(FUNCTION_TEXT, A_REVERSE);
+पूर्ण
+
+अटल व्योम no_colors_theme(व्योम)
+अणु
+	/* स्वतःmatically add highlight, no color */
+#घोषणा mkattrn(name, attr) अणु attributes[name] = attr; पूर्ण
+
+	mkattrn(NORMAL, NORMAL);
+	mkattrn(MAIN_HEADING, A_BOLD | A_UNDERLINE);
+
+	mkattrn(MAIN_MENU_FORE, A_STANDOUT);
+	mkattrn(MAIN_MENU_BACK, A_NORMAL);
+	mkattrn(MAIN_MENU_GREY, A_NORMAL);
+	mkattrn(MAIN_MENU_HEADING, A_BOLD);
+	mkattrn(MAIN_MENU_BOX, A_NORMAL);
+
+	mkattrn(SCROLLWIN_TEXT, A_NORMAL);
+	mkattrn(SCROLLWIN_HEADING, A_BOLD);
+	mkattrn(SCROLLWIN_BOX, A_BOLD);
+
+	mkattrn(DIALOG_TEXT, A_NORMAL);
+	mkattrn(DIALOG_BOX, A_BOLD);
+	mkattrn(DIALOG_MENU_FORE, A_STANDOUT);
+	mkattrn(DIALOG_MENU_BACK, A_NORMAL);
+
+	mkattrn(INPUT_BOX, A_BOLD);
+	mkattrn(INPUT_HEADING, A_BOLD);
+	mkattrn(INPUT_TEXT, A_NORMAL);
+	mkattrn(INPUT_FIELD, A_UNDERLINE);
+
+	mkattrn(FUNCTION_HIGHLIGHT, A_BOLD);
+	mkattrn(FUNCTION_TEXT, A_REVERSE);
+पूर्ण
+
+व्योम set_colors()
+अणु
+	start_color();
+	use_शेष_colors();
+	set_normal_colors();
+	अगर (has_colors()) अणु
+		normal_color_theme();
+	पूर्ण अन्यथा अणु
+		/* give शेषs */
+		no_colors_theme();
+	पूर्ण
+पूर्ण
+
+
+/* this changes the winकरोws attributes !!! */
+व्योम prपूर्णांक_in_middle(WINDOW *win,
+		पूर्णांक starty,
+		पूर्णांक startx,
+		पूर्णांक width,
+		स्थिर अक्षर *string,
+		chtype color)
+अणु      पूर्णांक length, x, y;
+	भग्न temp;
+
+
+	अगर (win == शून्य)
+		win = stdscr;
+	getyx(win, y, x);
+	अगर (startx != 0)
+		x = startx;
+	अगर (starty != 0)
+		y = starty;
+	अगर (width == 0)
+		width = 80;
+
+	length = म_माप(string);
+	temp = (width - length) / 2;
+	x = startx + (पूर्णांक)temp;
+	(व्योम) wattrset(win, color);
+	mvwprपूर्णांकw(win, y, x, "%s", string);
+	refresh();
+पूर्ण
+
+पूर्णांक get_line_no(स्थिर अक्षर *text)
+अणु
+	पूर्णांक i;
+	पूर्णांक total = 1;
+
+	अगर (!text)
+		वापस 0;
+
+	क्रम (i = 0; text[i] != '\0'; i++)
+		अगर (text[i] == '\n')
+			total++;
+	वापस total;
+पूर्ण
+
+स्थिर अक्षर *get_line(स्थिर अक्षर *text, पूर्णांक line_no)
+अणु
+	पूर्णांक i;
+	पूर्णांक lines = 0;
+
+	अगर (!text)
+		वापस 0;
+
+	क्रम (i = 0; text[i] != '\0' && lines < line_no; i++)
+		अगर (text[i] == '\n')
+			lines++;
+	वापस text+i;
+पूर्ण
+
+पूर्णांक get_line_length(स्थिर अक्षर *line)
+अणु
+	पूर्णांक res = 0;
+	जबतक (*line != '\0' && *line != '\n') अणु
+		line++;
+		res++;
+	पूर्ण
+	वापस res;
+पूर्ण
+
+/* prपूर्णांक all lines to the winकरोw. */
+व्योम fill_winकरोw(WINDOW *win, स्थिर अक्षर *text)
+अणु
+	पूर्णांक x, y;
+	पूर्णांक total_lines = get_line_no(text);
+	पूर्णांक i;
+
+	geपंचांगaxyx(win, y, x);
+	/* करो not go over end of line */
+	total_lines = min(total_lines, y);
+	क्रम (i = 0; i < total_lines; i++) अणु
+		अक्षर पंचांगp[x+10];
+		स्थिर अक्षर *line = get_line(text, i);
+		पूर्णांक len = get_line_length(line);
+		म_नकलन(पंचांगp, line, min(len, x));
+		पंचांगp[len] = '\0';
+		mvwprपूर्णांकw(win, i, 0, "%s", पंचांगp);
+	पूर्ण
+पूर्ण
+
+/* get the message, and buttons.
+ * each button must be a अक्षर*
+ * वापस the selected button
+ *
+ * this dialog is used क्रम 2 dअगरferent things:
+ * 1) show a text box, no buttons.
+ * 2) show a dialog, with horizontal buttons
+ */
+पूर्णांक btn_dialog(WINDOW *मुख्य_winकरोw, स्थिर अक्षर *msg, पूर्णांक btn_num, ...)
+अणु
+	बहु_सूची ap;
+	अक्षर *btn;
+	पूर्णांक btns_width = 0;
+	पूर्णांक msg_lines = 0;
+	पूर्णांक msg_width = 0;
+	पूर्णांक total_width;
+	पूर्णांक win_rows = 0;
+	WINDOW *win;
+	WINDOW *msg_win;
+	WINDOW *menu_win;
+	MENU *menu;
+	ITEM *btns[btn_num+1];
+	पूर्णांक i, x, y;
+	पूर्णांक res = -1;
+
+
+	बहु_शुरू(ap, btn_num);
+	क्रम (i = 0; i < btn_num; i++) अणु
+		btn = बहु_तर्क(ap, अक्षर *);
+		btns[i] = new_item(btn, "");
+		btns_width += म_माप(btn)+1;
+	पूर्ण
+	बहु_पूर्ण(ap);
+	btns[btn_num] = शून्य;
+
+	/* find the widest line of msg: */
+	msg_lines = get_line_no(msg);
+	क्रम (i = 0; i < msg_lines; i++) अणु
+		स्थिर अक्षर *line = get_line(msg, i);
+		पूर्णांक len = get_line_length(line);
+		अगर (msg_width < len)
+			msg_width = len;
+	पूर्ण
+
+	total_width = max(msg_width, btns_width);
+	/* place dialog in middle of screen */
+	y = (geपंचांगaxy(stdscr)-(msg_lines+4))/2;
+	x = (geपंचांगaxx(stdscr)-(total_width+4))/2;
+
+
+	/* create the winकरोws */
+	अगर (btn_num > 0)
+		win_rows = msg_lines+4;
+	अन्यथा
+		win_rows = msg_lines+2;
+
+	win = newwin(win_rows, total_width+4, y, x);
+	keypad(win, TRUE);
+	menu_win = derwin(win, 1, btns_width, win_rows-2,
+			1+(total_width+2-btns_width)/2);
+	menu = new_menu(btns);
+	msg_win = derwin(win, win_rows-2, msg_width, 1,
+			1+(total_width+2-msg_width)/2);
+
+	set_menu_क्रमe(menu, attributes[DIALOG_MENU_FORE]);
+	set_menu_back(menu, attributes[DIALOG_MENU_BACK]);
+
+	(व्योम) wattrset(win, attributes[DIALOG_BOX]);
+	box(win, 0, 0);
+
+	/* prपूर्णांक message */
+	(व्योम) wattrset(msg_win, attributes[DIALOG_TEXT]);
+	fill_winकरोw(msg_win, msg);
+
+	set_menu_win(menu, win);
+	set_menu_sub(menu, menu_win);
+	set_menu_क्रमmat(menu, 1, btn_num);
+	menu_opts_off(menu, O_SHOWDESC);
+	menu_opts_off(menu, O_SHOWMATCH);
+	menu_opts_on(menu, O_ONEVALUE);
+	menu_opts_on(menu, O_NONCYCLIC);
+	set_menu_mark(menu, "");
+	post_menu(menu);
+
+
+	touchwin(win);
+	refresh_all_winकरोws(मुख्य_winकरोw);
+	जबतक ((res = wअ_लोh(win))) अणु
+		चयन (res) अणु
+		हाल KEY_LEFT:
+			menu_driver(menu, REQ_LEFT_ITEM);
+			अवरोध;
+		हाल KEY_RIGHT:
+			menu_driver(menu, REQ_RIGHT_ITEM);
+			अवरोध;
+		हाल 10: /* ENTER */
+		हाल 27: /* ESCAPE */
+		हाल ' ':
+		हाल KEY_F(F_BACK):
+		हाल KEY_F(F_EXIT):
+			अवरोध;
+		पूर्ण
+		touchwin(win);
+		refresh_all_winकरोws(मुख्य_winकरोw);
+
+		अगर (res == 10 || res == ' ') अणु
+			res = item_index(current_item(menu));
+			अवरोध;
+		पूर्ण अन्यथा अगर (res == 27 || res == KEY_F(F_BACK) ||
+				res == KEY_F(F_EXIT)) अणु
+			res = KEY_EXIT;
+			अवरोध;
+		पूर्ण
+	पूर्ण
+
+	unpost_menu(menu);
+	मुक्त_menu(menu);
+	क्रम (i = 0; i < btn_num; i++)
+		मुक्त_item(btns[i]);
+
+	delwin(win);
+	वापस res;
+पूर्ण
+
+पूर्णांक dialog_inputbox(WINDOW *मुख्य_winकरोw,
+		स्थिर अक्षर *title, स्थिर अक्षर *prompt,
+		स्थिर अक्षर *init, अक्षर **resultp, पूर्णांक *result_len)
+अणु
+	पूर्णांक prompt_lines = 0;
+	पूर्णांक prompt_width = 0;
+	WINDOW *win;
+	WINDOW *prompt_win;
+	WINDOW *क्रमm_win;
+	PANEL *panel;
+	पूर्णांक i, x, y;
+	पूर्णांक res = -1;
+	पूर्णांक cursor_position = म_माप(init);
+	पूर्णांक cursor_क्रमm_win;
+	अक्षर *result = *resultp;
+
+	अगर (म_माप(init)+1 > *result_len) अणु
+		*result_len = म_माप(init)+1;
+		*resultp = result = पुनः_स्मृति(result, *result_len);
+	पूर्ण
+
+	/* find the widest line of msg: */
+	prompt_lines = get_line_no(prompt);
+	क्रम (i = 0; i < prompt_lines; i++) अणु
+		स्थिर अक्षर *line = get_line(prompt, i);
+		पूर्णांक len = get_line_length(line);
+		prompt_width = max(prompt_width, len);
+	पूर्ण
+
+	अगर (title)
+		prompt_width = max(prompt_width, म_माप(title));
+
+	/* place dialog in middle of screen */
+	y = (geपंचांगaxy(stdscr)-(prompt_lines+4))/2;
+	x = (geपंचांगaxx(stdscr)-(prompt_width+4))/2;
+
+	म_नकलन(result, init, *result_len);
+
+	/* create the winकरोws */
+	win = newwin(prompt_lines+6, prompt_width+7, y, x);
+	prompt_win = derwin(win, prompt_lines+1, prompt_width, 2, 2);
+	क्रमm_win = derwin(win, 1, prompt_width, prompt_lines+3, 2);
+	keypad(क्रमm_win, TRUE);
+
+	(व्योम) wattrset(क्रमm_win, attributes[INPUT_FIELD]);
+
+	(व्योम) wattrset(win, attributes[INPUT_BOX]);
+	box(win, 0, 0);
+	(व्योम) wattrset(win, attributes[INPUT_HEADING]);
+	अगर (title)
+		mvwprपूर्णांकw(win, 0, 3, "%s", title);
+
+	/* prपूर्णांक message */
+	(व्योम) wattrset(prompt_win, attributes[INPUT_TEXT]);
+	fill_winकरोw(prompt_win, prompt);
+
+	mvwprपूर्णांकw(क्रमm_win, 0, 0, "%*s", prompt_width, " ");
+	cursor_क्रमm_win = min(cursor_position, prompt_width-1);
+	mvwprपूर्णांकw(क्रमm_win, 0, 0, "%s",
+		  result + cursor_position-cursor_क्रमm_win);
+
+	/* create panels */
+	panel = new_panel(win);
+
+	/* show the cursor */
+	curs_set(1);
+
+	touchwin(win);
+	refresh_all_winकरोws(मुख्य_winकरोw);
+	जबतक ((res = wअ_लोh(क्रमm_win))) अणु
+		पूर्णांक len = म_माप(result);
+		चयन (res) अणु
+		हाल 10: /* ENTER */
+		हाल 27: /* ESCAPE */
+		हाल KEY_F(F_HELP):
+		हाल KEY_F(F_EXIT):
+		हाल KEY_F(F_BACK):
+			अवरोध;
+		हाल 127:
+		हाल KEY_BACKSPACE:
+			अगर (cursor_position > 0) अणु
+				स_हटाओ(&result[cursor_position-1],
+						&result[cursor_position],
+						len-cursor_position+1);
+				cursor_position--;
+				cursor_क्रमm_win--;
+				len--;
+			पूर्ण
+			अवरोध;
+		हाल KEY_DC:
+			अगर (cursor_position >= 0 && cursor_position < len) अणु
+				स_हटाओ(&result[cursor_position],
+						&result[cursor_position+1],
+						len-cursor_position+1);
+				len--;
+			पूर्ण
+			अवरोध;
+		हाल KEY_UP:
+		हाल KEY_RIGHT:
+			अगर (cursor_position < len) अणु
+				cursor_position++;
+				cursor_क्रमm_win++;
+			पूर्ण
+			अवरोध;
+		हाल KEY_DOWN:
+		हाल KEY_LEFT:
+			अगर (cursor_position > 0) अणु
+				cursor_position--;
+				cursor_क्रमm_win--;
+			पूर्ण
+			अवरोध;
+		हाल KEY_HOME:
+			cursor_position = 0;
+			cursor_क्रमm_win = 0;
+			अवरोध;
+		हाल KEY_END:
+			cursor_position = len;
+			cursor_क्रमm_win = min(cursor_position, prompt_width-1);
+			अवरोध;
+		शेष:
+			अगर ((है_चित्र(res) || है_खाली(res))) अणु
+				/* one क्रम new अक्षर, one क्रम '\0' */
+				अगर (len+2 > *result_len) अणु
+					*result_len = len+2;
+					*resultp = result = पुनः_स्मृति(result,
+								*result_len);
+				पूर्ण
+				/* insert the अक्षर at the proper position */
+				स_हटाओ(&result[cursor_position+1],
+						&result[cursor_position],
+						len-cursor_position+1);
+				result[cursor_position] = res;
+				cursor_position++;
+				cursor_क्रमm_win++;
+				len++;
+			पूर्ण अन्यथा अणु
+				mvprपूर्णांकw(0, 0, "unknown key: %d\n", res);
+			पूर्ण
+			अवरोध;
+		पूर्ण
+		अगर (cursor_क्रमm_win < 0)
+			cursor_क्रमm_win = 0;
+		अन्यथा अगर (cursor_क्रमm_win > prompt_width-1)
+			cursor_क्रमm_win = prompt_width-1;
+
+		wmove(क्रमm_win, 0, 0);
+		wclrtoeol(क्रमm_win);
+		mvwprपूर्णांकw(क्रमm_win, 0, 0, "%*s", prompt_width, " ");
+		mvwprपूर्णांकw(क्रमm_win, 0, 0, "%s",
+			result + cursor_position-cursor_क्रमm_win);
+		wmove(क्रमm_win, 0, cursor_क्रमm_win);
+		touchwin(win);
+		refresh_all_winकरोws(मुख्य_winकरोw);
+
+		अगर (res == 10) अणु
+			res = 0;
+			अवरोध;
+		पूर्ण अन्यथा अगर (res == 27 || res == KEY_F(F_BACK) ||
+				res == KEY_F(F_EXIT)) अणु
+			res = KEY_EXIT;
+			अवरोध;
+		पूर्ण अन्यथा अगर (res == KEY_F(F_HELP)) अणु
+			res = 1;
+			अवरोध;
+		पूर्ण
+	पूर्ण
+
+	/* hide the cursor */
+	curs_set(0);
+	del_panel(panel);
+	delwin(prompt_win);
+	delwin(क्रमm_win);
+	delwin(win);
+	वापस res;
+पूर्ण
+
+/* refresh all winकरोws in the correct order */
+व्योम refresh_all_winकरोws(WINDOW *मुख्य_winकरोw)
+अणु
+	update_panels();
+	touchwin(मुख्य_winकरोw);
+	refresh();
+पूर्ण
+
+/* layman's scrollable winकरोw... */
+व्योम show_scroll_win(WINDOW *मुख्य_winकरोw,
+		स्थिर अक्षर *title,
+		स्थिर अक्षर *text)
+अणु
+	पूर्णांक res;
+	पूर्णांक total_lines = get_line_no(text);
+	पूर्णांक x, y, lines, columns;
+	पूर्णांक start_x = 0, start_y = 0;
+	पूर्णांक text_lines = 0, text_cols = 0;
+	पूर्णांक total_cols = 0;
+	पूर्णांक win_cols = 0;
+	पूर्णांक win_lines = 0;
+	पूर्णांक i = 0;
+	WINDOW *win;
+	WINDOW *pad;
+	PANEL *panel;
+
+	geपंचांगaxyx(stdscr, lines, columns);
+
+	/* find the widest line of msg: */
+	total_lines = get_line_no(text);
+	क्रम (i = 0; i < total_lines; i++) अणु
+		स्थिर अक्षर *line = get_line(text, i);
+		पूर्णांक len = get_line_length(line);
+		total_cols = max(total_cols, len+2);
+	पूर्ण
+
+	/* create the pad */
+	pad = newpad(total_lines+10, total_cols+10);
+	(व्योम) wattrset(pad, attributes[SCROLLWIN_TEXT]);
+	fill_winकरोw(pad, text);
+
+	win_lines = min(total_lines+4, lines-2);
+	win_cols = min(total_cols+2, columns-2);
+	text_lines = max(win_lines-4, 0);
+	text_cols = max(win_cols-2, 0);
+
+	/* place winकरोw in middle of screen */
+	y = (lines-win_lines)/2;
+	x = (columns-win_cols)/2;
+
+	win = newwin(win_lines, win_cols, y, x);
+	keypad(win, TRUE);
+	/* show the help in the help winकरोw, and show the help panel */
+	(व्योम) wattrset(win, attributes[SCROLLWIN_BOX]);
+	box(win, 0, 0);
+	(व्योम) wattrset(win, attributes[SCROLLWIN_HEADING]);
+	mvwprपूर्णांकw(win, 0, 3, " %s ", title);
+	panel = new_panel(win);
+
+	/* handle scrolling */
+	करो अणु
+
+		copywin(pad, win, start_y, start_x, 2, 2, text_lines,
+				text_cols, 0);
+		prपूर्णांक_in_middle(win,
+				text_lines+2,
+				0,
+				text_cols,
+				"<OK>",
+				attributes[DIALOG_MENU_FORE]);
+		wrefresh(win);
+
+		res = wअ_लोh(win);
+		चयन (res) अणु
+		हाल KEY_NPAGE:
+		हाल ' ':
+		हाल 'd':
+			start_y += text_lines-2;
+			अवरोध;
+		हाल KEY_PPAGE:
+		हाल 'u':
+			start_y -= text_lines+2;
+			अवरोध;
+		हाल KEY_HOME:
+			start_y = 0;
+			अवरोध;
+		हाल KEY_END:
+			start_y = total_lines-text_lines;
+			अवरोध;
+		हाल KEY_DOWN:
+		हाल 'j':
+			start_y++;
+			अवरोध;
+		हाल KEY_UP:
+		हाल 'k':
+			start_y--;
+			अवरोध;
+		हाल KEY_LEFT:
+		हाल 'h':
+			start_x--;
+			अवरोध;
+		हाल KEY_RIGHT:
+		हाल 'l':
+			start_x++;
+			अवरोध;
+		पूर्ण
+		अगर (res == 10 || res == 27 || res == 'q' ||
+			res == KEY_F(F_HELP) || res == KEY_F(F_BACK) ||
+			res == KEY_F(F_EXIT))
+			अवरोध;
+		अगर (start_y < 0)
+			start_y = 0;
+		अगर (start_y >= total_lines-text_lines)
+			start_y = total_lines-text_lines;
+		अगर (start_x < 0)
+			start_x = 0;
+		अगर (start_x >= total_cols-text_cols)
+			start_x = total_cols-text_cols;
+	पूर्ण जबतक (res);
+
+	del_panel(panel);
+	delwin(win);
+	refresh_all_winकरोws(मुख्य_winकरोw);
+पूर्ण

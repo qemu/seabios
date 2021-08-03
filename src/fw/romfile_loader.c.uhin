@@ -1,0 +1,260 @@
+<शैली गुरु>
+#समावेश "romfile_loader.h"
+#समावेश "byteorder.h" // leXX_to_cpu/cpu_to_leXX
+#समावेश "util.h" // checksum
+#समावेश "string.h" // म_भेद
+#समावेश "romfile.h" // काष्ठा romfile_s
+#समावेश "malloc.h" // Zone*, _दो_स्मृति
+#समावेश "list.h" // काष्ठा hlist_node
+#समावेश "output.h" // warn_*
+#समावेश "paravirt.h" // qemu_cfg_ग_लिखो_file
+
+काष्ठा romfile_loader_file अणु
+    काष्ठा romfile_s *file;
+    व्योम *data;
+पूर्ण;
+काष्ठा romfile_loader_files अणु
+    पूर्णांक nfiles;
+    काष्ठा romfile_loader_file files[];
+पूर्ण;
+
+// Data काष्ठाures क्रम storing "write pointer" entries क्रम possible replay
+काष्ठा romfile_wr_poपूर्णांकer_entry अणु
+    u64 poपूर्णांकer;
+    u32 offset;
+    u16 key;
+    u8 ptr_size;
+    काष्ठा hlist_node node;
+पूर्ण;
+अटल काष्ठा hlist_head romfile_poपूर्णांकer_list;
+
+अटल काष्ठा romfile_loader_file *
+romfile_loader_find(स्थिर अक्षर *name,
+                    काष्ठा romfile_loader_files *files)
+अणु
+    पूर्णांक i;
+    अगर (name[ROMखाता_LOADER_खाताSZ - 1])
+        वापस शून्य;
+    क्रम (i = 0; i < files->nfiles; ++i)
+        अगर (!म_भेद(files->files[i].file->name, name))
+            वापस &files->files[i];
+    वापस शून्य;
+पूर्ण
+
+// Replay "write pointer" entries back to QEMU
+व्योम romfile_fw_cfg_resume(व्योम)
+अणु
+    अगर (!CONFIG_QEMU)
+        वापस;
+
+    काष्ठा romfile_wr_poपूर्णांकer_entry *entry;
+    hlist_क्रम_each_entry(entry, &romfile_poपूर्णांकer_list, node) अणु
+        qemu_cfg_ग_लिखो_file_simple(&entry->poपूर्णांकer, entry->key,
+                                   entry->offset, entry->ptr_size);
+    पूर्ण
+पूर्ण
+
+अटल व्योम romfile_loader_allocate(काष्ठा romfile_loader_entry_s *entry,
+                                    काष्ठा romfile_loader_files *files)
+अणु
+    काष्ठा zone_s *zone;
+    काष्ठा romfile_loader_file *file = &files->files[files->nfiles];
+    व्योम *data;
+    पूर्णांक ret;
+    अचिन्हित alloc_align = le32_to_cpu(entry->alloc.align);
+
+    अगर (alloc_align & (alloc_align - 1))
+        जाओ err;
+
+    चयन (entry->alloc.zone) अणु
+        हाल ROMखाता_LOADER_ALLOC_ZONE_HIGH:
+            zone = &ZoneHigh;
+            अवरोध;
+        हाल ROMखाता_LOADER_ALLOC_ZONE_FSEG:
+            zone = &ZoneFSeg;
+            अवरोध;
+        शेष:
+            जाओ err;
+    पूर्ण
+    अगर (alloc_align < MALLOC_MIN_ALIGN)
+        alloc_align = MALLOC_MIN_ALIGN;
+    अगर (entry->alloc.file[ROMखाता_LOADER_खाताSZ - 1])
+        जाओ err;
+    file->file = romfile_find(entry->alloc.file);
+    अगर (!file->file || !file->file->size)
+        वापस;
+    data = _दो_स्मृति(zone, file->file->size, alloc_align);
+    अगर (!data) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    ret = file->file->copy(file->file, data, file->file->size);
+    अगर (ret != file->file->size)
+        जाओ file_err;
+    file->data = data;
+    files->nfiles++;
+    वापस;
+
+file_err:
+    मुक्त(data);
+err:
+    warn_पूर्णांकernalerror();
+पूर्ण
+
+अटल व्योम romfile_loader_add_poपूर्णांकer(काष्ठा romfile_loader_entry_s *entry,
+                                       काष्ठा romfile_loader_files *files)
+अणु
+    काष्ठा romfile_loader_file *dest_file;
+    काष्ठा romfile_loader_file *src_file;
+    अचिन्हित offset = le32_to_cpu(entry->poपूर्णांकer.offset);
+    u64 poपूर्णांकer = 0;
+
+    dest_file = romfile_loader_find(entry->poपूर्णांकer.dest_file, files);
+    src_file = romfile_loader_find(entry->poपूर्णांकer.src_file, files);
+
+    अगर (!dest_file || !src_file || !dest_file->data || !src_file->data ||
+        offset + entry->poपूर्णांकer.size < offset ||
+        offset + entry->poपूर्णांकer.size > dest_file->file->size ||
+        entry->poपूर्णांकer.size < 1 || entry->poपूर्णांकer.size > 8 ||
+        entry->poपूर्णांकer.size & (entry->poपूर्णांकer.size - 1))
+        जाओ err;
+
+    स_नकल(&poपूर्णांकer, dest_file->data + offset, entry->poपूर्णांकer.size);
+    poपूर्णांकer = le64_to_cpu(poपूर्णांकer);
+    poपूर्णांकer += (अचिन्हित दीर्घ)src_file->data;
+    poपूर्णांकer = cpu_to_le64(poपूर्णांकer);
+    स_नकल(dest_file->data + offset, &poपूर्णांकer, entry->poपूर्णांकer.size);
+
+    वापस;
+err:
+    warn_पूर्णांकernalerror();
+पूर्ण
+
+अटल व्योम romfile_loader_add_checksum(काष्ठा romfile_loader_entry_s *entry,
+                                        काष्ठा romfile_loader_files *files)
+अणु
+    काष्ठा romfile_loader_file *file;
+    अचिन्हित offset = le32_to_cpu(entry->cksum.offset);
+    अचिन्हित start = le32_to_cpu(entry->cksum.start);
+    अचिन्हित len = le32_to_cpu(entry->cksum.length);
+    u8 *data;
+
+    file = romfile_loader_find(entry->cksum.file, files);
+
+    अगर (!file || !file->data || offset >= file->file->size ||
+        start + len < start || start + len > file->file->size)
+        जाओ err;
+
+    data = file->data + offset;
+    *data -= checksum(file->data + start, len);
+
+    वापस;
+err:
+    warn_पूर्णांकernalerror();
+पूर्ण
+
+अटल व्योम romfile_loader_ग_लिखो_poपूर्णांकer(काष्ठा romfile_loader_entry_s *entry,
+                                         काष्ठा romfile_loader_files *files)
+अणु
+    काष्ठा romfile_s *dest_file;
+    काष्ठा romfile_loader_file *src_file;
+    अचिन्हित dst_offset = le32_to_cpu(entry->wr_poपूर्णांकer.dst_offset);
+    अचिन्हित src_offset = le32_to_cpu(entry->wr_poपूर्णांकer.src_offset);
+    u64 poपूर्णांकer = 0;
+
+    /* Writing back to a file that may not be loaded in RAM */
+    dest_file = romfile_find(entry->wr_poपूर्णांकer.dest_file);
+    src_file = romfile_loader_find(entry->wr_poपूर्णांकer.src_file, files);
+
+    अगर (!dest_file || !src_file || !src_file->data ||
+        dst_offset + entry->wr_poपूर्णांकer.size < dst_offset ||
+        dst_offset + entry->wr_poपूर्णांकer.size > dest_file->size ||
+        src_offset >= src_file->file->size ||
+        entry->wr_poपूर्णांकer.size < 1 || entry->wr_poपूर्णांकer.size > 8 ||
+        entry->wr_poपूर्णांकer.size & (entry->wr_poपूर्णांकer.size - 1)) अणु
+        जाओ err;
+    पूर्ण
+
+    poपूर्णांकer = (अचिन्हित दीर्घ)src_file->data + src_offset;
+    /* Make sure the poपूर्णांकer fits within wr_poपूर्णांकer.size */
+    अगर ((entry->wr_poपूर्णांकer.size != माप(u64)) &&
+        ((poपूर्णांकer >> (entry->wr_poपूर्णांकer.size * 8)) > 0)) अणु
+        जाओ err;
+    पूर्ण
+    poपूर्णांकer = cpu_to_le64(poपूर्णांकer);
+
+    /* Only supported on QEMU */
+    अगर (qemu_cfg_ग_लिखो_file(&poपूर्णांकer, dest_file, dst_offset,
+                            entry->wr_poपूर्णांकer.size) != entry->wr_poपूर्णांकer.size) अणु
+        जाओ err;
+    पूर्ण
+
+    /* Store the info so it can replayed later अगर necessary */
+    काष्ठा romfile_wr_poपूर्णांकer_entry *store = दो_स्मृति_high(माप(*store));
+    अगर (!store) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    store->poपूर्णांकer = poपूर्णांकer;
+    store->key = qemu_get_romfile_key(dest_file);
+    store->offset = dst_offset;
+    store->ptr_size = entry->wr_poपूर्णांकer.size;
+    hlist_add_head(&store->node, &romfile_poपूर्णांकer_list);
+
+    वापस;
+ err:
+    warn_पूर्णांकernalerror();
+पूर्ण
+
+पूर्णांक romfile_loader_execute(स्थिर अक्षर *name)
+अणु
+    काष्ठा romfile_loader_entry_s *entry;
+    पूर्णांक size, offset = 0, nfiles;
+    काष्ठा romfile_loader_files *files;
+    व्योम *data = romfile_loadfile(name, &size);
+    अगर (!data)
+        वापस -1;
+
+    अगर (size % माप(*entry)) अणु
+        warn_पूर्णांकernalerror();
+        जाओ err;
+    पूर्ण
+
+    /* (over)estimate the number of files to load. */
+    nfiles = size / माप(*entry);
+    files = दो_स्मृति_पंचांगp(माप(*files) + nfiles * माप(files->files[0]));
+    अगर (!files) अणु
+        warn_noalloc();
+        जाओ err;
+    पूर्ण
+    files->nfiles = 0;
+
+    क्रम (offset = 0; offset < size; offset += माप(*entry)) अणु
+        entry = data + offset;
+        चयन (le32_to_cpu(entry->command)) अणु
+                हाल ROMखाता_LOADER_COMMAND_ALLOCATE:
+                        romfile_loader_allocate(entry, files);
+                        अवरोध;
+                हाल ROMखाता_LOADER_COMMAND_ADD_POINTER:
+                        romfile_loader_add_poपूर्णांकer(entry, files);
+                        अवरोध;
+                हाल ROMखाता_LOADER_COMMAND_ADD_CHECKSUM:
+                        romfile_loader_add_checksum(entry, files);
+                        अवरोध;
+                हाल ROMखाता_LOADER_COMMAND_WRITE_POINTER:
+                        romfile_loader_ग_लिखो_poपूर्णांकer(entry, files);
+                        अवरोध;
+                शेष:
+                        /* Skip commands that we करोn't recognize. */
+                        अवरोध;
+        पूर्ण
+    पूर्ण
+
+    मुक्त(files);
+    मुक्त(data);
+    वापस 0;
+
+err:
+    मुक्त(data);
+    वापस -1;
+पूर्ण

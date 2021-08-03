@@ -1,0 +1,338 @@
+<शैली गुरु>
+// 32bit code to Power On Self Test (POST) a machine.
+//
+// Copyright (C) 2008-2013  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2002  MandrakeSoft S.A.
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // SET_BDA
+#समावेश "block.h" // block_setup
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "config.h" // CONFIG_*
+#समावेश "e820map.h" // e820_add
+#समावेश "fw/paravirt.h" // qemu_cfg_preinit
+#समावेश "fw/xen.h" // xen_preinit
+#समावेश "hw/pic.h" // pic_setup
+#समावेश "hw/ps2port.h" // ps2port_setup
+#समावेश "hw/rtc.h" // rtc_ग_लिखो
+#समावेश "hw/serialio.h" // serial_debug_preinit
+#समावेश "hw/usb.h" // usb_setup
+#समावेश "malloc.h" // दो_स्मृति_init
+#समावेश "memmap.h" // SYMBOL
+#समावेश "output.h" // dम_लिखो
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // kbd_init
+#समावेश "tcgbios.h" // tpm_*
+
+
+/****************************************************************
+ * BIOS initialization and hardware setup
+ ****************************************************************/
+
+अटल व्योम
+ivt_init(व्योम)
+अणु
+    dम_लिखो(3, "init ivt\n");
+
+    // Initialize all vectors to the शेष handler.
+    पूर्णांक i;
+    क्रम (i=0; i<256; i++)
+        SET_IVT(i, FUNC16(entry_iret_official));
+
+    // Initialize all hw vectors to a शेष hw handler.
+    क्रम (i=BIOS_HWIRQ0_VECTOR; i<BIOS_HWIRQ0_VECTOR+8; i++)
+        SET_IVT(i, FUNC16(entry_hwpic1));
+    क्रम (i=BIOS_HWIRQ8_VECTOR; i<BIOS_HWIRQ8_VECTOR+8; i++)
+        SET_IVT(i, FUNC16(entry_hwpic2));
+
+    // Initialize software handlers.
+    SET_IVT(0x02, FUNC16(entry_02));
+    SET_IVT(0x05, FUNC16(entry_05));
+    SET_IVT(0x10, FUNC16(entry_10));
+    SET_IVT(0x11, FUNC16(entry_11));
+    SET_IVT(0x12, FUNC16(entry_12));
+    SET_IVT(0x13, FUNC16(entry_13_official));
+    SET_IVT(0x14, FUNC16(entry_14));
+    SET_IVT(0x15, FUNC16(entry_15_official));
+    SET_IVT(0x16, FUNC16(entry_16));
+    SET_IVT(0x17, FUNC16(entry_17));
+    SET_IVT(0x18, FUNC16(entry_18));
+    SET_IVT(0x19, FUNC16(entry_19_official));
+    SET_IVT(0x1a, FUNC16(entry_1a_official));
+    SET_IVT(0x40, FUNC16(entry_40));
+
+    // INT 60h-66h reserved क्रम user पूर्णांकerrupt
+    क्रम (i=0x60; i<=0x66; i++)
+        SET_IVT(i, SEGOFF(0, 0));
+
+    // set vector 0x79 to zero
+    // this is used by 'gardian angel' protection प्रणाली
+    SET_IVT(0x79, SEGOFF(0, 0));
+पूर्ण
+
+अटल व्योम
+bda_init(व्योम)
+अणु
+    dम_लिखो(3, "init bda\n");
+
+    काष्ठा bios_data_area_s *bda = MAKE_FLATPTR(SEG_BDA, 0);
+    स_रखो(bda, 0, माप(*bda));
+
+    पूर्णांक esize = EBDA_SIZE_START;
+    u16 ebda_seg = EBDA_SEGMENT_START;
+    अगर (!CONFIG_MALLOC_UPPERMEMORY)
+        ebda_seg = FLATPTR_TO_SEG(ALIGN_DOWN(SYMBOL(final_varlow_start), 1024)
+                                  - EBDA_SIZE_START*1024);
+    SET_BDA(ebda_seg, ebda_seg);
+
+    SET_BDA(mem_size_kb, ebda_seg / (1024/16));
+
+    // Init ebda
+    काष्ठा extended_bios_data_area_s *ebda = get_ebda_ptr();
+    स_रखो(ebda, 0, माप(*ebda));
+    ebda->size = esize;
+
+    e820_add((u32)ebda, BUILD_LOWRAM_END-(u32)ebda, E820_RESERVED);
+
+    // Init extra stack
+    StackPos = &ExtraStack[BUILD_EXTRA_STACK_SIZE] - SYMBOL(zonelow_base);
+पूर्ण
+
+व्योम
+पूर्णांकerface_init(व्योम)
+अणु
+    // Running at new code address - करो code relocation fixups
+    दो_स्मृति_init();
+
+    // Setup romfile items.
+    qemu_cfg_init();
+    coreboot_cbfs_init();
+    multiboot_init();
+
+    // Setup ivt/bda/ebda
+    ivt_init();
+    bda_init();
+
+    // Other पूर्णांकerfaces
+    boot_init();
+    bios32_init();
+    pmm_init();
+    pnp_init();
+    kbd_init();
+    mouse_init();
+पूर्ण
+
+// Initialize hardware devices
+व्योम
+device_hardware_setup(व्योम)
+अणु
+    usb_setup();
+    ps2port_setup();
+    block_setup();
+    lpt_setup();
+    serial_setup();
+    cbfs_payload_setup();
+पूर्ण
+
+अटल व्योम
+platक्रमm_hardware_setup(व्योम)
+अणु
+    // Make sure legacy DMA isn't running.
+    dma_setup();
+
+    // Init base pc hardware.
+    pic_setup();
+    thपढ़ो_setup();
+    mathcp_setup();
+
+    // Platक्रमm specअगरic setup
+    qemu_platक्रमm_setup();
+    coreboot_platक्रमm_setup();
+
+    // Setup समयrs and periodic घड़ी पूर्णांकerrupt
+    समयr_setup();
+    घड़ी_setup();
+
+    // Initialize TPM
+    tpm_setup();
+पूर्ण
+
+व्योम
+prepareboot(व्योम)
+अणु
+    // Change TPM phys. presence state beक्रम leaving BIOS
+    tpm_prepboot();
+
+    // Run BCVs
+    bcv_prepboot();
+
+    // Finalize data काष्ठाures beक्रमe boot
+    cdrom_prepboot();
+    pmm_prepboot();
+    दो_स्मृति_prepboot();
+    e820_prepboot();
+
+    HaveRunPost = 2;
+
+    // Setup bios checksum.
+    BiosChecksum -= checksum((u8*)BUILD_BIOS_ADDR, BUILD_BIOS_SIZE);
+पूर्ण
+
+// Begin the boot process by invoking an पूर्णांक0x19 in 16bit mode.
+व्योम VISIBLE32FLAT
+startBoot(व्योम)
+अणु
+    // Clear low-memory allocations (required by PMM spec).
+    स_रखो((व्योम*)BUILD_STACK_ADDR, 0, BUILD_EBDA_MINIMUM - BUILD_STACK_ADDR);
+
+    dम_लिखो(3, "Jump to int19\n");
+    काष्ठा bregs br;
+    स_रखो(&br, 0, माप(br));
+    br.flags = F_IF;
+    call16_पूर्णांक(0x19, &br);
+पूर्ण
+
+// Main setup code.
+अटल व्योम
+मुख्यinit(व्योम)
+अणु
+    // Initialize पूर्णांकernal पूर्णांकerfaces.
+    पूर्णांकerface_init();
+
+    // Setup platक्रमm devices.
+    platक्रमm_hardware_setup();
+
+    // Start hardware initialization (अगर thपढ़ोs allowed during optionroms)
+    अगर (thपढ़ोs_during_optionroms())
+        device_hardware_setup();
+
+    // Run vga option rom
+    vgarom_setup();
+    sercon_setup();
+    enable_vga_console();
+
+    // Do hardware initialization (अगर running synchronously)
+    अगर (!thपढ़ोs_during_optionroms()) अणु
+        device_hardware_setup();
+        रुको_thपढ़ोs();
+    पूर्ण
+
+    // Run option roms
+    optionrom_setup();
+
+    // Allow user to modअगरy overall boot order.
+    पूर्णांकeractive_booपंचांगenu();
+    रुको_thपढ़ोs();
+
+    // Prepare क्रम boot.
+    prepareboot();
+
+    // Write protect bios memory.
+    make_bios_पढ़ोonly();
+
+    // Invoke पूर्णांक 19 to start boot process.
+    startBoot();
+पूर्ण
+
+
+/****************************************************************
+ * POST entry and code relocation
+ ****************************************************************/
+
+// Update given relocs क्रम the code at 'dest' with a given 'delta'
+अटल व्योम
+updateRelocs(व्योम *dest, u32 *rstart, u32 *rend, u32 delta)
+अणु
+    u32 *reloc;
+    क्रम (reloc = rstart; reloc < rend; reloc++)
+        *((u32*)(dest + *reloc)) += delta;
+पूर्ण
+
+// Relocate init code and then call a function at its new address.
+// The passed function should be in the "init" section and must not
+// वापस.
+व्योम __noवापस
+reloc_preinit(व्योम *f, व्योम *arg)
+अणु
+    व्योम (*func)(व्योम *) __noवापस = f;
+    अगर (!CONFIG_RELOCATE_INIT)
+        func(arg);
+
+    // Allocate space क्रम init code.
+    u32 initsize = SYMBOL(code32init_end) - SYMBOL(code32init_start);
+    u32 codealign = SYMBOL(_reloc_min_align);
+    व्योम *codedest = memalign_पंचांगp(codealign, initsize);
+    व्योम *codesrc = VSYMBOL(code32init_start);
+    अगर (!codedest)
+        panic("No space for init relocation.\n");
+
+    // Copy code and update relocs (init असलolute, init relative, and runसमय)
+    dम_लिखो(1, "Relocating init from %p to %p (size %d)\n"
+            , codesrc, codedest, initsize);
+    s32 delta = codedest - codesrc;
+    स_नकल(codedest, codesrc, initsize);
+    updateRelocs(codedest, VSYMBOL(_reloc_असल_start), VSYMBOL(_reloc_असल_end)
+                 , delta);
+    updateRelocs(codedest, VSYMBOL(_reloc_rel_start), VSYMBOL(_reloc_rel_end)
+                 , -delta);
+    updateRelocs(VSYMBOL(code32flat_start), VSYMBOL(_reloc_init_start)
+                 , VSYMBOL(_reloc_init_end), delta);
+    अगर (f >= codesrc && f < VSYMBOL(code32init_end))
+        func = f + delta;
+
+    // Call function in relocated code.
+    barrier();
+    func(arg);
+पूर्ण
+
+// Runs after all code is present and prior to any modअगरications
+व्योम
+code_mutable_preinit(व्योम)
+अणु
+    अगर (HaveRunPost)
+        // Alपढ़ोy run
+        वापस;
+    // Setup reset-vector entry poपूर्णांक (controls legacy reboots).
+    rtc_ग_लिखो(CMOS_RESET_CODE, 0);
+    barrier();
+    HaveRunPost = 1;
+    barrier();
+पूर्ण
+
+// Setup क्रम code relocation and then relocate.
+व्योम VISIBLE32INIT
+करोpost(व्योम)
+अणु
+    code_mutable_preinit();
+
+    // Detect ram and setup पूर्णांकernal दो_स्मृति.
+    qemu_preinit();
+    coreboot_preinit();
+    दो_स्मृति_preinit();
+
+    // Relocate initialization code and call मुख्यinit().
+    reloc_preinit(मुख्यinit, शून्य);
+पूर्ण
+
+// Entry poपूर्णांक क्रम Power On Self Test (POST) - the BIOS initilization
+// phase.  This function makes the memory at 0xc0000-0xfffff
+// पढ़ो/writable and then calls करोpost().
+व्योम VISIBLE32FLAT
+handle_post(व्योम)
+अणु
+    अगर (!CONFIG_QEMU && !CONFIG_COREBOOT)
+        वापस;
+
+    serial_debug_preinit();
+    debug_banner();
+
+    // Check अगर we are running under Xen.
+    xen_preinit();
+
+    // Allow ग_लिखोs to modअगरy bios area (0xf0000)
+    make_bios_writable();
+
+    // Now that memory is पढ़ो/writable - start post process.
+    करोpost();
+पूर्ण

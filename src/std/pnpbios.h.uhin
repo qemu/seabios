@@ -1,0 +1,25 @@
+<शैली गुरु>
+#अगर_अघोषित __PNPHEADER_H
+#घोषणा __PNPHEADER_H
+
+#घोषणा PNP_SIGNATURE 0x506e5024 // $PnP
+
+काष्ठा pnpheader अणु
+    u32 signature;
+    u8 version;
+    u8 length;
+    u16 control;
+    u8 checksum;
+    u32 eventloc;
+    u16 real_ip;
+    u16 real_cs;
+    u16 prot_ip;
+    u32 prot_base;
+    u32 oemid;
+    u16 real_ds;
+    u32 prot_database;
+पूर्ण PACKED;
+
+#घोषणा FUNCTION_NOT_SUPPORTED 0x82
+
+#पूर्ण_अगर // pnpheader.h

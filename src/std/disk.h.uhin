@@ -1,0 +1,176 @@
+<शैली गुरु>
+// Standard disk BIOS definitions.
+#अगर_अघोषित __DISK_H
+#घोषणा __DISK_H
+
+#समावेश "types.h" // u8
+
+#घोषणा DISK_RET_SUCCESS       0x00
+#घोषणा DISK_RET_EPARAM        0x01
+#घोषणा DISK_RET_EADDRNOTFOUND 0x02
+#घोषणा DISK_RET_EWRITEPROTECT 0x03
+#घोषणा DISK_RET_ECHANGED      0x06
+#घोषणा DISK_RET_EBOUNDARY     0x09
+#घोषणा DISK_RET_EBADTRACK     0x0c
+#घोषणा DISK_RET_ECONTROLLER   0x20
+#घोषणा DISK_RET_ETIMEOUT      0x80
+#घोषणा DISK_RET_ENOTLOCKED    0xb0
+#घोषणा DISK_RET_ELOCKED       0xb1
+#घोषणा DISK_RET_ENOTREMOVABLE 0xb2
+#घोषणा DISK_RET_ETOOMANYLOCKS 0xb4
+#घोषणा DISK_RET_EMEDIA        0xC0
+#घोषणा DISK_RET_ENOTREADY     0xAA
+
+
+/****************************************************************
+ * Interface काष्ठाs
+ ****************************************************************/
+
+// Bios disk काष्ठाures.
+काष्ठा पूर्णांक13ext_s अणु
+    u8  size;
+    u8  reserved;
+    u16 count;
+    काष्ठा segoff_s data;
+    u64 lba;
+पूर्ण PACKED;
+
+// DPTE definition
+काष्ठा dpte_s अणु
+    u16 iobase1;
+    u16 iobase2;
+    u8  prefix;
+    u8  unused;
+    u8  irq;
+    u8  blkcount;
+    u8  dma;
+    u8  pio;
+    u16 options;
+    u16 reserved;
+    u8  revision;
+    u8  checksum;
+पूर्ण;
+
+// Disk Physical Table definition
+काष्ठा पूर्णांक13dpt_s अणु
+    u16 size;
+    u16 infos;
+    u32 cylinders;
+    u32 heads;
+    u32 spt;
+    u64 sector_count;
+    u16 blksize;
+    काष्ठा segoff_s dpte;
+    u16 key;
+    u8  dpi_length;
+    u8  reserved1;
+    u16 reserved2;
+    u8  host_bus[4];
+    u8  अगरace_type[8];
+    u64 अगरace_path;
+    जोड़ अणु
+        काष्ठा अणु
+            u64 device_path;
+            u8  reserved3;
+            u8  checksum;
+        पूर्ण phoenix;
+        काष्ठा अणु
+            u64 device_path[2];
+            u8  reserved3;
+            u8  checksum;
+        पूर्ण t13;
+    पूर्ण;
+पूर्ण PACKED;
+
+// Floppy info
+काष्ठा fdpt_s अणु
+    u16 cylinders;
+    u8 heads;
+    u8 a0h_signature;
+    u8 phys_sectors;
+    u16 precompensation;
+    u8 reserved;
+    u8 drive_control_byte;
+    u16 phys_cylinders;
+    u8 phys_heads;
+    u16 landing_zone;
+    u8 sectors;
+    u8 checksum;
+पूर्ण PACKED;
+
+// Floppy "Disk Base Table"
+काष्ठा floppy_dbt_s अणु
+    u8 specअगरy1;
+    u8 specअगरy2;
+    u8 shutoff_ticks;
+    u8 bps_code;
+    u8 sectors;
+    u8 पूर्णांकerblock_len;
+    u8 data_len;
+    u8 gap_len;
+    u8 fill_byte;
+    u8 settle_समय;
+    u8 startup_समय;
+पूर्ण PACKED;
+
+काष्ठा floppy_ext_dbt_s अणु
+    काष्ठा floppy_dbt_s dbt;
+    // Extra fields
+    u8 max_track;
+    u8 data_rate;
+    u8 drive_type;
+पूर्ण PACKED;
+
+
+/****************************************************************
+ * Master boot record
+ ****************************************************************/
+
+काष्ठा packed_chs_s अणु
+    u8 heads;
+    u8 sptcyl;
+    u8 cyllow;
+पूर्ण PACKED;
+
+काष्ठा partition_s अणु
+    u8 status;
+    काष्ठा packed_chs_s first;
+    u8 type;
+    काष्ठा packed_chs_s last;
+    u32 lba;
+    u32 count;
+पूर्ण PACKED;
+
+काष्ठा mbr_s अणु
+    u8 code[440];
+    // 0x01b8
+    u32 diskseg;
+    // 0x01bc
+    u16 null;
+    // 0x01be
+    काष्ठा partition_s partitions[4];
+    // 0x01fe
+    u16 signature;
+पूर्ण PACKED;
+
+#घोषणा MBR_SIGNATURE 0xaa55
+
+
+/****************************************************************
+ * ElTorito CDROM पूर्णांकerface
+ ****************************************************************/
+
+काष्ठा eltorito_s अणु
+    u8 size;
+    u8 media;
+    u8 emulated_drive;
+    u8 controller_index;
+    u32 ilba;
+    u16 device_spec;
+    u16 buffer_segment;
+    u16 load_segment;
+    u16 sector_count;
+    काष्ठा packed_chs_s chs;
+पूर्ण PACKED;
+
+#पूर्ण_अगर // disk.h

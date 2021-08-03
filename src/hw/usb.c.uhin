@@ -1,0 +1,511 @@
+<शैली गुरु>
+// Main code क्रम handling USB controllers and devices.
+//
+// Copyright (C) 2009-2013  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_GLOBAL
+#समावेश "config.h" // CONFIG_*
+#समावेश "malloc.h" // मुक्त
+#समावेश "output.h" // dम_लिखो
+#समावेश "romfile.h" // romfile_loadपूर्णांक
+#समावेश "string.h" // स_रखो
+#समावेश "usb.h" // काष्ठा usb_s
+#समावेश "usb-ehci.h" // ehci_setup
+#समावेश "usb-xhci.h" // xhci_setup
+#समावेश "usb-hid.h" // usb_keyboard_setup
+#समावेश "usb-hub.h" // usb_hub_setup
+#समावेश "usb-msc.h" // usb_msc_setup
+#समावेश "usb-ohci.h" // ohci_setup
+#समावेश "usb-uas.h" // usb_uas_setup
+#समावेश "usb-uhci.h" // uhci_setup
+#समावेश "util.h" // msleep
+#समावेश "x86.h" // __fls
+
+
+/****************************************************************
+ * Controller function wrappers
+ ****************************************************************/
+
+// Allocate, update, or मुक्त a usb pipe.
+अटल काष्ठा usb_pipe *
+usb_पुनः_स्मृति_pipe(काष्ठा usbdevice_s *usbdev, काष्ठा usb_pipe *pipe
+                 , काष्ठा usb_endpoपूर्णांक_descriptor *epdesc)
+अणु
+    चयन (usbdev->hub->cntl->type) अणु
+    शेष:
+    हाल USB_TYPE_UHCI:
+        वापस uhci_पुनः_स्मृति_pipe(usbdev, pipe, epdesc);
+    हाल USB_TYPE_OHCI:
+        वापस ohci_पुनः_स्मृति_pipe(usbdev, pipe, epdesc);
+    हाल USB_TYPE_EHCI:
+        वापस ehci_पुनः_स्मृति_pipe(usbdev, pipe, epdesc);
+    हाल USB_TYPE_XHCI:
+        वापस xhci_पुनः_स्मृति_pipe(usbdev, pipe, epdesc);
+    पूर्ण
+पूर्ण
+
+// Send a message on a control pipe using the शेष control descriptor.
+अटल पूर्णांक
+usb_send_pipe(काष्ठा usb_pipe *pipe_fl, पूर्णांक dir, स्थिर व्योम *cmd
+              , व्योम *data, पूर्णांक datasize)
+अणु
+    चयन (GET_LOWFLAT(pipe_fl->type)) अणु
+    शेष:
+    हाल USB_TYPE_UHCI:
+        वापस uhci_send_pipe(pipe_fl, dir, cmd, data, datasize);
+    हाल USB_TYPE_OHCI:
+        अगर (MODESEGMENT)
+            वापस -1;
+        वापस ohci_send_pipe(pipe_fl, dir, cmd, data, datasize);
+    हाल USB_TYPE_EHCI:
+        वापस ehci_send_pipe(pipe_fl, dir, cmd, data, datasize);
+    हाल USB_TYPE_XHCI:
+        अगर (MODESEGMENT)
+            वापस -1;
+        वापस xhci_send_pipe(pipe_fl, dir, cmd, data, datasize);
+    पूर्ण
+पूर्ण
+
+पूर्णांक
+usb_poll_पूर्णांकr(काष्ठा usb_pipe *pipe_fl, व्योम *data)
+अणु
+    ASSERT16();
+    चयन (GET_LOWFLAT(pipe_fl->type)) अणु
+    शेष:
+    हाल USB_TYPE_UHCI:
+        वापस uhci_poll_पूर्णांकr(pipe_fl, data);
+    हाल USB_TYPE_OHCI:
+        वापस ohci_poll_पूर्णांकr(pipe_fl, data);
+    हाल USB_TYPE_EHCI:
+        वापस ehci_poll_पूर्णांकr(pipe_fl, data);
+    हाल USB_TYPE_XHCI: ;
+        वापस call32_params(xhci_poll_पूर्णांकr, pipe_fl
+                             , MAKE_FLATPTR(GET_SEG(SS), data), 0, -1);
+    पूर्ण
+पूर्ण
+
+पूर्णांक usb_32bit_pipe(काष्ठा usb_pipe *pipe_fl)
+अणु
+    वापस (CONFIG_USB_XHCI && GET_LOWFLAT(pipe_fl->type) == USB_TYPE_XHCI)
+        || (CONFIG_USB_OHCI && GET_LOWFLAT(pipe_fl->type) == USB_TYPE_OHCI);
+पूर्ण
+
+
+/****************************************************************
+ * Helper functions
+ ****************************************************************/
+
+// Allocate a usb pipe.
+काष्ठा usb_pipe *
+usb_alloc_pipe(काष्ठा usbdevice_s *usbdev
+               , काष्ठा usb_endpoपूर्णांक_descriptor *epdesc)
+अणु
+    वापस usb_पुनः_स्मृति_pipe(usbdev, शून्य, epdesc);
+पूर्ण
+
+// Free an allocated control or bulk pipe.
+व्योम
+usb_मुक्त_pipe(काष्ठा usbdevice_s *usbdev, काष्ठा usb_pipe *pipe)
+अणु
+    अगर (!pipe)
+        वापस;
+    usb_पुनः_स्मृति_pipe(usbdev, pipe, शून्य);
+पूर्ण
+
+// Send a message to the शेष control pipe of a device.
+पूर्णांक
+usb_send_शेष_control(काष्ठा usb_pipe *pipe, स्थिर काष्ठा usb_ctrlrequest *req
+                         , व्योम *data)
+अणु
+    वापस usb_send_pipe(pipe, req->bRequestType & USB_सूची_IN, req
+                         , data, req->wLength);
+पूर्ण
+
+// Send a message to a bulk endpoपूर्णांक
+पूर्णांक
+usb_send_bulk(काष्ठा usb_pipe *pipe_fl, पूर्णांक dir, व्योम *data, पूर्णांक datasize)
+अणु
+    वापस usb_send_pipe(pipe_fl, dir, शून्य, data, datasize);
+पूर्ण
+
+// Check अगर a pipe क्रम a given controller is on the मुक्तlist
+पूर्णांक
+usb_is_मुक्तlist(काष्ठा usb_s *cntl, काष्ठा usb_pipe *pipe)
+अणु
+    वापस pipe->cntl != cntl;
+पूर्ण
+
+// Add a pipe to the controller's मुक्तlist
+व्योम
+usb_add_मुक्तlist(काष्ठा usb_pipe *pipe)
+अणु
+    अगर (!pipe)
+        वापस;
+    काष्ठा usb_s *cntl = pipe->cntl;
+    pipe->मुक्तnext = cntl->मुक्तlist;
+    cntl->मुक्तlist = pipe;
+पूर्ण
+
+// Check क्रम an available pipe on the मुक्तlist.
+काष्ठा usb_pipe *
+usb_get_मुक्तlist(काष्ठा usb_s *cntl, u8 eptype)
+अणु
+    काष्ठा usb_pipe **pमुक्त = &cntl->मुक्तlist;
+    क्रम (;;) अणु
+        काष्ठा usb_pipe *pipe = *pमुक्त;
+        अगर (!pipe)
+            वापस शून्य;
+        अगर (pipe->eptype == eptype) अणु
+            *pमुक्त = pipe->मुक्तnext;
+            वापस pipe;
+        पूर्ण
+        pमुक्त = &pipe->मुक्तnext;
+    पूर्ण
+पूर्ण
+
+// Fill "pipe" endpoपूर्णांक info from an endpoपूर्णांक descriptor.
+व्योम
+usb_desc2pipe(काष्ठा usb_pipe *pipe, काष्ठा usbdevice_s *usbdev
+              , काष्ठा usb_endpoपूर्णांक_descriptor *epdesc)
+अणु
+    pipe->cntl = usbdev->hub->cntl;
+    pipe->type = usbdev->hub->cntl->type;
+    pipe->ep = epdesc->bEndpoपूर्णांकAddress & USB_ENDPOINT_NUMBER_MASK;
+    pipe->devaddr = usbdev->devaddr;
+    pipe->speed = usbdev->speed;
+    pipe->maxpacket = epdesc->wMaxPacketSize;
+    pipe->eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+पूर्ण
+
+// Find the exponential period of the requested पूर्णांकerrupt end poपूर्णांक.
+पूर्णांक
+usb_get_period(काष्ठा usbdevice_s *usbdev
+               , काष्ठा usb_endpoपूर्णांक_descriptor *epdesc)
+अणु
+    पूर्णांक period = epdesc->bInterval;
+    अगर (usbdev->speed != USB_HIGHSPEED)
+        वापस (period <= 0) ? 0 : __fls(period);
+    वापस (period <= 4) ? 0 : period - 4;
+पूर्ण
+
+// Maximum समय (in ms) a data transfer should take
+पूर्णांक
+usb_xfer_समय(काष्ठा usb_pipe *pipe, पूर्णांक datalen)
+अणु
+    // Use the maximum command समय (5 seconds), except क्रम
+    // set_address commands where we करोn't want to stall the boot अगर
+    // the device करोesn't actually exist.  Add 100ms to account क्रम
+    // any controller delays.
+    अगर (!GET_LOWFLAT(pipe->devaddr))
+        वापस USB_TIME_STATUS + 100;
+    वापस USB_TIME_COMMAND + 100;
+पूर्ण
+
+// Find the first endpoपूर्णांक of a given type in an पूर्णांकerface description.
+काष्ठा usb_endpoपूर्णांक_descriptor *
+usb_find_desc(काष्ठा usbdevice_s *usbdev, पूर्णांक type, पूर्णांक dir)
+अणु
+    काष्ठा usb_endpoपूर्णांक_descriptor *epdesc = (व्योम*)&usbdev->अगरace[1];
+    क्रम (;;) अणु
+        अगर ((व्योम*)epdesc >= (व्योम*)usbdev->अगरace + usbdev->imax
+            || epdesc->bDescriptorType == USB_DT_INTERFACE) अणु
+            वापस शून्य;
+        पूर्ण
+        अगर (epdesc->bDescriptorType == USB_DT_ENDPOINT
+            && (epdesc->bEndpoपूर्णांकAddress & USB_ENDPOINT_सूची_MASK) == dir
+            && (epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) == type)
+            वापस epdesc;
+        epdesc = (व्योम*)epdesc + epdesc->bLength;
+    पूर्ण
+पूर्ण
+
+// Get the first 8 bytes of the device descriptor.
+अटल पूर्णांक
+get_device_info8(काष्ठा usb_pipe *pipe, काष्ठा usb_device_descriptor *dinfo)
+अणु
+    काष्ठा usb_ctrlrequest req;
+    req.bRequestType = USB_सूची_IN | USB_TYPE_STANDARD | USB_RECIP_DEVICE;
+    req.bRequest = USB_REQ_GET_DESCRIPTOR;
+    req.wValue = USB_DT_DEVICE<<8;
+    req.wIndex = 0;
+    req.wLength = 8;
+    वापस usb_send_शेष_control(pipe, &req, dinfo);
+पूर्ण
+
+अटल काष्ठा usb_config_descriptor *
+get_device_config(काष्ठा usb_pipe *pipe)
+अणु
+    काष्ठा usb_config_descriptor cfg;
+
+    काष्ठा usb_ctrlrequest req;
+    req.bRequestType = USB_सूची_IN | USB_TYPE_STANDARD | USB_RECIP_DEVICE;
+    req.bRequest = USB_REQ_GET_DESCRIPTOR;
+    req.wValue = USB_DT_CONFIG<<8;
+    req.wIndex = 0;
+    req.wLength = माप(cfg);
+    पूर्णांक ret = usb_send_शेष_control(pipe, &req, &cfg);
+    अगर (ret)
+        वापस शून्य;
+
+    काष्ठा usb_config_descriptor *config = दो_स्मृति_पंचांगphigh(cfg.wTotalLength);
+    अगर (!config) अणु
+        warn_noalloc();
+        वापस शून्य;
+    पूर्ण
+    req.wLength = cfg.wTotalLength;
+    ret = usb_send_शेष_control(pipe, &req, config);
+    अगर (ret || config->wTotalLength != cfg.wTotalLength) अणु
+        मुक्त(config);
+        वापस शून्य;
+    पूर्ण
+    //hexdump(config, cfg.wTotalLength);
+    वापस config;
+पूर्ण
+
+अटल पूर्णांक
+set_configuration(काष्ठा usb_pipe *pipe, u16 val)
+अणु
+    काष्ठा usb_ctrlrequest req;
+    req.bRequestType = USB_सूची_OUT | USB_TYPE_STANDARD | USB_RECIP_DEVICE;
+    req.bRequest = USB_REQ_SET_CONFIGURATION;
+    req.wValue = val;
+    req.wIndex = 0;
+    req.wLength = 0;
+    वापस usb_send_शेष_control(pipe, &req, शून्य);
+पूर्ण
+
+
+/****************************************************************
+ * Initialization and क्रमागतeration
+ ****************************************************************/
+
+अटल स्थिर पूर्णांक speed_to_ctlsize[] = अणु
+    [ USB_FULLSPEED  ] = 8,
+    [ USB_LOWSPEED   ] = 8,
+    [ USB_HIGHSPEED  ] = 64,
+    [ USB_SUPERSPEED ] = 512,
+पूर्ण;
+
+// Assign an address to a device in the शेष state on the given
+// controller.
+अटल पूर्णांक
+usb_set_address(काष्ठा usbdevice_s *usbdev)
+अणु
+    ASSERT32FLAT();
+    काष्ठा usb_s *cntl = usbdev->hub->cntl;
+    dम_लिखो(3, "set_address %p\n", cntl);
+    अगर (cntl->maxaddr >= USB_MAXADDR)
+        वापस -1;
+
+    msleep(USB_TIME_RSTRCY);
+
+    // Create a pipe क्रम the शेष address.
+    काष्ठा usb_endpoपूर्णांक_descriptor epdesc = अणु
+        .wMaxPacketSize = speed_to_ctlsize[usbdev->speed],
+        .bmAttributes = USB_ENDPOINT_XFER_CONTROL,
+    पूर्ण;
+    usbdev->defpipe = usb_alloc_pipe(usbdev, &epdesc);
+    अगर (!usbdev->defpipe)
+        वापस -1;
+
+    // Send set_address command.
+    काष्ठा usb_ctrlrequest req;
+    req.bRequestType = USB_सूची_OUT | USB_TYPE_STANDARD | USB_RECIP_DEVICE;
+    req.bRequest = USB_REQ_SET_ADDRESS;
+    req.wValue = cntl->maxaddr + 1;
+    req.wIndex = 0;
+    req.wLength = 0;
+    पूर्णांक ret = usb_send_शेष_control(usbdev->defpipe, &req, शून्य);
+    अगर (ret) अणु
+        usb_मुक्त_pipe(usbdev, usbdev->defpipe);
+        वापस -1;
+    पूर्ण
+
+    msleep(USB_TIME_SETADDR_RECOVERY);
+
+    cntl->maxaddr++;
+    usbdev->devaddr = cntl->maxaddr;
+    usbdev->defpipe = usb_पुनः_स्मृति_pipe(usbdev, usbdev->defpipe, &epdesc);
+    अगर (!usbdev->defpipe)
+        वापस -1;
+    वापस 0;
+पूर्ण
+
+// Called क्रम every found device - see अगर a driver is available क्रम
+// this device and करो setup अगर so.
+अटल पूर्णांक
+configure_usb_device(काष्ठा usbdevice_s *usbdev)
+अणु
+    ASSERT32FLAT();
+    dम_लिखो(3, "config_usb: %p\n", usbdev->defpipe);
+
+    // Set the max packet size क्रम endpoपूर्णांक 0 of this device.
+    काष्ठा usb_device_descriptor dinfo;
+    पूर्णांक ret = get_device_info8(usbdev->defpipe, &dinfo);
+    अगर (ret)
+        वापस 0;
+    u16 maxpacket = dinfo.bMaxPacketSize0;
+    अगर (dinfo.bcdUSB >= 0x0300)
+        maxpacket = 1 << dinfo.bMaxPacketSize0;
+    dम_लिखो(3, "device rev=%04x cls=%02x sub=%02x proto=%02x size=%d\n"
+            , dinfo.bcdUSB, dinfo.bDeviceClass, dinfo.bDeviceSubClass
+            , dinfo.bDeviceProtocol, maxpacket);
+    अगर (maxpacket < 8)
+        वापस 0;
+    काष्ठा usb_endpoपूर्णांक_descriptor epdesc = अणु
+        .wMaxPacketSize = maxpacket,
+        .bmAttributes = USB_ENDPOINT_XFER_CONTROL,
+    पूर्ण;
+    usbdev->defpipe = usb_पुनः_स्मृति_pipe(usbdev, usbdev->defpipe, &epdesc);
+    अगर (!usbdev->defpipe)
+        वापस -1;
+
+    // Get configuration
+    काष्ठा usb_config_descriptor *config = get_device_config(usbdev->defpipe);
+    अगर (!config)
+        वापस 0;
+
+    // Determine अगर a driver exists क्रम this device - only look at the
+    // पूर्णांकerfaces of the first configuration.
+    पूर्णांक num_अगरace = config->bNumInterfaces;
+    व्योम *config_end = (व्योम*)config + config->wTotalLength;
+    काष्ठा usb_पूर्णांकerface_descriptor *अगरace = (व्योम*)(&config[1]);
+    क्रम (;;) अणु
+        अगर (!num_अगरace-- || (व्योम*)अगरace + अगरace->bLength > config_end)
+            // Not a supported device.
+            जाओ fail;
+        अगर (अगरace->bDescriptorType == USB_DT_INTERFACE
+            && (अगरace->bInterfaceClass == USB_CLASS_HUB
+                || (अगरace->bInterfaceClass == USB_CLASS_MASS_STORAGE
+                    && (अगरace->bInterfaceProtocol == US_PR_BULK
+                        || अगरace->bInterfaceProtocol == US_PR_UAS))
+                || (अगरace->bInterfaceClass == USB_CLASS_HID
+                    && अगरace->bInterfaceSubClass == USB_INTERFACE_SUBCLASS_BOOT)))
+            अवरोध;
+        अगरace = (व्योम*)अगरace + अगरace->bLength;
+    पूर्ण
+
+    // Set the configuration.
+    ret = set_configuration(usbdev->defpipe, config->bConfigurationValue);
+    अगर (ret)
+        जाओ fail;
+
+    // Configure driver.
+    usbdev->config = config;
+    usbdev->अगरace = अगरace;
+    usbdev->imax = (व्योम*)config + config->wTotalLength - (व्योम*)अगरace;
+    अगर (अगरace->bInterfaceClass == USB_CLASS_HUB)
+        ret = usb_hub_setup(usbdev);
+    अन्यथा अगर (अगरace->bInterfaceClass == USB_CLASS_MASS_STORAGE) अणु
+        अगर (अगरace->bInterfaceProtocol == US_PR_BULK)
+            ret = usb_msc_setup(usbdev);
+        अगर (अगरace->bInterfaceProtocol == US_PR_UAS)
+            ret = usb_uas_setup(usbdev);
+    पूर्ण अन्यथा
+        ret = usb_hid_setup(usbdev);
+    अगर (ret)
+        जाओ fail;
+
+    मुक्त(config);
+    वापस 1;
+fail:
+    मुक्त(config);
+    वापस 0;
+पूर्ण
+
+अटल व्योम
+usb_hub_port_setup(व्योम *data)
+अणु
+    काष्ठा usbdevice_s *usbdev = data;
+    काष्ठा usbhub_s *hub = usbdev->hub;
+    u32 port = usbdev->port;
+
+    क्रम (;;) अणु
+        // Detect अगर device present (and possibly start reset)
+        पूर्णांक ret = hub->op->detect(hub, port);
+        अगर (ret > 0)
+            // Device connected.
+            अवरोध;
+        अगर (ret < 0 || समयr_check(hub->detectend))
+            // No device found.
+            जाओ करोne;
+        msleep(5);
+    पूर्ण
+
+    // XXX - रुको USB_TIME_ATTDB समय?
+
+    // Reset port and determine device speed
+    mutex_lock(&hub->cntl->resetlock);
+    पूर्णांक ret = hub->op->reset(hub, port);
+    अगर (ret < 0)
+        // Reset failed
+        जाओ resetfail;
+    usbdev->speed = ret;
+
+    // Set address of port
+    ret = usb_set_address(usbdev);
+    अगर (ret) अणु
+        hub->op->disconnect(hub, port);
+        जाओ resetfail;
+    पूर्ण
+    mutex_unlock(&hub->cntl->resetlock);
+
+    // Configure the device
+    पूर्णांक count = configure_usb_device(usbdev);
+    usb_मुक्त_pipe(usbdev, usbdev->defpipe);
+    अगर (!count)
+        hub->op->disconnect(hub, port);
+    hub->devcount += count;
+करोne:
+    hub->thपढ़ोs--;
+    मुक्त(usbdev);
+    वापस;
+
+resetfail:
+    mutex_unlock(&hub->cntl->resetlock);
+    जाओ करोne;
+पूर्ण
+
+अटल u32 usb_समय_sigatt;
+
+व्योम
+usb_क्रमागतerate(काष्ठा usbhub_s *hub)
+अणु
+    u32 portcount = hub->portcount;
+    hub->thपढ़ोs = portcount;
+    hub->detectend = समयr_calc(usb_समय_sigatt);
+
+    // Launch a thपढ़ो क्रम every port.
+    पूर्णांक i;
+    क्रम (i=0; i<portcount; i++) अणु
+        काष्ठा usbdevice_s *usbdev = दो_स्मृति_पंचांगphigh(माप(*usbdev));
+        अगर (!usbdev) अणु
+            warn_noalloc();
+            जारी;
+        पूर्ण
+        स_रखो(usbdev, 0, माप(*usbdev));
+        usbdev->hub = hub;
+        usbdev->port = i;
+        run_thपढ़ो(usb_hub_port_setup, usbdev);
+    पूर्ण
+
+    // Wait क्रम thपढ़ोs to complete.
+    जबतक (hub->thपढ़ोs)
+        yield();
+पूर्ण
+
+व्योम
+usb_setup(व्योम)
+अणु
+    ASSERT32FLAT();
+    अगर (! CONFIG_USB)
+        वापस;
+    dम_लिखो(3, "init usb\n");
+    usb_समय_sigatt = romfile_loadपूर्णांक("etc/usb-time-sigatt", USB_TIME_SIGATT);
+    xhci_setup();
+    ehci_setup();
+    uhci_setup();
+    ohci_setup();
+पूर्ण

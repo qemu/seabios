@@ -1,0 +1,153 @@
+<शैली गुरु>
+#अगर_अघोषित _VIRTIO_PCI_H
+#घोषणा _VIRTIO_PCI_H
+
+#समावेश "x86.h" // inl
+#समावेश "biosvar.h" // GET_LOWFLAT
+
+/* The bit of the ISR which indicates a device configuration change. */
+#घोषणा VIRTIO_PCI_ISR_CONFIG           0x2
+
+/* Virtio ABI version, this must match exactly */
+#घोषणा VIRTIO_PCI_ABI_VERSION          0
+
+/* --- virtio 0.9.5 (legacy) काष्ठा --------------------------------- */
+
+प्रकार काष्ठा virtio_pci_legacy अणु
+    u32 host_features;
+    u32 guest_features;
+    u32 queue_pfn;
+    u16 queue_num;
+    u16 queue_sel;
+    u16 queue_notअगरy;
+    u8  status;
+    u8  isr;
+    u8  device[];
+पूर्ण virtio_pci_legacy;
+
+/* --- virtio 1.0 (modern) काष्ठाs ---------------------------------- */
+
+/* Common configuration */
+#घोषणा VIRTIO_PCI_CAP_COMMON_CFG       1
+/* Notअगरications */
+#घोषणा VIRTIO_PCI_CAP_NOTIFY_CFG       2
+/* ISR access */
+#घोषणा VIRTIO_PCI_CAP_ISR_CFG          3
+/* Device specअगरic configuration */
+#घोषणा VIRTIO_PCI_CAP_DEVICE_CFG       4
+/* PCI configuration access */
+#घोषणा VIRTIO_PCI_CAP_PCI_CFG          5
+
+/* This is the PCI capability header: */
+काष्ठा virtio_pci_cap अणु
+    u8 cap_vndr;          /* Generic PCI field: PCI_CAP_ID_VNDR */
+    u8 cap_next;          /* Generic PCI field: next ptr. */
+    u8 cap_len;           /* Generic PCI field: capability length */
+    u8 cfg_type;          /* Identअगरies the काष्ठाure. */
+    u8 bar;               /* Where to find it. */
+    u8 padding[3];        /* Pad to full dword. */
+    u32 offset;           /* Offset within bar. */
+    u32 length;           /* Length of the काष्ठाure, in bytes. */
+पूर्ण;
+
+काष्ठा virtio_pci_notअगरy_cap अणु
+    काष्ठा virtio_pci_cap cap;
+    u32 notअगरy_off_multiplier;   /* Multiplier क्रम queue_notअगरy_off. */
+पूर्ण;
+
+काष्ठा virtio_pci_cfg_cap अणु
+    काष्ठा virtio_pci_cap cap;
+    u8 pci_cfg_data[4]; /* Data क्रम BAR access. */
+पूर्ण;
+
+प्रकार काष्ठा virtio_pci_common_cfg अणु
+    /* About the whole device. */
+    u32 device_feature_select;   /* पढ़ो-ग_लिखो */
+    u32 device_feature;          /* पढ़ो-only */
+    u32 guest_feature_select;    /* पढ़ो-ग_लिखो */
+    u32 guest_feature;           /* पढ़ो-ग_लिखो */
+    u16 msix_config;             /* पढ़ो-ग_लिखो */
+    u16 num_queues;              /* पढ़ो-only */
+    u8 device_status;            /* पढ़ो-ग_लिखो */
+    u8 config_generation;        /* पढ़ो-only */
+
+    /* About a specअगरic virtqueue. */
+    u16 queue_select;            /* पढ़ो-ग_लिखो */
+    u16 queue_size;              /* पढ़ो-ग_लिखो, घातer of 2. */
+    u16 queue_msix_vector;       /* पढ़ो-ग_लिखो */
+    u16 queue_enable;            /* पढ़ो-ग_लिखो */
+    u16 queue_notअगरy_off;        /* पढ़ो-only */
+    u32 queue_desc_lo;           /* पढ़ो-ग_लिखो */
+    u32 queue_desc_hi;           /* पढ़ो-ग_लिखो */
+    u32 queue_avail_lo;          /* पढ़ो-ग_लिखो */
+    u32 queue_avail_hi;          /* पढ़ो-ग_लिखो */
+    u32 queue_used_lo;           /* पढ़ो-ग_लिखो */
+    u32 queue_used_hi;           /* पढ़ो-ग_लिखो */
+पूर्ण virtio_pci_common_cfg;
+
+प्रकार काष्ठा virtio_pci_isr अणु
+    u8 isr;
+पूर्ण virtio_pci_isr;
+
+/* --- driver काष्ठाs ----------------------------------------------- */
+
+#घोषणा VP_ACCESS_IO       1
+#घोषणा VP_ACCESS_MMIO     2
+#घोषणा VP_ACCESS_PCICFG   3
+
+काष्ठा vp_cap अणु
+    जोड़ अणु
+        व्योम *memaddr;
+        u32 ioaddr;
+        u32 baroff;
+    पूर्ण;
+    u16 bdf;
+    u8 cap;
+    u8 cfg;
+    u8 bar;
+    u8 mode;
+पूर्ण;
+
+काष्ठा vp_device अणु
+    काष्ठा vp_cap common, notअगरy, isr, device, legacy;
+    u32 notअगरy_off_multiplier;
+    u8 use_modern;
+    u8 use_mmio;
+पूर्ण;
+
+u64 _vp_पढ़ो(काष्ठा vp_cap *cap, u32 offset, u8 size);
+व्योम _vp_ग_लिखो(काष्ठा vp_cap *cap, u32 offset, u8 size, u64 var);
+
+#घोषणा vp_पढ़ो(_cap, _काष्ठा, _field)        \
+    _vp_पढ़ो(_cap, दुरत्व(_काष्ठा, _field), \
+             माप(((_काष्ठा *)0)->_field))
+
+#घोषणा vp_ग_लिखो(_cap, _काष्ठा, _field, _var)           \
+    _vp_ग_लिखो(_cap, दुरत्व(_काष्ठा, _field),          \
+             माप(((_काष्ठा *)0)->_field), _var)
+
+u64 vp_get_features(काष्ठा vp_device *vp);
+व्योम vp_set_features(काष्ठा vp_device *vp, u64 features);
+
+अटल अंतरभूत व्योम vp_get_legacy(काष्ठा vp_device *vp, अचिन्हित offset,
+                                 व्योम *buf, अचिन्हित len)
+अणु
+    u8 *ptr = buf;
+    अचिन्हित i;
+
+    क्रम (i = 0; i < len; i++)
+        ptr[i] = vp_पढ़ो(&vp->legacy, virtio_pci_legacy, device[i]);
+पूर्ण
+
+u8 vp_get_status(काष्ठा vp_device *vp);
+व्योम vp_set_status(काष्ठा vp_device *vp, u8 status);
+u8 vp_get_isr(काष्ठा vp_device *vp);
+व्योम vp_reset(काष्ठा vp_device *vp);
+
+काष्ठा pci_device;
+काष्ठा vring_virtqueue;
+व्योम vp_init_simple(काष्ठा vp_device *vp, काष्ठा pci_device *pci);
+व्योम vp_notअगरy(काष्ठा vp_device *vp, काष्ठा vring_virtqueue *vq);
+पूर्णांक vp_find_vq(काष्ठा vp_device *vp, पूर्णांक queue_index,
+               काष्ठा vring_virtqueue **p_vq);
+#पूर्ण_अगर /* _VIRTIO_PCI_H_ */

@@ -1,0 +1,209 @@
+<शैली गुरु>
+// Code to access multiple segments within gcc.
+//
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+#अगर_अघोषित __FARPTR_H
+#घोषणा __FARPTR_H
+
+#समावेश "x86.h" // insb
+
+// Dummy definitions used to make sure gcc understands dependencies
+// between SET_SEG and GET/READ/WRITE_SEG macros.
+बाह्य u16 __segment_ES, __segment_CS, __segment_DS, __segment_SS;
+बाह्य u16 __segment_FS, __segment_GS;
+
+// Low level macros क्रम पढ़ोing/writing memory via a segment selector.
+#घोषणा READ8_SEG(prefix, SEG, value, var)                      \
+    __यंत्र__(prefix "movb %%" #SEG ":%1, %b0" : "=Qi"(value)     \
+            : "m"(var), "m"(__segment_ ## SEG))
+#घोषणा READ16_SEG(prefix, SEG, value, var)                     \
+    __यंत्र__(prefix "movw %%" #SEG ":%1, %w0" : "=ri"(value)     \
+            : "m"(var), "m"(__segment_ ## SEG))
+#घोषणा READ32_SEG(prefix, SEG, value, var)                     \
+    __यंत्र__(prefix "movl %%" #SEG ":%1, %0" : "=ri"(value)      \
+            : "m"(var), "m"(__segment_ ## SEG))
+#घोषणा READ64_SEG(prefix, SEG, value, var) करो अणु                \
+        जोड़ u64_u32_u __value;                                \
+        जोड़ u64_u32_u *__r64_ptr = (जोड़ u64_u32_u *)&(var); \
+        READ32_SEG(prefix, SEG, __value.lo, __r64_ptr->lo);     \
+        READ32_SEG(prefix, SEG, __value.hi, __r64_ptr->hi);     \
+        *(u64*)&(value) = __value.val;                          \
+    पूर्ण जबतक (0)
+#घोषणा WRITE8_SEG(prefix, SEG, var, value)                     \
+    __यंत्र__(prefix "movb %b1, %%" #SEG ":%0" : "=m"(var)        \
+            : "Q"(value), "m"(__segment_ ## SEG))
+#घोषणा WRITE16_SEG(prefix, SEG, var, value)                    \
+    __यंत्र__(prefix "movw %w1, %%" #SEG ":%0" : "=m"(var)        \
+            : "r"(value), "m"(__segment_ ## SEG))
+#घोषणा WRITE32_SEG(prefix, SEG, var, value)                    \
+    __यंत्र__(prefix "movl %1, %%" #SEG ":%0" : "=m"(var)         \
+            : "r"(value), "m"(__segment_ ## SEG))
+#घोषणा WRITE64_SEG(prefix, SEG, var, value) करो अणु               \
+        जोड़ u64_u32_u __value;                                \
+        जोड़ u64_u32_u *__w64_ptr = (जोड़ u64_u32_u *)&(var); \
+        typeof(var) __value_पंचांगp = (value);                      \
+        __value.val = *(u64*)&__value_पंचांगp;                      \
+        WRITE32_SEG(prefix, SEG, __w64_ptr->lo, __value.lo);    \
+        WRITE32_SEG(prefix, SEG, __w64_ptr->hi, __value.hi);    \
+    पूर्ण जबतक (0)
+
+// Macros क्रम स्वतःmatically choosing the appropriate memory size
+// access method.
+बाह्य व्योम __क्रमce_link_error__unknown_type(व्योम);
+
+#घोषणा __GET_VAR(prefix, seg, var) (अणु          \
+    typeof(var) __val;                          \
+    अगर (माप(__val) == 1)                     \
+        READ8_SEG(prefix, seg, __val, var);     \
+    अन्यथा अगर (माप(__val) == 2)                \
+        READ16_SEG(prefix, seg, __val, var);    \
+    अन्यथा अगर (माप(__val) == 4)                \
+        READ32_SEG(prefix, seg, __val, var);    \
+    अन्यथा अगर (माप(__val) == 8)                \
+        READ64_SEG(prefix, seg, __val, var);    \
+    अन्यथा                                        \
+        __क्रमce_link_error__unknown_type();     \
+    __val; पूर्ण)
+
+#घोषणा __SET_VAR(prefix, seg, var, val) करो अणु           \
+        अगर (माप(var) == 1)                           \
+            WRITE8_SEG(prefix, seg, var, (val));        \
+        अन्यथा अगर (माप(var) == 2)                      \
+            WRITE16_SEG(prefix, seg, var, (val));       \
+        अन्यथा अगर (माप(var) == 4)                      \
+            WRITE32_SEG(prefix, seg, var, (val));       \
+        अन्यथा अगर (माप(var) == 8)                      \
+            WRITE64_SEG(prefix, seg, var, (val));       \
+        अन्यथा                                            \
+            __क्रमce_link_error__unknown_type();         \
+    पूर्ण जबतक (0)
+
+#घोषणा DECL_SEGFUNCS(SEG)                              \
+अटल अंतरभूत व्योम __set_seg_##SEG(u16 seg) अणु           \
+    __यंत्र__("movw %w1, %%" #SEG : "=m"(__segment_##SEG) \
+            : "rm"(seg));                               \
+पूर्ण                                                       \
+अटल अंतरभूत u16 __get_seg_##SEG(व्योम) अणु               \
+    u16 res;                                            \
+    __यंत्र__("movw %%" #SEG ", %w0" : "=rm"(res)         \
+            : "m"(__segment_##SEG));                    \
+    वापस res;                                         \
+पूर्ण
+DECL_SEGFUNCS(CS)
+DECL_SEGFUNCS(DS)
+DECL_SEGFUNCS(ES)
+DECL_SEGFUNCS(FS)
+DECL_SEGFUNCS(GS)
+DECL_SEGFUNCS(SS)
+
+// Low level macros क्रम getting/setting a segment रेजिस्टर.
+#घोषणा __SET_SEG(SEG, value)                   \
+    __set_seg_##SEG(value)
+#घोषणा __GET_SEG(SEG)                          \
+    __get_seg_##SEG()
+
+// Macros क्रम accessing a variable in another segment.  (They
+// स्वतःmatically update the %es segment and then make the appropriate
+// access.)
+#घोषणा __GET_FARVAR(seg, var) (अणु               \
+    SET_SEG(ES, (seg));                         \
+    GET_VAR(ES, (var)); पूर्ण)
+#घोषणा __SET_FARVAR(seg, var, val) करो अणु        \
+        typeof(var) __sfv_val = (val);          \
+        SET_SEG(ES, (seg));                     \
+        SET_VAR(ES, (var), __sfv_val);          \
+    पूर्ण जबतक (0)
+
+// Macros क्रम accesssing a 32bit flat mode poपूर्णांकer from 16bit real
+// mode.  (They स्वतःmatically update the %es segment, अवरोध the
+// poपूर्णांकer पूर्णांकo segment/offset, and then make the access.)
+#घोषणा __GET_FLATPTR(ptr) (अणु                                   \
+    typeof(&(ptr)) __ptr = &(ptr);                              \
+    GET_FARVAR(FLATPTR_TO_SEG(__ptr)                            \
+               , *(typeof(__ptr))FLATPTR_TO_OFFSET(__ptr)); पूर्ण)
+#घोषणा __SET_FLATPTR(ptr, val) करो अणु                            \
+        typeof (&(ptr)) __ptr = &(ptr);                         \
+        SET_FARVAR(FLATPTR_TO_SEG(__ptr)                        \
+                   , *(typeof(__ptr))FLATPTR_TO_OFFSET(__ptr)   \
+                   , (val));                                    \
+    पूर्ण जबतक (0)
+
+// Macros क्रम converting to/from 32bit flat mode poपूर्णांकers to their
+// equivalent 16bit segment/offset values.
+#घोषणा FLATPTR_TO_SEG(p) (((u32)(p)) >> 4)
+#घोषणा FLATPTR_TO_OFFSET(p) (((u32)(p)) & 0xf)
+#घोषणा MAKE_FLATPTR(seg,off) ((व्योम*)(((u32)(seg)<<4)+(u32)(off)))
+
+
+#अगर MODESEGMENT == 1
+
+// Definitions when using segmented mode.
+#घोषणा GET_FARVAR(seg, var) __GET_FARVAR((seg), (var))
+#घोषणा SET_FARVAR(seg, var, val) __SET_FARVAR((seg), (var), (val))
+#घोषणा GET_VAR(seg, var) __GET_VAR("", seg, (var))
+#घोषणा SET_VAR(seg, var, val) __SET_VAR("", seg, (var), (val))
+#घोषणा SET_SEG(SEG, value) __SET_SEG(SEG, (value))
+#घोषणा GET_SEG(SEG) __GET_SEG(SEG)
+#घोषणा GET_FLATPTR(ptr) __GET_FLATPTR(ptr)
+#घोषणा SET_FLATPTR(ptr, val) __SET_FLATPTR((ptr), (val))
+
+अटल अंतरभूत व्योम insb_fl(u16 port, व्योम *ptr_fl, u16 count) अणु
+    SET_SEG(ES, FLATPTR_TO_SEG(ptr_fl));
+    insb(port, (u8*)FLATPTR_TO_OFFSET(ptr_fl), count);
+पूर्ण
+अटल अंतरभूत व्योम insw_fl(u16 port, व्योम *ptr_fl, u16 count) अणु
+    SET_SEG(ES, FLATPTR_TO_SEG(ptr_fl));
+    insw(port, (u16*)FLATPTR_TO_OFFSET(ptr_fl), count);
+पूर्ण
+अटल अंतरभूत व्योम insl_fl(u16 port, व्योम *ptr_fl, u16 count) अणु
+    SET_SEG(ES, FLATPTR_TO_SEG(ptr_fl));
+    insl(port, (u32*)FLATPTR_TO_OFFSET(ptr_fl), count);
+पूर्ण
+अटल अंतरभूत व्योम outsb_fl(u16 port, व्योम *ptr_fl, u16 count) अणु
+    SET_SEG(ES, FLATPTR_TO_SEG(ptr_fl));
+    outsb(port, (u8*)FLATPTR_TO_OFFSET(ptr_fl), count);
+पूर्ण
+अटल अंतरभूत व्योम outsw_fl(u16 port, व्योम *ptr_fl, u16 count) अणु
+    SET_SEG(ES, FLATPTR_TO_SEG(ptr_fl));
+    outsw(port, (u16*)FLATPTR_TO_OFFSET(ptr_fl), count);
+पूर्ण
+अटल अंतरभूत व्योम outsl_fl(u16 port, व्योम *ptr_fl, u16 count) अणु
+    SET_SEG(ES, FLATPTR_TO_SEG(ptr_fl));
+    outsl(port, (u32*)FLATPTR_TO_OFFSET(ptr_fl), count);
+पूर्ण
+
+#अन्यथा
+
+// In 32-bit flat mode there is no need to mess with the segments.
+#घोषणा GET_FARVAR(seg, var) \
+    (*((typeof(&(var)))MAKE_FLATPTR((seg), &(var))))
+#घोषणा SET_FARVAR(seg, var, val) \
+    करो अणु GET_FARVAR((seg), (var)) = (val); पूर्ण जबतक (0)
+#घोषणा GET_VAR(seg, var) (var)
+#घोषणा SET_VAR(seg, var, val) करो अणु (var) = (val); पूर्ण जबतक (0)
+#घोषणा SET_SEG(SEG, value) ((व्योम)(value))
+#घोषणा GET_SEG(SEG) 0
+#घोषणा GET_FLATPTR(ptr) (ptr)
+#घोषणा SET_FLATPTR(ptr, val) करो अणु (ptr) = (val); पूर्ण जबतक (0)
+
+#घोषणा insb_fl(port, ptr_fl, count) insb(port, ptr_fl, count)
+#घोषणा insw_fl(port, ptr_fl, count) insw(port, ptr_fl, count)
+#घोषणा insl_fl(port, ptr_fl, count) insl(port, ptr_fl, count)
+#घोषणा outsb_fl(port, ptr_fl, count) outsb(port, ptr_fl, count)
+#घोषणा outsw_fl(port, ptr_fl, count) outsw(port, ptr_fl, count)
+#घोषणा outsl_fl(port, ptr_fl, count) outsl(port, ptr_fl, count)
+
+#पूर्ण_अगर
+
+#घोषणा SEGOFF(s,o) (अणुकाष्ठा segoff_s __so; __so.offset=(o); __so.seg=(s); __so;पूर्ण)
+
+अटल अंतरभूत काष्ठा segoff_s FLATPTR_TO_SEGOFF(व्योम *p) अणु
+    वापस SEGOFF(FLATPTR_TO_SEG(p), FLATPTR_TO_OFFSET(p));
+पूर्ण
+अटल अंतरभूत व्योम *SEGOFF_TO_FLATPTR(काष्ठा segoff_s so) अणु
+    वापस MAKE_FLATPTR(so.seg, so.offset);
+पूर्ण
+
+#पूर्ण_अगर // farptr.h

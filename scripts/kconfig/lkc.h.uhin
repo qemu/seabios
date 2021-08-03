@@ -1,0 +1,201 @@
+<शैली गुरु>
+/*
+ * Copyright (C) 2002 Roman Zippel <zippel@linux-m68k.org>
+ * Released under the terms of the GNU GPL v2.0.
+ */
+
+#अगर_अघोषित LKC_H
+#घोषणा LKC_H
+
+#समावेश "expr.h"
+
+#अगर_अघोषित KBUILD_NO_NLS
+# include <libपूर्णांकl.h>
+#अन्यथा
+अटल अंतरभूत स्थिर अक्षर *gettext(स्थिर अक्षर *txt) अणु वापस txt; पूर्ण
+अटल अंतरभूत व्योम textकरोमुख्य(स्थिर अक्षर *करोमुख्यname) अणुपूर्ण
+अटल अंतरभूत व्योम bindtextकरोमुख्य(स्थिर अक्षर *name, स्थिर अक्षर *dir) अणुपूर्ण
+अटल अंतरभूत अक्षर *bind_textकरोमुख्य_codeset(स्थिर अक्षर *dn, अक्षर *c) अणु वापस c; पूर्ण
+#पूर्ण_अगर
+
+#अगर_घोषित __cplusplus
+बाह्य "C" अणु
+#पूर्ण_अगर
+
+#घोषणा P(name,type,arg)	बाह्य type name arg
+#समावेश "lkc_proto.h"
+#अघोषित P
+
+#घोषणा SRCTREE "srctree"
+
+#अगर_अघोषित PACKAGE
+#घोषणा PACKAGE "linux"
+#पूर्ण_अगर
+
+#घोषणा LOCALEसूची "/usr/share/locale"
+
+#घोषणा _(text) gettext(text)
+#घोषणा N_(text) (text)
+
+#अगर_अघोषित CONFIG_
+#घोषणा CONFIG_ "CONFIG_"
+#पूर्ण_अगर
+अटल अंतरभूत स्थिर अक्षर *CONFIG_prefix(व्योम)
+अणु
+	वापस दो_पर्या( "CONFIG_" ) ?: CONFIG_;
+पूर्ण
+#अघोषित CONFIG_
+#घोषणा CONFIG_ CONFIG_prefix()
+
+#घोषणा TF_COMMAND	0x0001
+#घोषणा TF_PARAM	0x0002
+#घोषणा TF_OPTION	0x0004
+
+क्रमागत conf_def_mode अणु
+	def_शेष,
+	def_yes,
+	def_mod,
+	def_no,
+	def_अक्रमom
+पूर्ण;
+
+#घोषणा T_OPT_MODULES		1
+#घोषणा T_OPT_DEFCONFIG_LIST	2
+#घोषणा T_OPT_ENV		3
+#घोषणा T_OPT_ALLNOCONFIG_Y	4
+
+काष्ठा kconf_id अणु
+	पूर्णांक name;
+	पूर्णांक token;
+	अचिन्हित पूर्णांक flags;
+	क्रमागत symbol_type stype;
+पूर्ण;
+
+बाह्य पूर्णांक zconfdebug;
+
+पूर्णांक zconfparse(व्योम);
+व्योम zconfdump(खाता *out);
+व्योम zconf_starthelp(व्योम);
+खाता *zconf_ख_खोलो(स्थिर अक्षर *name);
+व्योम zconf_initscan(स्थिर अक्षर *name);
+व्योम zconf_nextfile(स्थिर अक्षर *name);
+पूर्णांक zconf_lineno(व्योम);
+स्थिर अक्षर *zconf_curname(व्योम);
+
+/* confdata.c */
+स्थिर अक्षर *conf_get_configname(व्योम);
+स्थिर अक्षर *conf_get_स्वतःconfig_name(व्योम);
+अक्षर *conf_get_शेष_confname(व्योम);
+व्योम sym_set_change_count(पूर्णांक count);
+व्योम sym_add_change_count(पूर्णांक count);
+bool conf_set_all_new_symbols(क्रमागत conf_def_mode mode);
+व्योम set_all_choice_values(काष्ठा symbol *csym);
+
+काष्ठा conf_prपूर्णांकer अणु
+	व्योम (*prपूर्णांक_symbol)(खाता *, काष्ठा symbol *, स्थिर अक्षर *, व्योम *);
+	व्योम (*prपूर्णांक_comment)(खाता *, स्थिर अक्षर *, व्योम *);
+पूर्ण;
+
+/* confdata.c and expr.c */
+अटल अंतरभूत व्योम xख_डालो(स्थिर व्योम *str, माप_प्रकार len, माप_प्रकार count, खाता *out)
+अणु
+	निश्चित(len != 0);
+
+	अगर (ख_डालो(str, len, count, out) != count)
+		ख_लिखो(मानक_त्रुटि, "Error in writing or end of file.\n");
+पूर्ण
+
+/* menu.c */
+व्योम _menu_init(व्योम);
+व्योम menu_warn(काष्ठा menu *menu, स्थिर अक्षर *fmt, ...);
+काष्ठा menu *menu_add_menu(व्योम);
+व्योम menu_end_menu(व्योम);
+व्योम menu_add_entry(काष्ठा symbol *sym);
+व्योम menu_end_entry(व्योम);
+व्योम menu_add_dep(काष्ठा expr *dep);
+व्योम menu_add_visibility(काष्ठा expr *dep);
+काष्ठा property *menu_add_prop(क्रमागत prop_type type, अक्षर *prompt, काष्ठा expr *expr, काष्ठा expr *dep);
+काष्ठा property *menu_add_prompt(क्रमागत prop_type type, अक्षर *prompt, काष्ठा expr *dep);
+व्योम menu_add_expr(क्रमागत prop_type type, काष्ठा expr *expr, काष्ठा expr *dep);
+व्योम menu_add_symbol(क्रमागत prop_type type, काष्ठा symbol *sym, काष्ठा expr *dep);
+व्योम menu_add_option(पूर्णांक token, अक्षर *arg);
+व्योम menu_finalize(काष्ठा menu *parent);
+व्योम menu_set_type(पूर्णांक type);
+
+/* util.c */
+काष्ठा file *file_lookup(स्थिर अक्षर *name);
+पूर्णांक file_ग_लिखो_dep(स्थिर अक्षर *name);
+व्योम *xदो_स्मृति(माप_प्रकार size);
+व्योम *xसुस्मृति(माप_प्रकार nmemb, माप_प्रकार size);
+
+काष्ठा gstr अणु
+	माप_प्रकार len;
+	अक्षर  *s;
+	/*
+	* when max_width is not zero दीर्घ lines in string s (अगर any) get
+	* wrapped not to exceed the max_width value
+	*/
+	पूर्णांक max_width;
+पूर्ण;
+काष्ठा gstr str_new(व्योम);
+काष्ठा gstr str_assign(स्थिर अक्षर *s);
+व्योम str_मुक्त(काष्ठा gstr *gs);
+व्योम str_append(काष्ठा gstr *gs, स्थिर अक्षर *s);
+व्योम str_म_लिखो(काष्ठा gstr *gs, स्थिर अक्षर *fmt, ...);
+स्थिर अक्षर *str_get(काष्ठा gstr *gs);
+
+/* symbol.c */
+बाह्य काष्ठा expr *sym_env_list;
+
+व्योम sym_init(व्योम);
+व्योम sym_clear_all_valid(व्योम);
+व्योम sym_set_all_changed(व्योम);
+व्योम sym_set_changed(काष्ठा symbol *sym);
+काष्ठा symbol *sym_choice_शेष(काष्ठा symbol *sym);
+स्थिर अक्षर *sym_get_string_शेष(काष्ठा symbol *sym);
+काष्ठा symbol *sym_check_deps(काष्ठा symbol *sym);
+काष्ठा property *prop_alloc(क्रमागत prop_type type, काष्ठा symbol *sym);
+काष्ठा symbol *prop_get_symbol(काष्ठा property *prop);
+काष्ठा property *sym_get_env_prop(काष्ठा symbol *sym);
+
+अटल अंतरभूत tristate sym_get_tristate_value(काष्ठा symbol *sym)
+अणु
+	वापस sym->curr.tri;
+पूर्ण
+
+
+अटल अंतरभूत काष्ठा symbol *sym_get_choice_value(काष्ठा symbol *sym)
+अणु
+	वापस (काष्ठा symbol *)sym->curr.val;
+पूर्ण
+
+अटल अंतरभूत bool sym_set_choice_value(काष्ठा symbol *ch, काष्ठा symbol *chval)
+अणु
+	वापस sym_set_tristate_value(chval, yes);
+पूर्ण
+
+अटल अंतरभूत bool sym_is_choice(काष्ठा symbol *sym)
+अणु
+	वापस sym->flags & SYMBOL_CHOICE ? true : false;
+पूर्ण
+
+अटल अंतरभूत bool sym_is_choice_value(काष्ठा symbol *sym)
+अणु
+	वापस sym->flags & SYMBOL_CHOICEVAL ? true : false;
+पूर्ण
+
+अटल अंतरभूत bool sym_is_optional(काष्ठा symbol *sym)
+अणु
+	वापस sym->flags & SYMBOL_OPTIONAL ? true : false;
+पूर्ण
+
+अटल अंतरभूत bool sym_has_value(काष्ठा symbol *sym)
+अणु
+	वापस sym->flags & SYMBOL_DEF_USER ? true : false;
+पूर्ण
+
+#अगर_घोषित __cplusplus
+पूर्ण
+#पूर्ण_अगर
+
+#पूर्ण_अगर /* LKC_H */

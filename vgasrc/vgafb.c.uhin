@@ -1,0 +1,661 @@
+<शैली गुरु>
+// Code क्रम manipulating VGA framebuffers.
+//
+// Copyright (C) 2009-2014  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2001-2008 the LGPL VGABios developers Team
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_BDA
+#समावेश "byteorder.h" // cpu_to_be16
+#समावेश "output.h" // dम_लिखो
+#समावेश "stdvga.h" // stdvga_planar4_plane
+#समावेश "string.h" // स_रखो_far
+#समावेश "vgabios.h" // get_current_mode
+#समावेश "vgafb.h" // vgafb_ग_लिखो_अक्षर
+#समावेश "vgahw.h" // vgahw_get_linelength
+#समावेश "vgautil.h" // VBE_framebuffer
+
+अटल अंतरभूत व्योम
+स_हटाओ_stride(u16 seg, व्योम *dst, व्योम *src, पूर्णांक copylen, पूर्णांक stride, पूर्णांक lines)
+अणु
+    अगर (src < dst) अणु
+        dst += stride * (lines - 1);
+        src += stride * (lines - 1);
+        stride = -stride;
+    पूर्ण
+    क्रम (; lines; lines--, dst+=stride, src+=stride)
+        स_नकल_far(seg, dst, seg, src, copylen);
+पूर्ण
+
+अटल अंतरभूत व्योम
+स_रखो_stride(u16 seg, व्योम *dst, u8 val, पूर्णांक setlen, पूर्णांक stride, पूर्णांक lines)
+अणु
+    क्रम (; lines; lines--, dst+=stride)
+        स_रखो_far(seg, dst, val, setlen);
+पूर्ण
+
+अटल अंतरभूत व्योम
+स_रखो16_stride(u16 seg, व्योम *dst, u16 val, पूर्णांक setlen, पूर्णांक stride, पूर्णांक lines)
+अणु
+    क्रम (; lines; lines--, dst+=stride)
+        स_रखो16_far(seg, dst, val, setlen);
+पूर्ण
+
+
+/****************************************************************
+ * Basic stdvga graphic manipulation
+ ****************************************************************/
+
+अटल व्योम
+gfx_planar(काष्ठा gfx_op *op)
+अणु
+    अगर (!CONFIG_VGA_STDVGA_PORTS)
+        वापस;
+    व्योम *dest_far = (व्योम*)(op->y * op->linelength + op->x / 8);
+    पूर्णांक plane;
+    चयन (op->op) अणु
+    शेष:
+    हाल GO_READ8:
+        स_रखो(op->pixels, 0, माप(op->pixels));
+        क्रम (plane = 0; plane < 4; plane++) अणु
+            stdvga_planar4_plane(plane);
+            u8 data = GET_FARVAR(SEG_GRAPH, *(u8*)dest_far);
+            पूर्णांक pixel;
+            क्रम (pixel=0; pixel<8; pixel++)
+                op->pixels[pixel] |= ((data>>(7-pixel)) & 1) << plane;
+        पूर्ण
+        अवरोध;
+    हाल GO_WRITE8:
+        क्रम (plane = 0; plane<4; plane++) अणु
+            stdvga_planar4_plane(plane);
+            u8 data = 0;
+            पूर्णांक pixel;
+            क्रम (pixel=0; pixel<8; pixel++)
+                data |= ((op->pixels[pixel]>>plane) & 1) << (7-pixel);
+            SET_FARVAR(SEG_GRAPH, *(u8*)dest_far, data);
+        पूर्ण
+        अवरोध;
+    हाल GO_MEMSET:
+        क्रम (plane = 0; plane < 4; plane++) अणु
+            stdvga_planar4_plane(plane);
+            u8 data = (op->pixels[0] & (1<<plane)) ? 0xff : 0x00;
+            स_रखो_stride(SEG_GRAPH, dest_far, data
+                          , op->xlen / 8, op->linelength, op->ylen);
+        पूर्ण
+        अवरोध;
+    हाल GO_MEMMOVE: ;
+        व्योम *src_far = (व्योम*)(op->srcy * op->linelength + op->x / 8);
+        क्रम (plane = 0; plane < 4; plane++) अणु
+            stdvga_planar4_plane(plane);
+            स_हटाओ_stride(SEG_GRAPH, dest_far, src_far
+                           , op->xlen / 8, op->linelength, op->ylen);
+        पूर्ण
+        अवरोध;
+    पूर्ण
+    stdvga_planar4_plane(-1);
+पूर्ण
+
+अटल व्योम
+gfx_cga(काष्ठा gfx_op *op)
+अणु
+    पूर्णांक bpp = GET_GLOBAL(op->vmode_g->depth);
+    व्योम *dest_far = (व्योम*)(op->y / 2 * op->linelength + op->x / 8 * bpp);
+    चयन (op->op) अणु
+    शेष:
+    हाल GO_READ8:
+        अगर (op->y & 1)
+            dest_far += 0x2000;
+        अगर (bpp == 1) अणु
+            u8 data = GET_FARVAR(SEG_CTEXT, *(u8*)dest_far);
+            पूर्णांक pixel;
+            क्रम (pixel=0; pixel<8; pixel++)
+                op->pixels[pixel] = (data >> (7-pixel)) & 1;
+        पूर्ण अन्यथा अणु
+            u16 data = GET_FARVAR(SEG_CTEXT, *(u16*)dest_far);
+            data = be16_to_cpu(data);
+            पूर्णांक pixel;
+            क्रम (pixel=0; pixel<8; pixel++)
+                op->pixels[pixel] = (data >> ((7-pixel)*2)) & 3;
+        पूर्ण
+        अवरोध;
+    हाल GO_WRITE8:
+        अगर (op->y & 1)
+            dest_far += 0x2000;
+        अगर (bpp == 1) अणु
+            u8 data = 0;
+            पूर्णांक pixel;
+            क्रम (pixel=0; pixel<8; pixel++)
+                data |= (op->pixels[pixel] & 1) << (7-pixel);
+            SET_FARVAR(SEG_CTEXT, *(u8*)dest_far, data);
+        पूर्ण अन्यथा अणु
+            u16 data = 0;
+            पूर्णांक pixel;
+            क्रम (pixel=0; pixel<8; pixel++)
+                data |= (op->pixels[pixel] & 3) << ((7-pixel) * 2);
+            data = cpu_to_be16(data);
+            SET_FARVAR(SEG_CTEXT, *(u16*)dest_far, data);
+        पूर्ण
+        अवरोध;
+    हाल GO_MEMSET: ;
+        u8 data = op->pixels[0];
+        अगर (bpp == 1)
+            data = (data&1) | ((data&1)<<1);
+        data &= 3;
+        data |= (data<<2) | (data<<4) | (data<<6);
+        स_रखो_stride(SEG_CTEXT, dest_far, data
+                      , op->xlen / 8 * bpp, op->linelength, op->ylen / 2);
+        स_रखो_stride(SEG_CTEXT, dest_far + 0x2000, data
+                      , op->xlen / 8 * bpp, op->linelength, op->ylen / 2);
+        अवरोध;
+    हाल GO_MEMMOVE: ;
+        व्योम *src_far = (व्योम*)(op->srcy / 2 * op->linelength + op->x / 8 * bpp);
+        स_हटाओ_stride(SEG_CTEXT, dest_far, src_far
+                       , op->xlen / 8 * bpp, op->linelength, op->ylen / 2);
+        स_हटाओ_stride(SEG_CTEXT, dest_far + 0x2000, src_far + 0x2000
+                       , op->xlen / 8 * bpp, op->linelength, op->ylen / 2);
+        अवरोध;
+    पूर्ण
+पूर्ण
+
+अटल व्योम
+gfx_packed(काष्ठा gfx_op *op)
+अणु
+    व्योम *dest_far = (व्योम*)(op->y * op->linelength + op->x);
+    चयन (op->op) अणु
+    शेष:
+    हाल GO_READ8:
+        स_नकल_far(GET_SEG(SS), op->pixels, SEG_GRAPH, dest_far, 8);
+        अवरोध;
+    हाल GO_WRITE8:
+        स_नकल_far(SEG_GRAPH, dest_far, GET_SEG(SS), op->pixels, 8);
+        अवरोध;
+    हाल GO_MEMSET:
+        स_रखो_stride(SEG_GRAPH, dest_far, op->pixels[0]
+                      , op->xlen, op->linelength, op->ylen);
+        अवरोध;
+    हाल GO_MEMMOVE: ;
+        व्योम *src_far = (व्योम*)(op->srcy * op->linelength + op->x);
+        स_हटाओ_stride(SEG_GRAPH, dest_far, src_far
+                       , op->xlen, op->linelength, op->ylen);
+        अवरोध;
+    पूर्ण
+पूर्ण
+
+
+/****************************************************************
+ * Direct framebuffers in high mem
+ ****************************************************************/
+
+// Use पूर्णांक 1587 call to copy memory to/from the framebuffer.
+व्योम स_नकल_high(व्योम *dest, व्योम *src, u32 len)
+अणु
+    u64 gdt[6];
+    gdt[2] = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE((u32)src);
+    gdt[3] = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE((u32)dest);
+
+    // Call पूर्णांक 1587 to copy data.
+    len/=2;
+    u32 flags;
+    u32 eax = 0x8700;
+    u32 si = (u32)&gdt;
+    SET_SEG(ES, GET_SEG(SS));
+    यंत्र अस्थिर(
+        "stc\n"
+        "int $0x15\n"
+        "cli\n"
+        "cld\n"
+        "pushfl\n"
+        "popl %0\n"
+        : "=r" (flags), "+a" (eax), "+S" (si), "+c" (len)
+        : : "cc", "memory");
+पूर्ण
+
+अटल व्योम
+स_हटाओ_stride_high(व्योम *dst, व्योम *src, पूर्णांक copylen, पूर्णांक stride, पूर्णांक lines)
+अणु
+    अगर (src < dst) अणु
+        dst += stride * (lines - 1);
+        src += stride * (lines - 1);
+        stride = -stride;
+    पूर्ण
+    क्रम (; lines; lines--, dst+=stride, src+=stride)
+        स_नकल_high(dst, src, copylen);
+पूर्ण
+
+// Map a CGA color to a "direct" mode rgb value.
+अटल u32
+get_color(पूर्णांक depth, u8 attr)
+अणु
+    पूर्णांक rbits, gbits, bbits;
+    चयन (depth) अणु
+    हाल 15: rbits=5; gbits=5; bbits=5; अवरोध;
+    हाल 16: rbits=5; gbits=6; bbits=5; अवरोध;
+    शेष:
+    हाल 24: rbits=8; gbits=8; bbits=8; अवरोध;
+    पूर्ण
+    पूर्णांक h = (attr&8) ? 1 : 0;
+    पूर्णांक r = (attr&4) ? 2 : 0, g = (attr&2) ? 2 : 0, b = (attr&1) ? 2 : 0;
+    अगर ((attr & 0xf) == 6)
+        g = 1;
+    पूर्णांक rv = DIV_ROUND_CLOSEST(((1<<rbits) - 1) * (r + h), 3);
+    पूर्णांक gv = DIV_ROUND_CLOSEST(((1<<gbits) - 1) * (g + h), 3);
+    पूर्णांक bv = DIV_ROUND_CLOSEST(((1<<bbits) - 1) * (b + h), 3);
+    वापस (rv << (gbits+bbits)) + (gv << bbits) + bv;
+पूर्ण
+
+// Find the बंदst attribute क्रम a given framebuffer color
+अटल u8
+reverse_color(पूर्णांक depth, u32 color)
+अणु
+    पूर्णांक rbits, gbits, bbits;
+    चयन (depth) अणु
+    हाल 15: rbits=5; gbits=5; bbits=5; अवरोध;
+    हाल 16: rbits=5; gbits=6; bbits=5; अवरोध;
+    शेष:
+    हाल 24: rbits=8; gbits=8; bbits=8; अवरोध;
+    पूर्ण
+    पूर्णांक rv = (color >> (gbits+bbits)) & ((1<<rbits)-1);
+    पूर्णांक gv = (color >> bbits) & ((1<<gbits)-1);
+    पूर्णांक bv = color & ((1<<bbits)-1);
+    पूर्णांक r = DIV_ROUND_CLOSEST(rv * 3, (1<<rbits) - 1);
+    पूर्णांक g = DIV_ROUND_CLOSEST(gv * 3, (1<<gbits) - 1);
+    पूर्णांक b = DIV_ROUND_CLOSEST(bv * 3, (1<<bbits) - 1);
+    पूर्णांक h = r && g && b && (r != 2 || g != 2 || b != 2);
+    वापस (h ? 8 : 0) | ((r-h) ? 4 : 0) | ((g-h) ? 2 : 0) | ((b-h) ? 1 : 0);
+पूर्ण
+
+अटल व्योम
+gfx_direct(काष्ठा gfx_op *op)
+अणु
+    व्योम *fb = (व्योम*)GET_GLOBAL(VBE_framebuffer);
+    अगर (!fb)
+        वापस;
+    पूर्णांक depth = GET_GLOBAL(op->vmode_g->depth);
+    पूर्णांक bypp = DIV_ROUND_UP(depth, 8);
+    व्योम *dest_far = (fb + op->displaystart + op->y * op->linelength
+                      + op->x * bypp);
+    u8 data[64];
+    पूर्णांक i;
+    चयन (op->op) अणु
+    शेष:
+    हाल GO_READ8:
+        स_नकल_high(MAKE_FLATPTR(GET_SEG(SS), data), dest_far, bypp * 8);
+        क्रम (i=0; i<8; i++)
+            op->pixels[i] = reverse_color(depth, *(u32*)&data[i*bypp]);
+        अवरोध;
+    हाल GO_WRITE8:
+        क्रम (i=0; i<8; i++)
+            *(u32*)&data[i*bypp] = get_color(depth, op->pixels[i]);
+        स_नकल_high(dest_far, MAKE_FLATPTR(GET_SEG(SS), data), bypp * 8);
+        अवरोध;
+    हाल GO_MEMSET: ;
+        u32 color = get_color(depth, op->pixels[0]);
+        क्रम (i=0; i<8; i++)
+            *(u32*)&data[i*bypp] = color;
+        स_नकल_high(dest_far, MAKE_FLATPTR(GET_SEG(SS), data), bypp * 8);
+        स_नकल_high(dest_far + bypp * 8, dest_far, op->xlen * bypp - bypp * 8);
+        क्रम (i=1; i < op->ylen; i++)
+            स_नकल_high(dest_far + op->linelength * i
+                        , dest_far, op->xlen * bypp);
+        अवरोध;
+    हाल GO_MEMMOVE: ;
+        व्योम *src_far = (fb + op->displaystart + op->srcy * op->linelength
+                         + op->x * bypp);
+        स_हटाओ_stride_high(dest_far, src_far
+                            , op->xlen * bypp, op->linelength, op->ylen);
+        अवरोध;
+    पूर्ण
+पूर्ण
+
+
+/****************************************************************
+ * Gfx पूर्णांकerface
+ ****************************************************************/
+
+// Prepare a काष्ठा gfx_op क्रम use.
+व्योम
+init_gfx_op(काष्ठा gfx_op *op, काष्ठा vgamode_s *vmode_g)
+अणु
+    स_रखो(op, 0, माप(*op));
+    op->vmode_g = vmode_g;
+    op->linelength = vgahw_get_linelength(vmode_g);
+    op->displaystart = vgahw_get_displaystart(vmode_g);
+पूर्ण
+
+// Issue a graphics operation.
+व्योम
+handle_gfx_op(काष्ठा gfx_op *op)
+अणु
+    चयन (GET_GLOBAL(op->vmode_g->memmodel)) अणु
+    हाल MM_PLANAR:
+        gfx_planar(op);
+        अवरोध;
+    हाल MM_CGA:
+        gfx_cga(op);
+        अवरोध;
+    हाल MM_PACKED:
+        gfx_packed(op);
+        अवरोध;
+    हाल MM_सूचीECT:
+        gfx_direct(op);
+        अवरोध;
+    शेष:
+        अवरोध;
+    पूर्ण
+पूर्ण
+
+// Move अक्षरacters when in graphics mode.
+अटल व्योम
+gfx_move_अक्षरs(काष्ठा vgamode_s *vmode_g, काष्ठा cursorpos dest
+               , काष्ठा cursorpos movesize, पूर्णांक lines)
+अणु
+    काष्ठा gfx_op op;
+    init_gfx_op(&op, vmode_g);
+    op.x = dest.x * 8;
+    op.xlen = movesize.x * 8;
+    पूर्णांक cheight = GET_BDA(अक्षर_height);
+    op.y = dest.y * cheight;
+    op.ylen = movesize.y * cheight;
+    op.srcy = op.y + lines * cheight;
+    op.op = GO_MEMMOVE;
+    handle_gfx_op(&op);
+पूर्ण
+
+// Clear area of screen in graphics mode.
+अटल व्योम
+gfx_clear_अक्षरs(काष्ठा vgamode_s *vmode_g, काष्ठा cursorpos win
+                , काष्ठा cursorpos winsize, काष्ठा carattr ca)
+अणु
+    काष्ठा gfx_op op;
+    init_gfx_op(&op, vmode_g);
+    op.x = win.x * 8;
+    op.xlen = winsize.x * 8;
+    पूर्णांक cheight = GET_BDA(अक्षर_height);
+    op.y = win.y * cheight;
+    op.ylen = winsize.y * cheight;
+    op.pixels[0] = ca.attr;
+    अगर (vga_emulate_text())
+        op.pixels[0] = ca.attr >> 4;
+    op.op = GO_MEMSET;
+    handle_gfx_op(&op);
+पूर्ण
+
+// Return the font क्रम a given अक्षरacter
+काष्ठा segoff_s
+get_font_data(u8 c)
+अणु
+    पूर्णांक अक्षर_height = GET_BDA(अक्षर_height);
+    काष्ठा segoff_s font;
+    अगर (अक्षर_height == 8 && c >= 128) अणु
+        font = GET_IVT(0x1f);
+        c -= 128;
+    पूर्ण अन्यथा अणु
+        font = GET_IVT(0x43);
+    पूर्ण
+    font.offset += c * अक्षर_height;
+    वापस font;
+पूर्ण
+
+// Write a अक्षरacter to the screen in graphics mode.
+अटल व्योम
+gfx_ग_लिखो_अक्षर(काष्ठा vgamode_s *vmode_g
+                , काष्ठा cursorpos cp, काष्ठा carattr ca)
+अणु
+    अगर (cp.x >= GET_BDA(video_cols))
+        वापस;
+
+    काष्ठा segoff_s font = get_font_data(ca.car);
+    काष्ठा gfx_op op;
+    init_gfx_op(&op, vmode_g);
+    op.x = cp.x * 8;
+    पूर्णांक cheight = GET_BDA(अक्षर_height);
+    op.y = cp.y * cheight;
+    u8 fgattr = ca.attr, bgattr = 0x00;
+    पूर्णांक usexor = 0;
+    अगर (vga_emulate_text()) अणु
+        अगर (ca.use_attr) अणु
+            bgattr = fgattr >> 4;
+            fgattr = fgattr & 0x0f;
+        पूर्ण अन्यथा अणु
+            // Read bottom right pixel of the cell to guess bg color
+            op.op = GO_READ8;
+            op.y += cheight-1;
+            handle_gfx_op(&op);
+            op.y -= cheight-1;
+            bgattr = op.pixels[7];
+            fgattr = bgattr ^ 0x7;
+        पूर्ण
+    पूर्ण अन्यथा अगर (fgattr & 0x80 && GET_GLOBAL(vmode_g->depth) < 8) अणु
+        usexor = 1;
+        fgattr &= 0x7f;
+    पूर्ण
+    पूर्णांक i;
+    क्रम (i = 0; i < cheight; i++, op.y++) अणु
+        u8 fontline = GET_FARVAR(font.seg, *(u8*)(font.offset+i));
+        अगर (usexor) अणु
+            op.op = GO_READ8;
+            handle_gfx_op(&op);
+            पूर्णांक j;
+            क्रम (j = 0; j < 8; j++)
+                op.pixels[j] ^= (fontline & (0x80>>j)) ? fgattr : 0x00;
+        पूर्ण अन्यथा अणु
+            पूर्णांक j;
+            क्रम (j = 0; j < 8; j++)
+                op.pixels[j] = (fontline & (0x80>>j)) ? fgattr : bgattr;
+        पूर्ण
+        op.op = GO_WRITE8;
+        handle_gfx_op(&op);
+    पूर्ण
+पूर्ण
+
+// Read a अक्षरacter from the screen in graphics mode.
+अटल काष्ठा carattr
+gfx_पढ़ो_अक्षर(काष्ठा vgamode_s *vmode_g, काष्ठा cursorpos cp)
+अणु
+    u8 lines[16];
+    पूर्णांक cheight = GET_BDA(अक्षर_height);
+    अगर (cp.x >= GET_BDA(video_cols) || cheight > ARRAY_SIZE(lines))
+        जाओ fail;
+
+    // Read cell from screen
+    काष्ठा gfx_op op;
+    init_gfx_op(&op, vmode_g);
+    op.op = GO_READ8;
+    op.x = cp.x * 8;
+    op.y = cp.y * cheight;
+    पूर्णांक car = 0;
+    u8 fgattr = 0x00, bgattr = 0x00;
+    अगर (vga_emulate_text()) अणु
+        // Read bottom right pixel of the cell to guess bg color
+        op.y += cheight-1;
+        handle_gfx_op(&op);
+        op.y -= cheight-1;
+        bgattr = op.pixels[7];
+        fgattr = bgattr ^ 0x7;
+        // Report space अक्षरacter क्रम blank cells (skip null अक्षरacter check)
+        car = 1;
+    पूर्ण
+    u8 i, j;
+    क्रम (i=0; i<cheight; i++, op.y++) अणु
+        u8 line = 0;
+        handle_gfx_op(&op);
+        क्रम (j=0; j<8; j++)
+            अगर (op.pixels[j] != bgattr) अणु
+                line |= 0x80 >> j;
+                fgattr = op.pixels[j];
+            पूर्ण
+        lines[i] = line;
+    पूर्ण
+
+    // Determine font
+    क्रम (; car<256; car++) अणु
+        काष्ठा segoff_s font = get_font_data(car);
+        अगर (स_भेद_far(GET_SEG(SS), lines
+                       , font.seg, (व्योम*)(font.offset+0), cheight) == 0)
+            वापस (काष्ठा carattr)अणुcar, fgattr | (bgattr << 4), 0पूर्ण;
+    पूर्ण
+fail:
+    वापस (काष्ठा carattr)अणु0, 0, 0पूर्ण;
+पूर्ण
+
+// Set the pixel at the given position.
+व्योम
+vgafb_ग_लिखो_pixel(u8 color, u16 x, u16 y)
+अणु
+    काष्ठा vgamode_s *vmode_g = get_current_mode();
+    अगर (!vmode_g)
+        वापस;
+
+    काष्ठा gfx_op op;
+    init_gfx_op(&op, vmode_g);
+    op.x = ALIGN_DOWN(x, 8);
+    op.y = y;
+    op.op = GO_READ8;
+    handle_gfx_op(&op);
+
+    पूर्णांक usexor = color & 0x80 && GET_GLOBAL(vmode_g->depth) < 8;
+    अगर (usexor)
+        op.pixels[x & 0x07] ^= color & 0x7f;
+    अन्यथा
+        op.pixels[x & 0x07] = color;
+    op.op = GO_WRITE8;
+    handle_gfx_op(&op);
+पूर्ण
+
+// Return the pixel at the given position.
+u8
+vgafb_पढ़ो_pixel(u16 x, u16 y)
+अणु
+    काष्ठा vgamode_s *vmode_g = get_current_mode();
+    अगर (!vmode_g)
+        वापस 0;
+
+    काष्ठा gfx_op op;
+    init_gfx_op(&op, vmode_g);
+    op.x = ALIGN_DOWN(x, 8);
+    op.y = y;
+    op.op = GO_READ8;
+    handle_gfx_op(&op);
+
+    वापस op.pixels[x & 0x07];
+पूर्ण
+
+
+/****************************************************************
+ * Text ops
+ ****************************************************************/
+
+// Return the fb offset क्रम the given अक्षरacter address when in text mode.
+व्योम *
+text_address(काष्ठा cursorpos cp)
+अणु
+    पूर्णांक stride = GET_BDA(video_cols) * 2;
+    u32 pageoffset = GET_BDA(video_pagesize) * cp.page;
+    वापस (व्योम*)pageoffset + cp.y * stride + cp.x * 2;
+पूर्ण
+
+// Move अक्षरacters on screen.
+अटल व्योम
+vgafb_move_अक्षरs(काष्ठा cursorpos dest, काष्ठा cursorpos movesize, पूर्णांक lines)
+अणु
+    काष्ठा vgamode_s *vmode_g = get_current_mode();
+    अगर (!vmode_g)
+        वापस;
+
+    अगर (GET_GLOBAL(vmode_g->memmodel) != MM_TEXT) अणु
+        gfx_move_अक्षरs(vmode_g, dest, movesize, lines);
+        वापस;
+    पूर्ण
+
+    पूर्णांक stride = GET_BDA(video_cols) * 2;
+    व्योम *dest_addr = text_address(dest), *src_addr = dest_addr + lines * stride;
+    स_हटाओ_stride(GET_GLOBAL(vmode_g->sstart), dest_addr, src_addr
+                   , movesize.x * 2, stride, movesize.y);
+पूर्ण
+
+// Clear area of screen.
+अटल व्योम
+vgafb_clear_अक्षरs(काष्ठा cursorpos win, काष्ठा cursorpos winsize
+                  , काष्ठा carattr ca)
+अणु
+    काष्ठा vgamode_s *vmode_g = get_current_mode();
+    अगर (!vmode_g)
+        वापस;
+
+    अगर (GET_GLOBAL(vmode_g->memmodel) != MM_TEXT) अणु
+        gfx_clear_अक्षरs(vmode_g, win, winsize, ca);
+        वापस;
+    पूर्ण
+
+    पूर्णांक stride = GET_BDA(video_cols) * 2;
+    u16 attr = ((ca.use_attr ? ca.attr : 0x07) << 8) | ca.car;
+    स_रखो16_stride(GET_GLOBAL(vmode_g->sstart), text_address(win), attr
+                    , winsize.x * 2, stride, winsize.y);
+पूर्ण
+
+// Scroll अक्षरacters within a winकरोw on the screen
+व्योम
+vgafb_scroll(काष्ठा cursorpos win, काष्ठा cursorpos winsize
+             , पूर्णांक lines, काष्ठा carattr ca)
+अणु
+    अगर (!lines) अणु
+        // Clear winकरोw
+        vgafb_clear_अक्षरs(win, winsize, ca);
+    पूर्ण अन्यथा अगर (lines > 0) अणु
+        // Scroll the winकरोw up (eg, from page करोwn key)
+        winsize.y -= lines;
+        vgafb_move_अक्षरs(win, winsize, lines);
+
+        win.y += winsize.y;
+        winsize.y = lines;
+        vgafb_clear_अक्षरs(win, winsize, ca);
+    पूर्ण अन्यथा अणु
+        // Scroll the winकरोw करोwn (eg, from page up key)
+        win.y -= lines;
+        winsize.y += lines;
+        vgafb_move_अक्षरs(win, winsize, lines);
+
+        win.y += lines;
+        winsize.y = -lines;
+        vgafb_clear_अक्षरs(win, winsize, ca);
+    पूर्ण
+पूर्ण
+
+// Write a अक्षरacter to the screen.
+व्योम
+vgafb_ग_लिखो_अक्षर(काष्ठा cursorpos cp, काष्ठा carattr ca)
+अणु
+    काष्ठा vgamode_s *vmode_g = get_current_mode();
+    अगर (!vmode_g)
+        वापस;
+
+    अगर (GET_GLOBAL(vmode_g->memmodel) != MM_TEXT) अणु
+        gfx_ग_लिखो_अक्षर(vmode_g, cp, ca);
+        वापस;
+    पूर्ण
+
+    व्योम *dest_far = text_address(cp);
+    अगर (ca.use_attr) अणु
+        u16 dummy = (ca.attr << 8) | ca.car;
+        SET_FARVAR(GET_GLOBAL(vmode_g->sstart), *(u16*)dest_far, dummy);
+    पूर्ण अन्यथा अणु
+        SET_FARVAR(GET_GLOBAL(vmode_g->sstart), *(u8*)dest_far, ca.car);
+    पूर्ण
+पूर्ण
+
+// Return the अक्षरacter at the given position on the screen.
+काष्ठा carattr
+vgafb_पढ़ो_अक्षर(काष्ठा cursorpos cp)
+अणु
+    काष्ठा vgamode_s *vmode_g = get_current_mode();
+    अगर (!vmode_g)
+        वापस (काष्ठा carattr)अणु0, 0, 0पूर्ण;
+
+    अगर (GET_GLOBAL(vmode_g->memmodel) != MM_TEXT)
+        वापस gfx_पढ़ो_अक्षर(vmode_g, cp);
+
+    u16 *dest_far = text_address(cp);
+    u16 v = GET_FARVAR(GET_GLOBAL(vmode_g->sstart), *dest_far);
+    वापस (काष्ठा carattr)अणुv, v>>8, 0पूर्ण;
+पूर्ण

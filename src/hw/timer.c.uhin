@@ -1,0 +1,284 @@
+<शैली गुरु>
+// Internal समयr and Intel 8253 Programmable Interrupt Timer (PIT) support.
+//
+// Copyright (C) 2008-2013  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_LOW
+#समावेश "config.h" // CONFIG_*
+#समावेश "output.h" // dम_लिखो
+#समावेश "stacks.h" // yield
+#समावेश "util.h" // समयr_setup
+#समावेश "x86.h" // cpuid
+
+#घोषणा PORT_PIT_COUNTER0      0x0040
+#घोषणा PORT_PIT_COUNTER1      0x0041
+#घोषणा PORT_PIT_COUNTER2      0x0042
+#घोषणा PORT_PIT_MODE          0x0043
+#घोषणा PORT_PS2_CTRLB         0x0061
+
+// Bits क्रम PORT_PIT_MODE
+#घोषणा PM_SEL_TIMER0   (0<<6)
+#घोषणा PM_SEL_TIMER1   (1<<6)
+#घोषणा PM_SEL_TIMER2   (2<<6)
+#घोषणा PM_SEL_READBACK (3<<6)
+#घोषणा PM_ACCESS_LATCH  (0<<4)
+#घोषणा PM_ACCESS_LOBYTE (1<<4)
+#घोषणा PM_ACCESS_HIBYTE (2<<4)
+#घोषणा PM_ACCESS_WORD   (3<<4)
+#घोषणा PM_MODE0 (0<<1)
+#घोषणा PM_MODE1 (1<<1)
+#घोषणा PM_MODE2 (2<<1)
+#घोषणा PM_MODE3 (3<<1)
+#घोषणा PM_MODE4 (4<<1)
+#घोषणा PM_MODE5 (5<<1)
+#घोषणा PM_CNT_BINARY (0<<0)
+#घोषणा PM_CNT_BCD    (1<<0)
+#घोषणा PM_READ_COUNTER0 (1<<1)
+#घोषणा PM_READ_COUNTER1 (1<<2)
+#घोषणा PM_READ_COUNTER2 (1<<3)
+#घोषणा PM_READ_STATUSVALUE (0<<4)
+#घोषणा PM_READ_VALUE       (1<<4)
+#घोषणा PM_READ_STATUS      (2<<4)
+
+// Bits क्रम PORT_PS2_CTRLB
+#घोषणा PPCB_T2GATE (1<<0)
+#घोषणा PPCB_SPKR   (1<<1)
+#घोषणा PPCB_T2OUT  (1<<5)
+
+#घोषणा PMTIMER_HZ 3579545      // Underlying Hz of the PM Timer
+#घोषणा PMTIMER_TO_PIT 3        // Ratio of pmसमयr rate to pit rate
+
+u32 TimerKHz VARFSEG = DIV_ROUND_UP(PMTIMER_HZ, 1000 * PMTIMER_TO_PIT);
+u16 TimerPort VARFSEG = PORT_PIT_COUNTER0;
+u8 ShअगरtTSC VARFSEG;
+
+
+/****************************************************************
+ * Internal समयr setup
+ ****************************************************************/
+
+#घोषणा CALIBRATE_COUNT 0x800   // Approx 1.7ms
+
+// Calibrate the CPU समय-stamp-counter
+अटल व्योम
+tsस_समयr_setup(व्योम)
+अणु
+    // Setup "timer2"
+    u8 orig = inb(PORT_PS2_CTRLB);
+    outb((orig & ~PPCB_SPKR) | PPCB_T2GATE, PORT_PS2_CTRLB);
+    /* binary, mode 0, LSB/MSB, Ch 2 */
+    outb(PM_SEL_TIMER2|PM_ACCESS_WORD|PM_MODE0|PM_CNT_BINARY, PORT_PIT_MODE);
+    /* LSB of ticks */
+    outb(CALIBRATE_COUNT & 0xFF, PORT_PIT_COUNTER2);
+    /* MSB of ticks */
+    outb(CALIBRATE_COUNT >> 8, PORT_PIT_COUNTER2);
+
+    u64 start = rdtscll();
+    जबतक ((inb(PORT_PS2_CTRLB) & PPCB_T2OUT) == 0)
+        ;
+    u64 end = rdtscll();
+
+    // Restore PORT_PS2_CTRLB
+    outb(orig, PORT_PS2_CTRLB);
+
+    // Store calibrated cpu khz.
+    u64 dअगरf = end - start;
+    dम_लिखो(6, "tsc calibrate start=%u end=%u diff=%u\n"
+            , (u32)start, (u32)end, (u32)dअगरf);
+    u64 t = DIV_ROUND_UP(dअगरf * PMTIMER_HZ, CALIBRATE_COUNT);
+    जबतक (t >= (1<<24)) अणु
+        ShअगरtTSC++;
+        t = (t + 1) >> 1;
+    पूर्ण
+    TimerKHz = DIV_ROUND_UP((u32)t, 1000 * PMTIMER_TO_PIT);
+    TimerPort = 0;
+
+    dम_लिखो(1, "CPU Mhz=%u\n", (TimerKHz << ShअगरtTSC) / 1000);
+पूर्ण
+
+// Setup पूर्णांकernal समयrs.
+व्योम
+समयr_setup(व्योम)
+अणु
+    अगर (!CONFIG_TSC_TIMER)
+        वापस;
+    अगर (TimerPort != PORT_PIT_COUNTER0)
+        वापस; // have समयr alपढ़ोy
+
+    // Check अगर CPU has a बारtamp counter
+    u32 eax, ebx, ecx, edx, cpuid_features = 0;
+    cpuid(0, &eax, &ebx, &ecx, &edx);
+    अगर (eax > 0)
+        cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
+    अगर (cpuid_features & CPUID_TSC)
+        tsस_समयr_setup();
+पूर्ण
+
+व्योम
+tsस_समयr_setfreq(u32 khz, स्थिर अक्षर *src)
+अणु
+    अगर (!CONFIG_TSC_TIMER)
+        वापस;
+    अगर (TimerPort != PORT_PIT_COUNTER0)
+        वापस; // have समयr alपढ़ोy
+
+    TimerKHz = khz;
+    ShअगरtTSC = 0;
+    जबतक (TimerKHz >= 6000) अणु
+        ShअगरtTSC++;
+        TimerKHz = (TimerKHz + 1) >> 1;
+    पूर्ण
+    TimerPort = 0;
+
+    dम_लिखो(1, "CPU Mhz=%u (%s)\n", (TimerKHz << ShअगरtTSC) / 1000, src);
+पूर्ण
+
+व्योम
+pmसमयr_setup(u16 ioport)
+अणु
+    अगर (!CONFIG_PMTIMER)
+        वापस;
+    अगर (TimerPort != PORT_PIT_COUNTER0)
+        वापस; // have समयr alपढ़ोy
+
+    dम_लिखो(1, "Using pmtimer, ioport 0x%x\n", ioport);
+    TimerPort = ioport;
+    TimerKHz = DIV_ROUND_UP(PMTIMER_HZ, 1000);
+पूर्ण
+
+
+/****************************************************************
+ * Internal समयr पढ़ोing
+ ****************************************************************/
+
+u32 TimerLast VARLOW;
+
+// Add extra high bits to समयrs that have less than 32bits of precision.
+अटल u32
+समयr_adjust_bits(u32 value, u32 validbits)
+अणु
+    u32 last = GET_LOW(TimerLast);
+    value = (last & ~validbits) | (value & validbits);
+    अगर (value < last)
+        value += validbits + 1;
+    SET_LOW(TimerLast, value);
+    वापस value;
+पूर्ण
+
+// Sample the current समयr value.
+अटल u32
+समयr_पढ़ो(व्योम)
+अणु
+    u16 port = GET_GLOBAL(TimerPort);
+    अगर (CONFIG_TSC_TIMER && !port)
+        // Read from CPU TSC
+        वापस rdtscll() >> GET_GLOBAL(ShअगरtTSC);
+    अगर (CONFIG_PMTIMER && port != PORT_PIT_COUNTER0)
+        // Read from PMTIMER
+        वापस समयr_adjust_bits(inl(port), 0xffffff);
+    // Read from PIT.
+    outb(PM_SEL_READBACK | PM_READ_VALUE | PM_READ_COUNTER0, PORT_PIT_MODE);
+    u16 v = inb(PORT_PIT_COUNTER0) | (inb(PORT_PIT_COUNTER0) << 8);
+    वापस समयr_adjust_bits(-v, 0xffff);
+पूर्ण
+
+// Return the TSC value that is 'msecs' समय in the future.
+u32
+समयr_calc(u32 msecs)
+अणु
+    वापस समयr_पढ़ो() + (GET_GLOBAL(TimerKHz) * msecs);
+पूर्ण
+u32
+समयr_calc_usec(u32 usecs)
+अणु
+    u32 cur = समयr_पढ़ो(), khz = GET_GLOBAL(TimerKHz);
+    अगर (usecs > 500000)
+        वापस cur + DIV_ROUND_UP(usecs, 1000) * khz;
+    वापस cur + DIV_ROUND_UP(usecs * khz, 1000);
+पूर्ण
+अटल u32
+समयr_calc_nsec(u32 nsecs)
+अणु
+    u32 cur = समयr_पढ़ो(), khz = GET_GLOBAL(TimerKHz);
+    अगर (nsecs > 500000)
+        वापस cur + DIV_ROUND_UP(nsecs, 1000000) * khz;
+    वापस cur + DIV_ROUND_UP(nsecs * khz, 1000000);
+पूर्ण
+
+// Check अगर the current समय is past a previously calculated end समय.
+पूर्णांक
+समयr_check(u32 end)
+अणु
+    वापस (s32)(समयr_पढ़ो() - end) > 0;
+पूर्ण
+
+अटल व्योम
+समयr_delay(u32 end)
+अणु
+    जबतक (!समयr_check(end))
+        cpu_relax();
+पूर्ण
+
+अटल व्योम
+समयr_sleep(u32 end)
+अणु
+    जबतक (!समयr_check(end))
+        yield();
+पूर्ण
+
+व्योम ndelay(u32 count) अणु
+    समयr_delay(समयr_calc_nsec(count));
+पूर्ण
+व्योम udelay(u32 count) अणु
+    समयr_delay(समयr_calc_usec(count));
+पूर्ण
+व्योम mdelay(u32 count) अणु
+    समयr_delay(समयr_calc(count));
+पूर्ण
+
+व्योम nsleep(u32 count) अणु
+    समयr_sleep(समयr_calc_nsec(count));
+पूर्ण
+व्योम usleep(u32 count) अणु
+    समयr_sleep(समयr_calc_usec(count));
+पूर्ण
+व्योम msleep(u32 count) अणु
+    समयr_sleep(समयr_calc(count));
+पूर्ण
+
+
+/****************************************************************
+ * PIT setup
+ ****************************************************************/
+
+#घोषणा PIT_TICK_INTERVAL 65536 // Default पूर्णांकerval क्रम 18.2Hz समयr
+
+// Return the number of milliseconds in 'ticks' number of समयr irqs.
+u32
+ticks_to_ms(u32 ticks)
+अणु
+    u32 t = PIT_TICK_INTERVAL * 1000 * PMTIMER_TO_PIT * ticks;
+    वापस DIV_ROUND_UP(t, PMTIMER_HZ);
+पूर्ण
+
+// Return the number of समयr irqs in 'ms' number of milliseconds.
+u32
+ticks_from_ms(u32 ms)
+अणु
+    u32 t = DIV_ROUND_UP((u64)ms * PMTIMER_HZ, PIT_TICK_INTERVAL);
+    वापस DIV_ROUND_UP(t, 1000 * PMTIMER_TO_PIT);
+पूर्ण
+
+व्योम
+pit_setup(व्योम)
+अणु
+    अगर (!CONFIG_HARDWARE_IRQ)
+        वापस;
+    // समयr0: binary count, 16bit count, mode 2
+    outb(PM_SEL_TIMER0|PM_ACCESS_WORD|PM_MODE2|PM_CNT_BINARY, PORT_PIT_MODE);
+    // maximum count of 0000H = 18.2Hz
+    outb(0x0, PORT_PIT_COUNTER0);
+    outb(0x0, PORT_PIT_COUNTER0);
+पूर्ण

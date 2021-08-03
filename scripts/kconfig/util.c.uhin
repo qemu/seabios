@@ -1,0 +1,158 @@
+<शैली गुरु>
+/*
+ * Copyright (C) 2002-2005 Roman Zippel <zippel@linux-m68k.org>
+ * Copyright (C) 2002-2005 Sam Ravnborg <sam@ravnborg.org>
+ *
+ * Released under the terms of the GNU GPL v2.0.
+ */
+
+#समावेश <मानकतर्क.स>
+#समावेश <मानककोष.स>
+#समावेश <माला.स>
+#समावेश "lkc.h"
+
+/* file alपढ़ोy present in list? If not add it */
+काष्ठा file *file_lookup(स्थिर अक्षर *name)
+अणु
+	काष्ठा file *file;
+	स्थिर अक्षर *file_name = sym_expand_string_value(name);
+
+	क्रम (file = file_list; file; file = file->next) अणु
+		अगर (!म_भेद(name, file->name)) अणु
+			मुक्त((व्योम *)file_name);
+			वापस file;
+		पूर्ण
+	पूर्ण
+
+	file = xदो_स्मृति(माप(*file));
+	स_रखो(file, 0, माप(*file));
+	file->name = file_name;
+	file->next = file_list;
+	file_list = file;
+	वापस file;
+पूर्ण
+
+/* ग_लिखो a dependency file as used by kbuild to track dependencies */
+पूर्णांक file_ग_लिखो_dep(स्थिर अक्षर *name)
+अणु
+	काष्ठा symbol *sym, *env_sym;
+	काष्ठा expr *e;
+	काष्ठा file *file;
+	खाता *out;
+
+	अगर (!name)
+		name = ".kconfig.d";
+	out = ख_खोलो("..config.tmp", "w");
+	अगर (!out)
+		वापस 1;
+	ख_लिखो(out, "deps_config := \\\n");
+	क्रम (file = file_list; file; file = file->next) अणु
+		अगर (file->next)
+			ख_लिखो(out, "\t%s \\\n", file->name);
+		अन्यथा
+			ख_लिखो(out, "\t%s\n", file->name);
+	पूर्ण
+	ख_लिखो(out, "\n%s: \\\n"
+		     "\t$(deps_config)\n\n", conf_get_स्वतःconfig_name());
+
+	expr_list_क्रम_each_sym(sym_env_list, e, sym) अणु
+		काष्ठा property *prop;
+		स्थिर अक्षर *value;
+
+		prop = sym_get_env_prop(sym);
+		env_sym = prop_get_symbol(prop);
+		अगर (!env_sym)
+			जारी;
+		value = दो_पर्या(env_sym->name);
+		अगर (!value)
+			value = "";
+		ख_लिखो(out, "ifneq \"$(%s)\" \"%s\"\n", env_sym->name, value);
+		ख_लिखो(out, "%s: FORCE\n", conf_get_स्वतःconfig_name());
+		ख_लिखो(out, "endif\n");
+	पूर्ण
+
+	ख_लिखो(out, "\n$(deps_config): ;\n");
+	ख_बंद(out);
+	नाम("..config.tmp", name);
+	वापस 0;
+पूर्ण
+
+
+/* Allocate initial growable string */
+काष्ठा gstr str_new(व्योम)
+अणु
+	काष्ठा gstr gs;
+	gs.s = xदो_स्मृति(माप(अक्षर) * 64);
+	gs.len = 64;
+	gs.max_width = 0;
+	म_नकल(gs.s, "\0");
+	वापस gs;
+पूर्ण
+
+/* Allocate and assign growable string */
+काष्ठा gstr str_assign(स्थिर अक्षर *s)
+अणु
+	काष्ठा gstr gs;
+	gs.s = strdup(s);
+	gs.len = म_माप(s) + 1;
+	gs.max_width = 0;
+	वापस gs;
+पूर्ण
+
+/* Free storage क्रम growable string */
+व्योम str_मुक्त(काष्ठा gstr *gs)
+अणु
+	अगर (gs->s)
+		मुक्त(gs->s);
+	gs->s = शून्य;
+	gs->len = 0;
+पूर्ण
+
+/* Append to growable string */
+व्योम str_append(काष्ठा gstr *gs, स्थिर अक्षर *s)
+अणु
+	माप_प्रकार l;
+	अगर (s) अणु
+		l = म_माप(gs->s) + म_माप(s) + 1;
+		अगर (l > gs->len) अणु
+			gs->s   = पुनः_स्मृति(gs->s, l);
+			gs->len = l;
+		पूर्ण
+		म_जोड़ो(gs->s, s);
+	पूर्ण
+पूर्ण
+
+/* Append म_लिखो क्रमmatted string to growable string */
+व्योम str_म_लिखो(काष्ठा gstr *gs, स्थिर अक्षर *fmt, ...)
+अणु
+	बहु_सूची ap;
+	अक्षर s[10000]; /* big enough... */
+	बहु_शुरू(ap, fmt);
+	vsnम_लिखो(s, माप(s), fmt, ap);
+	str_append(gs, s);
+	बहु_पूर्ण(ap);
+पूर्ण
+
+/* Retrieve value of growable string */
+स्थिर अक्षर *str_get(काष्ठा gstr *gs)
+अणु
+	वापस gs->s;
+पूर्ण
+
+व्योम *xदो_स्मृति(माप_प्रकार size)
+अणु
+	व्योम *p = दो_स्मृति(size);
+	अगर (p)
+		वापस p;
+	ख_लिखो(मानक_त्रुटि, "Out of memory.\n");
+	निकास(1);
+पूर्ण
+
+व्योम *xसुस्मृति(माप_प्रकार nmemb, माप_प्रकार size)
+अणु
+	व्योम *p = सुस्मृति(nmemb, size);
+	अगर (p)
+		वापस p;
+	ख_लिखो(मानक_त्रुटि, "Out of memory.\n");
+	निकास(1);
+पूर्ण

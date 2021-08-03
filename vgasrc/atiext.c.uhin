@@ -1,0 +1,414 @@
+<शैली गुरु>
+//  QEMU ATI VGABIOS Extension.
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_GLOBAL
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "hw/pci.h" // pci_config_पढ़ोl
+#समावेश "hw/pci_regs.h" // PCI_BASE_ADDRESS_0
+#समावेश "output.h" // dम_लिखो
+#समावेश "stdvga.h" // VGAREG_SEQU_ADDRESS
+#समावेश "string.h" // स_रखो16_far
+#समावेश "vgabios.h" // SET_VGA
+#समावेश "vgautil.h" // VBE_total_memory
+#समावेश "vgafb.h" // स_रखो_high
+
+#समावेश "svgamodes.h"
+
+#घोषणा MM_INDEX                                0x0000
+#घोषणा MM_DATA                                 0x0004
+#घोषणा CRTC_GEN_CNTL                           0x0050
+#घोषणा CRTC_EXT_CNTL                           0x0054
+#घोषणा GPIO_VGA_DDC                            0x0060
+#घोषणा GPIO_DVI_DDC                            0x0064
+#घोषणा GPIO_MONID                              0x0068
+#घोषणा CRTC_H_TOTAL_DISP                       0x0200
+#घोषणा CRTC_V_TOTAL_DISP                       0x0208
+#घोषणा CRTC_OFFSET                             0x0224
+#घोषणा CRTC_PITCH                              0x022c
+
+/* CRTC control values (CRTC_GEN_CNTL) */
+#घोषणा CRTC2_EXT_DISP_EN                       0x01000000
+#घोषणा CRTC2_EN                                0x02000000
+
+#घोषणा CRTC_PIX_WIDTH_MASK                     0x00000700
+#घोषणा CRTC_PIX_WIDTH_4BPP                     0x00000100
+#घोषणा CRTC_PIX_WIDTH_8BPP                     0x00000200
+#घोषणा CRTC_PIX_WIDTH_15BPP                    0x00000300
+#घोषणा CRTC_PIX_WIDTH_16BPP                    0x00000400
+#घोषणा CRTC_PIX_WIDTH_24BPP                    0x00000500
+#घोषणा CRTC_PIX_WIDTH_32BPP                    0x00000600
+
+/* CRTC_EXT_CNTL */
+#घोषणा CRT_CRTC_DISPLAY_DIS                    0x00000400
+#घोषणा CRT_CRTC_ON                             0x00008000
+
+अटल u32 ati_io_addr VAR16 = 0;
+अटल u32 ati_i2c_reg VAR16;
+अटल u32 ati_i2c_bit_scl_out VAR16;
+अटल u32 ati_i2c_bit_sda_out VAR16;
+अटल u32 ati_i2c_bit_sda_in VAR16;
+अटल u32 ati_i2c_bit_enable VAR16 = -1;
+
+
+पूर्णांक
+is_ati_mode(काष्ठा vgamode_s *vmode_g)
+अणु
+    अचिन्हित पूर्णांक mcount = GET_GLOBAL(svga_mcount);
+
+    वापस (vmode_g >= &svga_modes[0].info &&
+            vmode_g <= &svga_modes[mcount-1].info);
+पूर्ण
+
+काष्ठा vgamode_s *
+ati_find_mode(पूर्णांक mode)
+अणु
+    u32 io_addr = GET_GLOBAL(ati_io_addr);
+    काष्ठा generic_svga_mode *table_g = svga_modes;
+    अचिन्हित पूर्णांक mcount = GET_GLOBAL(svga_mcount);
+
+    अगर (io_addr) अणु
+        जबतक (table_g < &svga_modes[mcount]) अणु
+            अगर (GET_GLOBAL(table_g->mode) == mode)
+                वापस &table_g->info;
+            table_g++;
+        पूर्ण
+    पूर्ण
+
+    वापस stdvga_find_mode(mode);
+पूर्ण
+
+व्योम
+ati_list_modes(u16 seg, u16 *dest, u16 *last)
+अणु
+    u32 io_addr = GET_GLOBAL(ati_io_addr);
+    अचिन्हित पूर्णांक mcount = GET_GLOBAL(svga_mcount);
+
+    dम_लिखो(1, "%s: ati ext %s\n", __func__, io_addr ? "yes" : "no");
+    अगर (io_addr) अणु
+        पूर्णांक i;
+        क्रम (i=0; i<mcount && dest<last; i++) अणु
+            u16 mode = GET_GLOBAL(svga_modes[i].mode);
+            अगर (mode == 0xffff)
+                जारी;
+            SET_FARVAR(seg, *dest, mode);
+            dest++;
+        पूर्ण
+    पूर्ण
+
+    stdvga_list_modes(seg, dest, last);
+पूर्ण
+
+/****************************************************************
+ * Mode setting
+ ****************************************************************/
+
+अटल अंतरभूत व्योम ati_ग_लिखो(u32 reg, u32 val)
+अणु
+    u32 io_addr = GET_GLOBAL(ati_io_addr);
+
+    अगर (reg < 0x100) अणु
+        outl(val, io_addr + reg);
+    पूर्ण अन्यथा अणु
+        outl(reg, io_addr + MM_INDEX);
+        outl(val, io_addr + MM_DATA);
+    पूर्ण
+पूर्ण
+
+अटल अंतरभूत u32 ati_पढ़ो(u32 reg)
+अणु
+    u32 io_addr = GET_GLOBAL(ati_io_addr);
+    u32 val;
+
+    अगर (reg < 0x100) अणु
+        val = inl(io_addr + reg);
+    पूर्ण अन्यथा अणु
+        outl(reg, io_addr + MM_INDEX);
+        val = inl(io_addr + MM_DATA);
+    पूर्ण
+    वापस val;
+पूर्ण
+
+अटल व्योम ati_clear(u32 offset, u32 size)
+अणु
+    u8 data[64];
+    व्योम *datap = MAKE_FLATPTR(GET_SEG(SS), data);
+    व्योम *fb = (व्योम*)(GET_GLOBAL(VBE_framebuffer) + offset);
+    u32 i, pos;
+
+    क्रम (i = 0; i < माप(data); i++)
+        data[i] = 0;
+    क्रम (pos = 0; pos < size; pos += माप(data)) अणु
+        स_नकल_high(fb, datap, माप(data));
+        fb += माप(data);
+    पूर्ण
+पूर्ण
+
+अटल पूर्णांक
+ati_ext_mode(काष्ठा generic_svga_mode *table, पूर्णांक flags)
+अणु
+    u32 width  = GET_GLOBAL(table->info.width);
+    u32 height = GET_GLOBAL(table->info.height);
+    u32 depth  = GET_GLOBAL(table->info.depth);
+    u32 stride = width;
+    u32 offset = 0;
+    u32 pxmask = 0;
+    u32 bytes  = 0;
+
+    dम_लिखो(1, "%s: 0x%x, %dx%d-%d\n", __func__,
+            GET_GLOBAL(table->mode),
+            width, height, depth);
+
+    चयन (depth) अणु
+    हाल  8: pxmask = CRTC_PIX_WIDTH_8BPP;  bytes = 1; अवरोध;
+    हाल 15: pxmask = CRTC_PIX_WIDTH_15BPP; bytes = 2; अवरोध;
+    हाल 16: pxmask = CRTC_PIX_WIDTH_16BPP; bytes = 2; अवरोध;
+    हाल 24: pxmask = CRTC_PIX_WIDTH_24BPP; bytes = 3; अवरोध;
+    हाल 32: pxmask = CRTC_PIX_WIDTH_32BPP; bytes = 4; अवरोध;
+    पूर्ण
+
+    /* disable display */
+    ati_ग_लिखो(CRTC_EXT_CNTL, CRT_CRTC_DISPLAY_DIS);
+
+    /* modeset */
+    ati_ग_लिखो(CRTC_GEN_CNTL, CRTC2_EXT_DISP_EN | CRTC2_EN | pxmask);
+    ati_ग_लिखो(CRTC_H_TOTAL_DISP, ((width / 8) - 1) << 16);
+    ati_ग_लिखो(CRTC_V_TOTAL_DISP, (height - 1) << 16);
+    ati_ग_लिखो(CRTC_OFFSET, offset);
+    ati_ग_लिखो(CRTC_PITCH, stride / 8);
+
+    /* clear screen */
+    अगर (!(flags & MF_NOCLEARMEM)) अणु
+        u32 size = width * height * bytes;
+        ati_clear(offset, size);
+    पूर्ण
+
+    /* enable display */
+    ati_ग_लिखो(CRTC_EXT_CNTL, 0);
+
+    वापस 0;
+पूर्ण
+
+पूर्णांक
+ati_set_mode(काष्ठा vgamode_s *vmode_g, पूर्णांक flags)
+अणु
+    काष्ठा generic_svga_mode *table_g =
+        container_of(vmode_g, काष्ठा generic_svga_mode, info);
+
+    अगर (is_ati_mode(vmode_g)) अणु
+        वापस ati_ext_mode(table_g, flags);
+    पूर्ण
+
+    ati_ग_लिखो(CRTC_GEN_CNTL, 0);
+    वापस stdvga_set_mode(vmode_g, flags);
+पूर्ण
+
+/****************************************************************
+ * edid
+ ****************************************************************/
+
+अटल व्योम
+ati_i2c_set_scl_sda(पूर्णांक scl, पूर्णांक sda)
+अणु
+    u32 enable = GET_GLOBAL(ati_i2c_bit_enable);
+    u32 data = 0;
+
+    अगर (enable != -1)
+        data |= (1 << enable);
+    अगर (!scl)
+        data |= (1 << GET_GLOBAL(ati_i2c_bit_scl_out));
+    अगर (!sda)
+        data |= (1 << GET_GLOBAL(ati_i2c_bit_sda_out));
+    ati_ग_लिखो(GET_GLOBAL(ati_i2c_reg), data);
+पूर्ण
+
+अटल पूर्णांक
+ati_i2c_get_sda(व्योम)
+अणु
+    u32 data = ati_पढ़ो(GET_GLOBAL(ati_i2c_reg));
+
+    वापस data & (1 << GET_GLOBAL(ati_i2c_bit_sda_in)) ? 1 : 0;
+पूर्ण
+
+अटल व्योम ati_i2c_start(व्योम)
+अणु
+    ati_i2c_set_scl_sda(1, 1);
+    ati_i2c_set_scl_sda(1, 0);
+    ati_i2c_set_scl_sda(0, 0);
+पूर्ण
+
+अटल व्योम ati_i2c_ack(व्योम)
+अणु
+    ati_i2c_set_scl_sda(0, 0);
+    ati_i2c_set_scl_sda(1, 0);
+    ati_i2c_set_scl_sda(0, 0);
+पूर्ण
+
+अटल व्योम ati_i2c_stop(व्योम)
+अणु
+    ati_i2c_set_scl_sda(0, 0);
+    ati_i2c_set_scl_sda(1, 0);
+    ati_i2c_set_scl_sda(1, 1);
+पूर्ण
+
+अटल व्योम ati_i2c_send_byte(u8 byte)
+अणु
+    पूर्णांक i, bit;
+
+    क्रम (i = 0; i < 8; i++) अणु
+        bit = (1 << (7-i)) & byte ? 1 : 0;
+        ati_i2c_set_scl_sda(0, bit);
+        ati_i2c_set_scl_sda(1, bit);
+        ati_i2c_set_scl_sda(0, bit);
+    पूर्ण
+पूर्ण
+
+अटल u8 ati_i2c_recv_byte(व्योम)
+अणु
+    u8 byte = 0;
+    पूर्णांक i, bit;
+
+    क्रम (i = 0; i < 8; i++) अणु
+        ati_i2c_set_scl_sda(0, 1);
+        ati_i2c_set_scl_sda(1, 1);
+        bit = ati_i2c_get_sda();
+        ati_i2c_set_scl_sda(0, 1);
+        अगर (bit)
+            byte |= (1 << (7-i));
+    पूर्ण
+
+    वापस byte;
+पूर्ण
+
+अटल व्योम ati_i2c_edid(व्योम)
+अणु
+    u8 byte;
+    पूर्णांक i;
+
+    ati_i2c_start();
+    ati_i2c_send_byte(0x50 << 1 | 1);
+    ati_i2c_ack();
+    क्रम (i = 0; i < 128; i++) अणु
+        byte = ati_i2c_recv_byte();
+        ati_i2c_ack();
+        SET_VGA(VBE_edid[i], byte);
+    पूर्ण
+    ati_i2c_stop();
+पूर्ण
+
+अटल व्योम ati_i2c_edid_radeon(व्योम)
+अणु
+    पूर्णांक valid;
+
+    SET_VGA(ati_i2c_bit_scl_out, 17);
+    SET_VGA(ati_i2c_bit_sda_out, 16);
+    SET_VGA(ati_i2c_bit_sda_in, 8);
+
+    dम_लिखो(1, "ati: reading edid blob (radeon vga) ... \n");
+    SET_VGA(ati_i2c_reg, GPIO_VGA_DDC);
+    ati_i2c_edid();
+    valid = (GET_GLOBAL(VBE_edid[0]) == 0x00 &&
+             GET_GLOBAL(VBE_edid[1]) == 0xff);
+    dम_लिखो(1, "ati: ... %s\n", valid ? "good" : "invalid");
+    अगर (valid)
+        वापस;
+
+    dम_लिखो(1, "ati: reading edid blob (radeon dvi) ... \n");
+    SET_VGA(ati_i2c_reg, GPIO_DVI_DDC);
+    ati_i2c_edid();
+    valid = (GET_GLOBAL(VBE_edid[0]) == 0x00 &&
+             GET_GLOBAL(VBE_edid[1]) == 0xff);
+    dम_लिखो(1, "ati: ... %s\n", valid ? "good" : "invalid");
+पूर्ण
+
+अटल व्योम ati_i2c_edid_rage128(व्योम)
+अणु
+    पूर्णांक valid;
+
+    SET_VGA(ati_i2c_bit_enable, 25);
+    SET_VGA(ati_i2c_bit_scl_out, 18);
+    SET_VGA(ati_i2c_bit_sda_out, 17);
+    SET_VGA(ati_i2c_bit_sda_in, 9);
+    SET_VGA(ati_i2c_reg, GPIO_MONID);
+
+    dम_लिखो(1, "ati: reading edid blob (rage128) ... \n");
+    ati_i2c_edid();
+    valid = (GET_GLOBAL(VBE_edid[0]) == 0x00 &&
+             GET_GLOBAL(VBE_edid[1]) == 0xff);
+    dम_लिखो(1, "ati: ... %s\n", valid ? "good" : "invalid");
+पूर्ण
+
+/****************************************************************
+ * init
+ ****************************************************************/
+
+पूर्णांक
+ati_setup(व्योम)
+अणु
+    पूर्णांक ret = stdvga_setup();
+    अगर (ret)
+        वापस ret;
+
+    dम_लिखो(1, "%s:%d\n", __func__, __LINE__);
+
+    अगर (GET_GLOBAL(HaveRunInit))
+        वापस 0;
+
+    पूर्णांक bdf = GET_GLOBAL(VgaBDF);
+    अगर (!CONFIG_VGA_PCI || bdf == 0)
+        वापस 0;
+
+    u32 bar = pci_config_पढ़ोl(bdf, PCI_BASE_ADDRESS_0);
+    u32 lfb_addr = bar & PCI_BASE_ADDRESS_MEM_MASK;
+    pci_config_ग_लिखोl(bdf, PCI_BASE_ADDRESS_0, ~0);
+    u32 barmask = pci_config_पढ़ोl(bdf, PCI_BASE_ADDRESS_0);
+    u32 totalmem = ~(barmask & PCI_BASE_ADDRESS_MEM_MASK) + 1;
+    pci_config_ग_लिखोl(bdf, PCI_BASE_ADDRESS_0, bar);
+
+    bar = pci_config_पढ़ोl(bdf, PCI_BASE_ADDRESS_1);
+    u32 io_addr = bar & PCI_BASE_ADDRESS_IO_MASK;
+
+    bar = pci_config_पढ़ोl(bdf, PCI_BASE_ADDRESS_2);
+    u32 mmio_addr = bar & PCI_BASE_ADDRESS_MEM_MASK;
+
+    dम_लिखो(1, "ati: bdf %02x:%02x.%x, lfb 0x%x, %d MB, io 0x%x, mmio 0x%x\n",
+            pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf),
+            lfb_addr, totalmem / (1024 * 1024), io_addr, mmio_addr);
+
+    SET_VGA(VBE_framebuffer, lfb_addr);
+    SET_VGA(VBE_total_memory, totalmem);
+    SET_VGA(ati_io_addr, io_addr);
+
+    // Validate modes
+    काष्ठा generic_svga_mode *m = svga_modes;
+    अचिन्हित पूर्णांक mcount = GET_GLOBAL(svga_mcount);
+    क्रम (; m < &svga_modes[mcount]; m++) अणु
+        u8 memmodel = GET_GLOBAL(m->info.memmodel);
+        u16 width = GET_GLOBAL(m->info.width);
+        u16 height = GET_GLOBAL(m->info.height);
+        u32 mem = (height * DIV_ROUND_UP(width * vga_bpp(&m->info), 8)
+                   * stdvga_vram_ratio(&m->info));
+
+        अगर (width % 8 != 0 ||
+            width > 0x7ff * 8 ||
+            height > 0xfff ||
+            mem > totalmem ||
+            memmodel != MM_सूचीECT) अणु
+            dम_लिखो(3, "ati: removing mode 0x%x\n", GET_GLOBAL(m->mode));
+            SET_VGA(m->mode, 0xffff);
+        पूर्ण
+    पूर्ण
+
+    u16 device = pci_config_पढ़ोw(bdf, PCI_DEVICE_ID);
+    चयन (device) अणु
+    हाल 0x5046:
+        ati_i2c_edid_rage128();
+        अवरोध;
+    हाल 0x5159:
+        ati_i2c_edid_radeon();
+        अवरोध;
+    पूर्ण
+
+    वापस 0;
+पूर्ण

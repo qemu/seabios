@@ -1,0 +1,153 @@
+<शैली गुरु>
+// Support क्रम building memory maps suitable क्रम पूर्णांक 15 e820 calls.
+//
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "config.h" // BUILD_MAX_E820
+#समावेश "e820map.h" // काष्ठा e820entry
+#समावेश "output.h" // dम_लिखो
+#समावेश "string.h" // स_हटाओ
+
+
+/****************************************************************
+ * e820 memory map
+ ****************************************************************/
+
+// Info on e820 map location and size.
+काष्ठा e820entry e820_list[BUILD_MAX_E820] VARFSEG;
+पूर्णांक e820_count VARFSEG;
+
+// Remove an entry from the e820_list.
+अटल व्योम
+हटाओ_e820(पूर्णांक i)
+अणु
+    e820_count--;
+    स_हटाओ(&e820_list[i], &e820_list[i+1]
+            , माप(e820_list[0]) * (e820_count - i));
+पूर्ण
+
+// Insert an entry in the e820_list at the given position.
+अटल व्योम
+insert_e820(पूर्णांक i, u64 start, u64 size, u32 type)
+अणु
+    अगर (e820_count >= BUILD_MAX_E820) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+
+    स_हटाओ(&e820_list[i+1], &e820_list[i]
+            , माप(e820_list[0]) * (e820_count - i));
+    e820_count++;
+    काष्ठा e820entry *e = &e820_list[i];
+    e->start = start;
+    e->size = size;
+    e->type = type;
+पूर्ण
+
+अटल स्थिर अक्षर *
+e820_type_name(u32 type)
+अणु
+    चयन (type) अणु
+    हाल E820_RAM:      वापस "RAM";
+    हाल E820_RESERVED: वापस "RESERVED";
+    हाल E820_ACPI:     वापस "ACPI";
+    हाल E820_NVS:      वापस "NVS";
+    हाल E820_UNUSABLE: वापस "UNUSABLE";
+    शेष:            वापस "UNKNOWN";
+    पूर्ण
+पूर्ण
+
+// Show the current e820_list.
+अटल व्योम
+dump_map(व्योम)
+अणु
+    dम_लिखो(1, "e820 map has %d items:\n", e820_count);
+    पूर्णांक i;
+    क्रम (i=0; i<e820_count; i++) अणु
+        काष्ठा e820entry *e = &e820_list[i];
+        u64 e_end = e->start + e->size;
+        dम_लिखो(1, "  %d: %016llx - %016llx = %d %s\n", i
+                , e->start, e_end, e->type, e820_type_name(e->type));
+    पूर्ण
+पूर्ण
+
+#घोषणा E820_HOLE         ((u32)-1) // Used पूर्णांकernally to हटाओ entries
+
+// Add a new entry to the list.  This scans क्रम overlaps and keeps the
+// list sorted.
+व्योम
+e820_add(u64 start, u64 size, u32 type)
+अणु
+    dम_लिखो(8, "Add to e820 map: %08llx %08llx %d\n", start, size, type);
+
+    अगर (! size)
+        // Huh?  Nothing to करो.
+        वापस;
+
+    // Find position of new item (splitting existing item अगर needed).
+    u64 end = start + size;
+    पूर्णांक i;
+    क्रम (i=0; i<e820_count; i++) अणु
+        काष्ठा e820entry *e = &e820_list[i];
+        u64 e_end = e->start + e->size;
+        अगर (start > e_end)
+            जारी;
+        // Found position - check अगर an existing item needs to be split.
+        अगर (start > e->start) अणु
+            अगर (type == e->type) अणु
+                // Same type - merge them.
+                size += start - e->start;
+                start = e->start;
+            पूर्ण अन्यथा अणु
+                // Split existing item.
+                e->size = start - e->start;
+                i++;
+                अगर (e_end > end)
+                    insert_e820(i, end, e_end - end, e->type);
+            पूर्ण
+        पूर्ण
+        अवरोध;
+    पूर्ण
+    // Remove/adjust existing items that are overlapping.
+    जबतक (i<e820_count) अणु
+        काष्ठा e820entry *e = &e820_list[i];
+        अगर (end < e->start)
+            // No overlap - करोne.
+            अवरोध;
+        u64 e_end = e->start + e->size;
+        अगर (end >= e_end) अणु
+            // Existing item completely overlapped - हटाओ it.
+            हटाओ_e820(i);
+            जारी;
+        पूर्ण
+        // Not completely overlapped - adjust its start.
+        e->start = end;
+        e->size = e_end - end;
+        अगर (type == e->type) अणु
+            // Same type - merge them.
+            size += e->size;
+            हटाओ_e820(i);
+        पूर्ण
+        अवरोध;
+    पूर्ण
+    // Insert new item.
+    अगर (type != E820_HOLE)
+        insert_e820(i, start, size, type);
+    //dump_map();
+पूर्ण
+
+// Remove any definitions in a memory range (make a memory hole).
+व्योम
+e820_हटाओ(u64 start, u64 size)
+अणु
+    e820_add(start, size, E820_HOLE);
+पूर्ण
+
+// Report on final memory locations.
+व्योम
+e820_prepboot(व्योम)
+अणु
+    dump_map();
+पूर्ण

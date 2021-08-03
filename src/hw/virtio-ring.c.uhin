@@ -1,0 +1,148 @@
+<शैली गुरु>
+/* virtio-pci.c - virtio ring management
+ *
+ * (c) Copyright 2008 Bull S.A.S.
+ *
+ *  Author: Laurent Vivier <Laurent.Vivier@bull.net>
+ *
+ *  some parts from Linux Virtio Ring
+ *
+ *  Copyright Rusty Russell IBM Corporation 2007
+ *
+ *  Aकरोpted क्रम Seabios: Gleb Natapov <gleb@redhat.com>
+ *
+ * This work is licensed under the terms of the GNU LGPLv3
+ * See the COPYING file in the top-level directory.
+ *
+ *
+ */
+
+#समावेश "output.h" // panic
+#समावेश "virtio-ring.h"
+#समावेश "virtio-pci.h"
+
+#घोषणा BUG() करो अणु                                                      \
+            panic("BUG: failure at %d/%s()!\n", __LINE__, __func__);    \
+        पूर्ण जबतक (0)
+#घोषणा BUG_ON(condition) करो अणु अगर (condition) BUG(); पूर्ण जबतक (0)
+
+/*
+ * vring_more_used
+ *
+ * is there some used buffers ?
+ *
+ */
+
+पूर्णांक vring_more_used(काष्ठा vring_virtqueue *vq)
+अणु
+    काष्ठा vring_used *used = vq->vring.used;
+    पूर्णांक more = vq->last_used_idx != used->idx;
+    /* Make sure ring पढ़ोs are करोne after idx पढ़ो above. */
+    smp_rmb();
+    वापस more;
+पूर्ण
+
+/*
+ * vring_मुक्त
+ *
+ * put at the begin of the मुक्त list the current desc[head]
+ */
+
+व्योम vring_detach(काष्ठा vring_virtqueue *vq, अचिन्हित पूर्णांक head)
+अणु
+    काष्ठा vring *vr = &vq->vring;
+    काष्ठा vring_desc *desc = GET_LOWFLAT(vr->desc);
+    अचिन्हित पूर्णांक i;
+
+    /* find end of given descriptor */
+
+    i = head;
+    जबतक (desc[i].flags & VRING_DESC_F_NEXT)
+        i = desc[i].next;
+
+    /* link it with मुक्त list and poपूर्णांक to it */
+
+    desc[i].next = vq->मुक्त_head;
+    vq->मुक्त_head = head;
+पूर्ण
+
+/*
+ * vring_get_buf
+ *
+ * get a buffer from the used list
+ *
+ */
+
+पूर्णांक vring_get_buf(काष्ठा vring_virtqueue *vq, अचिन्हित पूर्णांक *len)
+अणु
+    काष्ठा vring *vr = &vq->vring;
+    काष्ठा vring_used_elem *elem;
+    काष्ठा vring_used *used = vq->vring.used;
+    u32 id;
+    पूर्णांक ret;
+
+//    BUG_ON(!vring_more_used(vq));
+
+    elem = &used->ring[vq->last_used_idx % vr->num];
+    id = elem->id;
+    अगर (len != शून्य)
+        *len = elem->len;
+
+    ret = vq->vdata[id];
+
+    vring_detach(vq, id);
+
+    vq->last_used_idx = vq->last_used_idx + 1;
+
+    वापस ret;
+पूर्ण
+
+व्योम vring_add_buf(काष्ठा vring_virtqueue *vq,
+                   काष्ठा vring_list list[],
+                   अचिन्हित पूर्णांक out, अचिन्हित पूर्णांक in,
+                   पूर्णांक index, पूर्णांक num_added)
+अणु
+    काष्ठा vring *vr = &vq->vring;
+    पूर्णांक i, av, head, prev;
+    काष्ठा vring_desc *desc = vr->desc;
+    काष्ठा vring_avail *avail = vr->avail;
+
+    BUG_ON(out + in == 0);
+
+    prev = 0;
+    head = vq->मुक्त_head;
+    क्रम (i = head; out; i = desc[i].next, out--) अणु
+        desc[i].flags = VRING_DESC_F_NEXT;
+        desc[i].addr = (u64)virt_to_phys(list->addr);
+        desc[i].len = list->length;
+        prev = i;
+        list++;
+    पूर्ण
+    क्रम ( ; in; i = desc[i].next, in--) अणु
+        desc[i].flags = VRING_DESC_F_NEXT|VRING_DESC_F_WRITE;
+        desc[i].addr = (u64)virt_to_phys(list->addr);
+        desc[i].len = list->length;
+        prev = i;
+        list++;
+    पूर्ण
+    desc[prev].flags = desc[prev].flags & ~VRING_DESC_F_NEXT;
+
+    vq->मुक्त_head = i;
+
+    vq->vdata[head] = index;
+
+    av = (avail->idx + num_added) % vr->num;
+    avail->ring[av] = head;
+पूर्ण
+
+व्योम vring_kick(काष्ठा vp_device *vp, काष्ठा vring_virtqueue *vq, पूर्णांक num_added)
+अणु
+    काष्ठा vring *vr = &vq->vring;
+    काष्ठा vring_avail *avail = vr->avail;
+
+    /* Make sure idx update is करोne after ring ग_लिखो. */
+    smp_wmb();
+    avail->idx = avail->idx + num_added;
+
+    vp_notअगरy(vp, vq);
+पूर्ण

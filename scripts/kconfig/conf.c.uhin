@@ -1,0 +1,719 @@
+<शैली गुरु>
+/*
+ * Copyright (C) 2002 Roman Zippel <zippel@linux-m68k.org>
+ * Released under the terms of the GNU GPL v2.0.
+ */
+
+#समावेश <क्षेत्र.स>
+#समावेश <प्रकार.स>
+#समावेश <मानकपन.स>
+#समावेश <मानककोष.स>
+#समावेश <माला.स>
+#समावेश <समय.स>
+#समावेश <unistd.h>
+#समावेश <getopt.h>
+#समावेश <sys/स्थिति.स>
+#समावेश <sys/समय.स>
+#समावेश <त्रुटिसं.स>
+
+#समावेश "lkc.h"
+
+अटल व्योम conf(काष्ठा menu *menu);
+अटल व्योम check_conf(काष्ठा menu *menu);
+अटल व्योम xख_माला_लो(अक्षर *str, पूर्णांक size, खाता *in);
+
+क्रमागत input_mode अणु
+	oldaskconfig,
+	silentoldconfig,
+	oldconfig,
+	allnoconfig,
+	allyesconfig,
+	allmodconfig,
+	alldefconfig,
+	अक्रमconfig,
+	defconfig,
+	savedefconfig,
+	listnewconfig,
+	olddefconfig,
+पूर्ण input_mode = oldaskconfig;
+
+अटल पूर्णांक indent = 1;
+अटल पूर्णांक tty_stdio;
+अटल पूर्णांक valid_मानक_निवेश = 1;
+अटल पूर्णांक sync_kconfig;
+अटल पूर्णांक conf_cnt;
+अटल अक्षर line[128];
+अटल काष्ठा menu *rootEntry;
+
+अटल व्योम prपूर्णांक_help(काष्ठा menu *menu)
+अणु
+	काष्ठा gstr help = str_new();
+
+	menu_get_ext_help(menu, &help);
+
+	म_लिखो("\n%s\n", str_get(&help));
+	str_मुक्त(&help);
+पूर्ण
+
+अटल व्योम strip(अक्षर *str)
+अणु
+	अक्षर *p = str;
+	पूर्णांक l;
+
+	जबतक ((है_खाली(*p)))
+		p++;
+	l = म_माप(p);
+	अगर (p != str)
+		स_हटाओ(str, p, l + 1);
+	अगर (!l)
+		वापस;
+	p = str + l - 1;
+	जबतक ((है_खाली(*p)))
+		*p-- = 0;
+पूर्ण
+
+अटल व्योम check_मानक_निवेश(व्योम)
+अणु
+	अगर (!valid_मानक_निवेश) अणु
+		म_लिखो(_("aborted!\n\n"));
+		म_लिखो(_("Console input/output is redirected. "));
+		म_लिखो(_("Run 'make oldconfig' to update configuration.\n\n"));
+		निकास(1);
+	पूर्ण
+पूर्ण
+
+अटल पूर्णांक conf_askvalue(काष्ठा symbol *sym, स्थिर अक्षर *def)
+अणु
+	क्रमागत symbol_type type = sym_get_type(sym);
+
+	अगर (!sym_has_value(sym))
+		म_लिखो(_("(NEW) "));
+
+	line[0] = '\n';
+	line[1] = 0;
+
+	अगर (!sym_is_changable(sym)) अणु
+		म_लिखो("%s\n", def);
+		line[0] = '\n';
+		line[1] = 0;
+		वापस 0;
+	पूर्ण
+
+	चयन (input_mode) अणु
+	हाल oldconfig:
+	हाल silentoldconfig:
+		अगर (sym_has_value(sym)) अणु
+			म_लिखो("%s\n", def);
+			वापस 0;
+		पूर्ण
+		check_मानक_निवेश();
+		/* fall through */
+	हाल oldaskconfig:
+		ख_साफ(मानक_निकास);
+		xख_माला_लो(line, 128, मानक_निवेश);
+		अगर (!tty_stdio)
+			म_लिखो("\n");
+		वापस 1;
+	शेष:
+		अवरोध;
+	पूर्ण
+
+	चयन (type) अणु
+	हाल S_INT:
+	हाल S_HEX:
+	हाल S_STRING:
+		म_लिखो("%s\n", def);
+		वापस 1;
+	शेष:
+		;
+	पूर्ण
+	म_लिखो("%s", line);
+	वापस 1;
+पूर्ण
+
+अटल पूर्णांक conf_string(काष्ठा menu *menu)
+अणु
+	काष्ठा symbol *sym = menu->sym;
+	स्थिर अक्षर *def;
+
+	जबतक (1) अणु
+		म_लिखो("%*s%s ", indent - 1, "", _(menu->prompt->text));
+		म_लिखो("(%s) ", sym->name);
+		def = sym_get_string_value(sym);
+		अगर (sym_get_string_value(sym))
+			म_लिखो("[%s] ", def);
+		अगर (!conf_askvalue(sym, def))
+			वापस 0;
+		चयन (line[0]) अणु
+		हाल '\n':
+			अवरोध;
+		हाल '?':
+			/* prपूर्णांक help */
+			अगर (line[1] == '\n') अणु
+				prपूर्णांक_help(menu);
+				def = शून्य;
+				अवरोध;
+			पूर्ण
+			/* fall through */
+		शेष:
+			line[म_माप(line)-1] = 0;
+			def = line;
+		पूर्ण
+		अगर (def && sym_set_string_value(sym, def))
+			वापस 0;
+	पूर्ण
+पूर्ण
+
+अटल पूर्णांक conf_sym(काष्ठा menu *menu)
+अणु
+	काष्ठा symbol *sym = menu->sym;
+	tristate oldval, newval;
+
+	जबतक (1) अणु
+		म_लिखो("%*s%s ", indent - 1, "", _(menu->prompt->text));
+		अगर (sym->name)
+			म_लिखो("(%s) ", sym->name);
+		अक्षर_दो('[');
+		oldval = sym_get_tristate_value(sym);
+		चयन (oldval) अणु
+		हाल no:
+			अक्षर_दो('N');
+			अवरोध;
+		हाल mod:
+			अक्षर_दो('M');
+			अवरोध;
+		हाल yes:
+			अक्षर_दो('Y');
+			अवरोध;
+		पूर्ण
+		अगर (oldval != no && sym_tristate_within_range(sym, no))
+			म_लिखो("/n");
+		अगर (oldval != mod && sym_tristate_within_range(sym, mod))
+			म_लिखो("/m");
+		अगर (oldval != yes && sym_tristate_within_range(sym, yes))
+			म_लिखो("/y");
+		अगर (menu_has_help(menu))
+			म_लिखो("/?");
+		म_लिखो("] ");
+		अगर (!conf_askvalue(sym, sym_get_string_value(sym)))
+			वापस 0;
+		strip(line);
+
+		चयन (line[0]) अणु
+		हाल 'n':
+		हाल 'N':
+			newval = no;
+			अगर (!line[1] || !म_भेद(&line[1], "o"))
+				अवरोध;
+			जारी;
+		हाल 'm':
+		हाल 'M':
+			newval = mod;
+			अगर (!line[1])
+				अवरोध;
+			जारी;
+		हाल 'y':
+		हाल 'Y':
+			newval = yes;
+			अगर (!line[1] || !म_भेद(&line[1], "es"))
+				अवरोध;
+			जारी;
+		हाल 0:
+			newval = oldval;
+			अवरोध;
+		हाल '?':
+			जाओ help;
+		शेष:
+			जारी;
+		पूर्ण
+		अगर (sym_set_tristate_value(sym, newval))
+			वापस 0;
+help:
+		prपूर्णांक_help(menu);
+	पूर्ण
+पूर्ण
+
+अटल पूर्णांक conf_choice(काष्ठा menu *menu)
+अणु
+	काष्ठा symbol *sym, *def_sym;
+	काष्ठा menu *child;
+	bool is_new;
+
+	sym = menu->sym;
+	is_new = !sym_has_value(sym);
+	अगर (sym_is_changable(sym)) अणु
+		conf_sym(menu);
+		sym_calc_value(sym);
+		चयन (sym_get_tristate_value(sym)) अणु
+		हाल no:
+			वापस 1;
+		हाल mod:
+			वापस 0;
+		हाल yes:
+			अवरोध;
+		पूर्ण
+	पूर्ण अन्यथा अणु
+		चयन (sym_get_tristate_value(sym)) अणु
+		हाल no:
+			वापस 1;
+		हाल mod:
+			म_लिखो("%*s%s\n", indent - 1, "", _(menu_get_prompt(menu)));
+			वापस 0;
+		हाल yes:
+			अवरोध;
+		पूर्ण
+	पूर्ण
+
+	जबतक (1) अणु
+		पूर्णांक cnt, def;
+
+		म_लिखो("%*s%s\n", indent - 1, "", _(menu_get_prompt(menu)));
+		def_sym = sym_get_choice_value(sym);
+		cnt = def = 0;
+		line[0] = 0;
+		क्रम (child = menu->list; child; child = child->next) अणु
+			अगर (!menu_is_visible(child))
+				जारी;
+			अगर (!child->sym) अणु
+				म_लिखो("%*c %s\n", indent, '*', _(menu_get_prompt(child)));
+				जारी;
+			पूर्ण
+			cnt++;
+			अगर (child->sym == def_sym) अणु
+				def = cnt;
+				म_लिखो("%*c", indent, '>');
+			पूर्ण अन्यथा
+				म_लिखो("%*c", indent, ' ');
+			म_लिखो(" %d. %s", cnt, _(menu_get_prompt(child)));
+			अगर (child->sym->name)
+				म_लिखो(" (%s)", child->sym->name);
+			अगर (!sym_has_value(child->sym))
+				म_लिखो(_(" (NEW)"));
+			म_लिखो("\n");
+		पूर्ण
+		म_लिखो(_("%*schoice"), indent - 1, "");
+		अगर (cnt == 1) अणु
+			म_लिखो("[1]: 1\n");
+			जाओ conf_childs;
+		पूर्ण
+		म_लिखो("[1-%d", cnt);
+		अगर (menu_has_help(menu))
+			म_लिखो("?");
+		म_लिखो("]: ");
+		चयन (input_mode) अणु
+		हाल oldconfig:
+		हाल silentoldconfig:
+			अगर (!is_new) अणु
+				cnt = def;
+				म_लिखो("%d\n", cnt);
+				अवरोध;
+			पूर्ण
+			check_मानक_निवेश();
+			/* fall through */
+		हाल oldaskconfig:
+			ख_साफ(मानक_निकास);
+			xख_माला_लो(line, 128, मानक_निवेश);
+			strip(line);
+			अगर (line[0] == '?') अणु
+				prपूर्णांक_help(menu);
+				जारी;
+			पूर्ण
+			अगर (!line[0])
+				cnt = def;
+			अन्यथा अगर (है_अंक(line[0]))
+				cnt = म_से_प(line);
+			अन्यथा
+				जारी;
+			अवरोध;
+		शेष:
+			अवरोध;
+		पूर्ण
+
+	conf_childs:
+		क्रम (child = menu->list; child; child = child->next) अणु
+			अगर (!child->sym || !menu_is_visible(child))
+				जारी;
+			अगर (!--cnt)
+				अवरोध;
+		पूर्ण
+		अगर (!child)
+			जारी;
+		अगर (line[0] && line[म_माप(line) - 1] == '?') अणु
+			prपूर्णांक_help(child);
+			जारी;
+		पूर्ण
+		sym_set_choice_value(sym, child->sym);
+		क्रम (child = child->list; child; child = child->next) अणु
+			indent += 2;
+			conf(child);
+			indent -= 2;
+		पूर्ण
+		वापस 1;
+	पूर्ण
+पूर्ण
+
+अटल व्योम conf(काष्ठा menu *menu)
+अणु
+	काष्ठा symbol *sym;
+	काष्ठा property *prop;
+	काष्ठा menu *child;
+
+	अगर (!menu_is_visible(menu))
+		वापस;
+
+	sym = menu->sym;
+	prop = menu->prompt;
+	अगर (prop) अणु
+		स्थिर अक्षर *prompt;
+
+		चयन (prop->type) अणु
+		हाल P_MENU:
+			अगर ((input_mode == silentoldconfig ||
+			     input_mode == listnewconfig ||
+			     input_mode == olddefconfig) &&
+			    rootEntry != menu) अणु
+				check_conf(menu);
+				वापस;
+			पूर्ण
+			/* fall through */
+		हाल P_COMMENT:
+			prompt = menu_get_prompt(menu);
+			अगर (prompt)
+				म_लिखो("%*c\n%*c %s\n%*c\n",
+					indent, '*',
+					indent, '*', _(prompt),
+					indent, '*');
+		शेष:
+			;
+		पूर्ण
+	पूर्ण
+
+	अगर (!sym)
+		जाओ conf_childs;
+
+	अगर (sym_is_choice(sym)) अणु
+		conf_choice(menu);
+		अगर (sym->curr.tri != mod)
+			वापस;
+		जाओ conf_childs;
+	पूर्ण
+
+	चयन (sym->type) अणु
+	हाल S_INT:
+	हाल S_HEX:
+	हाल S_STRING:
+		conf_string(menu);
+		अवरोध;
+	शेष:
+		conf_sym(menu);
+		अवरोध;
+	पूर्ण
+
+conf_childs:
+	अगर (sym)
+		indent += 2;
+	क्रम (child = menu->list; child; child = child->next)
+		conf(child);
+	अगर (sym)
+		indent -= 2;
+पूर्ण
+
+अटल व्योम check_conf(काष्ठा menu *menu)
+अणु
+	काष्ठा symbol *sym;
+	काष्ठा menu *child;
+
+	अगर (!menu_is_visible(menu))
+		वापस;
+
+	sym = menu->sym;
+	अगर (sym && !sym_has_value(sym)) अणु
+		अगर (sym_is_changable(sym) ||
+		    (sym_is_choice(sym) && sym_get_tristate_value(sym) == yes)) अणु
+			अगर (input_mode == listnewconfig) अणु
+				अगर (sym->name && !sym_is_choice_value(sym)) अणु
+					म_लिखो("%s%s\n", CONFIG_, sym->name);
+				पूर्ण
+			पूर्ण अन्यथा अगर (input_mode != olddefconfig) अणु
+				अगर (!conf_cnt++)
+					म_लिखो(_("*\n* Restart config...\n*\n"));
+				rootEntry = menu_get_parent_menu(menu);
+				conf(rootEntry);
+			पूर्ण
+		पूर्ण
+	पूर्ण
+
+	क्रम (child = menu->list; child; child = child->next)
+		check_conf(child);
+पूर्ण
+
+अटल काष्ठा option दीर्घ_opts[] = अणु
+	अणु"oldaskconfig",    no_argument,       शून्य, oldaskconfigपूर्ण,
+	अणु"oldconfig",       no_argument,       शून्य, oldconfigपूर्ण,
+	अणु"silentoldconfig", no_argument,       शून्य, silentoldconfigपूर्ण,
+	अणु"defconfig",       optional_argument, शून्य, defconfigपूर्ण,
+	अणु"savedefconfig",   required_argument, शून्य, savedefconfigपूर्ण,
+	अणु"allnoconfig",     no_argument,       शून्य, allnoconfigपूर्ण,
+	अणु"allyesconfig",    no_argument,       शून्य, allyesconfigपूर्ण,
+	अणु"allmodconfig",    no_argument,       शून्य, allmodconfigपूर्ण,
+	अणु"alldefconfig",    no_argument,       शून्य, alldefconfigपूर्ण,
+	अणु"randconfig",      no_argument,       शून्य, अक्रमconfigपूर्ण,
+	अणु"listnewconfig",   no_argument,       शून्य, listnewconfigपूर्ण,
+	अणु"olddefconfig",    no_argument,       शून्य, olddefconfigपूर्ण,
+	/*
+	 * oldnoconfig is an alias of olddefconfig, because people alपढ़ोy
+	 * are dependent on its behavior(sets new symbols to their शेष
+	 * value but not 'n') with the counter-पूर्णांकuitive name.
+	 */
+	अणु"oldnoconfig",     no_argument,       शून्य, olddefconfigपूर्ण,
+	अणुशून्य, 0, शून्य, 0पूर्ण
+पूर्ण;
+
+अटल व्योम conf_usage(स्थिर अक्षर *progname)
+अणु
+
+	म_लिखो("Usage: %s [option] <kconfig-file>\n", progname);
+	म_लिखो("[option] is _one_ of the following:\n");
+	म_लिखो("  --listnewconfig         List new options\n");
+	म_लिखो("  --oldaskconfig          Start a new configuration using a line-oriented program\n");
+	म_लिखो("  --oldconfig             Update a configuration using a provided .config as base\n");
+	म_लिखो("  --silentoldconfig       Same as oldconfig, but quietly, additionally update deps\n");
+	म_लिखो("  --olddefconfig          Same as silentoldconfig but sets new symbols to their default value\n");
+	म_लिखो("  --oldnoconfig           An alias of olddefconfig\n");
+	म_लिखो("  --defconfig <file>      New config with default defined in <file>\n");
+	म_लिखो("  --savedefconfig <file>  Save the minimal current configuration to <file>\n");
+	म_लिखो("  --allnoconfig           New config where all options are answered with no\n");
+	म_लिखो("  --allyesconfig          New config where all options are answered with yes\n");
+	म_लिखो("  --allmodconfig          New config where all options are answered with mod\n");
+	म_लिखो("  --alldefconfig          New config with all symbols set to default\n");
+	म_लिखो("  --randconfig            New config with random answer to all options\n");
+पूर्ण
+
+पूर्णांक मुख्य(पूर्णांक ac, अक्षर **av)
+अणु
+	स्थिर अक्षर *progname = av[0];
+	पूर्णांक opt;
+	स्थिर अक्षर *name, *defconfig_file = शून्य /* gcc uninit */;
+	काष्ठा stat पंचांगpstat;
+
+	रखो_क्षेत्र(LC_ALL, "");
+	bindtextकरोमुख्य(PACKAGE, LOCALEसूची);
+	textकरोमुख्य(PACKAGE);
+
+	tty_stdio = isatty(0) && isatty(1) && isatty(2);
+
+	जबतक ((opt = getopt_दीर्घ(ac, av, "", दीर्घ_opts, शून्य)) != -1) अणु
+		input_mode = (क्रमागत input_mode)opt;
+		चयन (opt) अणु
+		हाल silentoldconfig:
+			sync_kconfig = 1;
+			अवरोध;
+		हाल defconfig:
+		हाल savedefconfig:
+			defconfig_file = optarg;
+			अवरोध;
+		हाल अक्रमconfig:
+		अणु
+			काष्ठा समयval now;
+			अचिन्हित पूर्णांक seed;
+			अक्षर *seed_env;
+
+			/*
+			 * Use microseconds derived seed,
+			 * compensate क्रम प्रणालीs where it may be zero
+			 */
+			समय_लोofday(&now, शून्य);
+			seed = (अचिन्हित पूर्णांक)((now.tv_sec + 1) * (now.tv_usec + 1));
+
+			seed_env = दो_पर्या("KCONFIG_SEED");
+			अगर( seed_env && *seed_env ) अणु
+				अक्षर *endp;
+				पूर्णांक पंचांगp = (पूर्णांक)म_से_दीर्घ(seed_env, &endp, 0);
+				अगर (*endp == '\0') अणु
+					seed = पंचांगp;
+				पूर्ण
+			पूर्ण
+			ख_लिखो( मानक_त्रुटि, "KCONFIG_SEED=0x%X\n", seed );
+			बेक्रम(seed);
+			अवरोध;
+		पूर्ण
+		हाल oldaskconfig:
+		हाल oldconfig:
+		हाल allnoconfig:
+		हाल allyesconfig:
+		हाल allmodconfig:
+		हाल alldefconfig:
+		हाल listnewconfig:
+		हाल olddefconfig:
+			अवरोध;
+		हाल '?':
+			conf_usage(progname);
+			निकास(1);
+			अवरोध;
+		पूर्ण
+	पूर्ण
+	अगर (ac == optind) अणु
+		म_लिखो(_("%s: Kconfig file missing\n"), av[0]);
+		conf_usage(progname);
+		निकास(1);
+	पूर्ण
+	name = av[optind];
+	conf_parse(name);
+	//zconfdump(मानक_निकास);
+	अगर (sync_kconfig) अणु
+		name = conf_get_configname();
+		अगर (stat(name, &पंचांगpstat)) अणु
+			ख_लिखो(मानक_त्रुटि, _("***\n"
+				"*** Configuration file \"%s\" not found!\n"
+				"***\n"
+				"*** Please run some configurator (e.g. \"make oldconfig\" or\n"
+				"*** \"make menuconfig\" or \"make xconfig\").\n"
+				"***\n"), name);
+			निकास(1);
+		पूर्ण
+	पूर्ण
+
+	चयन (input_mode) अणु
+	हाल defconfig:
+		अगर (!defconfig_file)
+			defconfig_file = conf_get_शेष_confname();
+		अगर (conf_पढ़ो(defconfig_file)) अणु
+			म_लिखो(_("***\n"
+				"*** Can't find default configuration \"%s\"!\n"
+				"***\n"), defconfig_file);
+			निकास(1);
+		पूर्ण
+		अवरोध;
+	हाल savedefconfig:
+	हाल silentoldconfig:
+	हाल oldaskconfig:
+	हाल oldconfig:
+	हाल listnewconfig:
+	हाल olddefconfig:
+		conf_पढ़ो(शून्य);
+		अवरोध;
+	हाल allnoconfig:
+	हाल allyesconfig:
+	हाल allmodconfig:
+	हाल alldefconfig:
+	हाल अक्रमconfig:
+		name = दो_पर्या("KCONFIG_ALLCONFIG");
+		अगर (!name)
+			अवरोध;
+		अगर ((म_भेद(name, "") != 0) && (म_भेद(name, "1") != 0)) अणु
+			अगर (conf_पढ़ो_simple(name, S_DEF_USER)) अणु
+				ख_लिखो(मानक_त्रुटि,
+					_("*** Can't read seed configuration \"%s\"!\n"),
+					name);
+				निकास(1);
+			पूर्ण
+			अवरोध;
+		पूर्ण
+		चयन (input_mode) अणु
+		हाल allnoconfig:	name = "allno.config"; अवरोध;
+		हाल allyesconfig:	name = "allyes.config"; अवरोध;
+		हाल allmodconfig:	name = "allmod.config"; अवरोध;
+		हाल alldefconfig:	name = "alldef.config"; अवरोध;
+		हाल अक्रमconfig:	name = "allrandom.config"; अवरोध;
+		शेष: अवरोध;
+		पूर्ण
+		अगर (conf_पढ़ो_simple(name, S_DEF_USER) &&
+		    conf_पढ़ो_simple("all.config", S_DEF_USER)) अणु
+			ख_लिखो(मानक_त्रुटि,
+				_("*** KCONFIG_ALLCONFIG set, but no \"%s\" or \"all.config\" file found\n"),
+				name);
+			निकास(1);
+		पूर्ण
+		अवरोध;
+	शेष:
+		अवरोध;
+	पूर्ण
+
+	अगर (sync_kconfig) अणु
+		अगर (conf_get_changed()) अणु
+			name = दो_पर्या("KCONFIG_NOSILENTUPDATE");
+			अगर (name && *name) अणु
+				ख_लिखो(मानक_त्रुटि,
+					_("\n*** The configuration requires explicit update.\n\n"));
+				वापस 1;
+			पूर्ण
+		पूर्ण
+		valid_मानक_निवेश = tty_stdio;
+	पूर्ण
+
+	चयन (input_mode) अणु
+	हाल allnoconfig:
+		conf_set_all_new_symbols(def_no);
+		अवरोध;
+	हाल allyesconfig:
+		conf_set_all_new_symbols(def_yes);
+		अवरोध;
+	हाल allmodconfig:
+		conf_set_all_new_symbols(def_mod);
+		अवरोध;
+	हाल alldefconfig:
+		conf_set_all_new_symbols(def_शेष);
+		अवरोध;
+	हाल अक्रमconfig:
+		/* Really nothing to करो in this loop */
+		जबतक (conf_set_all_new_symbols(def_अक्रमom)) ;
+		अवरोध;
+	हाल defconfig:
+		conf_set_all_new_symbols(def_शेष);
+		अवरोध;
+	हाल savedefconfig:
+		अवरोध;
+	हाल oldaskconfig:
+		rootEntry = &rooपंचांगenu;
+		conf(&rooपंचांगenu);
+		input_mode = silentoldconfig;
+		/* fall through */
+	हाल oldconfig:
+	हाल listnewconfig:
+	हाल olddefconfig:
+	हाल silentoldconfig:
+		/* Update until a loop caused no more changes */
+		करो अणु
+			conf_cnt = 0;
+			check_conf(&rooपंचांगenu);
+		पूर्ण जबतक (conf_cnt &&
+			 (input_mode != listnewconfig &&
+			  input_mode != olddefconfig));
+		अवरोध;
+	पूर्ण
+
+	अगर (sync_kconfig) अणु
+		/* silentoldconfig is used during the build so we shall update स्वतःconf.
+		 * All other commands are only used to generate a config.
+		 */
+		अगर (conf_get_changed() && conf_ग_लिखो(शून्य)) अणु
+			ख_लिखो(मानक_त्रुटि, _("\n*** Error during writing of the configuration.\n\n"));
+			निकास(1);
+		पूर्ण
+		अगर (conf_ग_लिखो_स्वतःconf()) अणु
+			ख_लिखो(मानक_त्रुटि, _("\n*** Error during update of the configuration.\n\n"));
+			वापस 1;
+		पूर्ण
+	पूर्ण अन्यथा अगर (input_mode == savedefconfig) अणु
+		अगर (conf_ग_लिखो_defconfig(defconfig_file)) अणु
+			ख_लिखो(मानक_त्रुटि, _("n*** Error while saving defconfig to: %s\n\n"),
+				defconfig_file);
+			वापस 1;
+		पूर्ण
+	पूर्ण अन्यथा अगर (input_mode != listnewconfig) अणु
+		अगर (conf_ग_लिखो(शून्य)) अणु
+			ख_लिखो(मानक_त्रुटि, _("\n*** Error during writing of the configuration.\n\n"));
+			निकास(1);
+		पूर्ण
+	पूर्ण
+	वापस 0;
+पूर्ण
+
+/*
+ * Helper function to facilitate ख_माला_लो() by Jean Sacren.
+ */
+व्योम xख_माला_लो(अक्षर *str, पूर्णांक size, खाता *in)
+अणु
+	अगर (ख_माला_लो(str, size, in) == शून्य)
+		ख_लिखो(मानक_त्रुटि, "\nError in reading or end of file.\n");
+पूर्ण

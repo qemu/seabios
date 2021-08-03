@@ -1,0 +1,335 @@
+<शैली गुरु>
+#अगर_अघोषित __ACPI_H
+#घोषणा __ACPI_H
+
+#समावेश "types.h" // u32
+
+/*
+ * ACPI 2.0 Generic Address Space definition.
+ */
+काष्ठा acpi_20_generic_address अणु
+    u8  address_space_id;
+    u8  रेजिस्टर_bit_width;
+    u8  रेजिस्टर_bit_offset;
+    u8  reserved;
+    u64 address;
+पूर्ण PACKED;
+
+#घोषणा RSDP_SIGNATURE 0x2052545020445352LL // "RSD PTR "
+
+काष्ठा rsdp_descriptor अणु        /* Root System Descriptor Poपूर्णांकer */
+    u64 signature;              /* ACPI signature, contains "RSD PTR " */
+    u8  checksum;               /* To make sum of काष्ठा == 0 */
+    u8  oem_id [6];             /* OEM identअगरication */
+    u8  revision;               /* Must be 0 क्रम 1.0, 2 क्रम 2.0 */
+    u32 rsdt_physical_address;  /* 32-bit physical address of RSDT */
+    u32 length;                 /* XSDT Length in bytes including hdr */
+    u64 xsdt_physical_address;  /* 64-bit physical address of XSDT */
+    u8  extended_checksum;      /* Checksum of entire table */
+    u8  reserved [3];           /* Reserved field must be 0 */
+पूर्ण;
+
+/* Table काष्ठाure from Linux kernel (the ACPI tables are under the
+   BSD license) */
+
+#घोषणा ACPI_TABLE_HEADER_DEF   /* ACPI common table header */ \
+    u32 signature;          /* ACPI signature (4 ASCII अक्षरacters) */ \
+    u32 length;                 /* Length of table, in bytes, including header */ \
+    u8  revision;               /* ACPI Specअगरication minor version # */ \
+    u8  checksum;               /* To make sum of entire table == 0 */ \
+    u8  oem_id [6];             /* OEM identअगरication */ \
+    u8  oem_table_id [8];       /* OEM table identअगरication */ \
+    u32 oem_revision;           /* OEM revision number */ \
+    u8  asl_compiler_id [4];    /* ASL compiler venकरोr ID */ \
+    u32 asl_compiler_revision;  /* ASL compiler revision number */
+
+/*
+ * Fixed ACPI Description Table Fixed Feature Flags
+ */
+#घोषणा    ACPI_FADT_F_WBINVD            (1 << 0)
+#घोषणा    ACPI_FADT_F_WBINVD_FLUSH      (1 << 1)
+#घोषणा    ACPI_FADT_F_PROC_C1           (1 << 2)
+#घोषणा    ACPI_FADT_F_P_LVL2_UP         (1 << 3)
+#घोषणा    ACPI_FADT_F_PWR_BUTTON        (1 << 4)
+#घोषणा    ACPI_FADT_F_SLP_BUTTON        (1 << 5)
+#घोषणा    ACPI_FADT_F_FIX_RTC           (1 << 6)
+#घोषणा    ACPI_FADT_F_RTC_S4            (1 << 7)
+#घोषणा    ACPI_FADT_F_TMR_VAL_EXT       (1 << 8)
+#घोषणा    ACPI_FADT_F_DCK_CAP           (1 << 9)
+#घोषणा    ACPI_FADT_F_RESET_REG_SUP     (1 << 10)
+#घोषणा    ACPI_FADT_F_SEALED_CASE       (1 << 11)
+#घोषणा    ACPI_FADT_F_HEADLESS          (1 << 12)
+#घोषणा    ACPI_FADT_F_CPU_SW_SLP        (1 << 13)
+#घोषणा    ACPI_FADT_F_PCI_EXP_WAK       (1 << 14)
+#घोषणा    ACPI_FADT_F_USE_PLATFORM_CLOCK (1 << 15)
+#घोषणा    ACPI_FADT_F_S4_RTC_STS_VALID   (1 << 16)
+#घोषणा    ACPI_FADT_F_REMOTE_POWER_ON_CAPABLE  (1 << 17)
+#घोषणा    ACPI_FADT_F_FORCE_APIC_CLUSTER_MODEL  (1 << 18)
+#घोषणा    ACPI_FADT_F_FORCE_APIC_PHYSICAL_DESTINATION_MODE  (1 << 19)
+#घोषणा    ACPI_FADT_F_HW_REDUCED_ACPI    (1 << 20)
+#घोषणा    ACPI_FADT_F_LOW_POWER_S0_IDLE_CAPABLE  (1 << 21)
+
+/*
+ * ACPI 1.0 Fixed ACPI Description Table (FADT)
+ */
+#घोषणा FACP_SIGNATURE 0x50434146 // FACP
+काष्ठा fadt_descriptor_rev1
+अणु
+    ACPI_TABLE_HEADER_DEF     /* ACPI common table header */
+    u32 firmware_ctrl;          /* Physical address of FACS */
+    u32 dsdt;                   /* Physical address of DSDT */
+    u8  model;                  /* System Interrupt Model */
+    u8  reserved1;              /* Reserved */
+    u16 sci_पूर्णांक;                /* System vector of SCI पूर्णांकerrupt */
+    u32 smi_cmd;                /* Port address of SMI command port */
+    u8  acpi_enable;            /* Value to ग_लिखो to smi_cmd to enable ACPI */
+    u8  acpi_disable;           /* Value to ग_लिखो to smi_cmd to disable ACPI */
+    u8  S4bios_req;             /* Value to ग_लिखो to SMI CMD to enter S4BIOS state */
+    u8  reserved2;              /* Reserved - must be zero */
+    u32 pm1a_evt_blk;           /* Port address of Power Mgt 1a acpi_event Reg Blk */
+    u32 pm1b_evt_blk;           /* Port address of Power Mgt 1b acpi_event Reg Blk */
+    u32 pm1a_cnt_blk;           /* Port address of Power Mgt 1a Control Reg Blk */
+    u32 pm1b_cnt_blk;           /* Port address of Power Mgt 1b Control Reg Blk */
+    u32 pm2_cnt_blk;            /* Port address of Power Mgt 2 Control Reg Blk */
+    u32 pm_पंचांगr_blk;             /* Port address of Power Mgt Timer Ctrl Reg Blk */
+    u32 gpe0_blk;               /* Port addr of General Purpose acpi_event 0 Reg Blk */
+    u32 gpe1_blk;               /* Port addr of General Purpose acpi_event 1 Reg Blk */
+    u8  pm1_evt_len;            /* Byte length of ports at pm1_x_evt_blk */
+    u8  pm1_cnt_len;            /* Byte length of ports at pm1_x_cnt_blk */
+    u8  pm2_cnt_len;            /* Byte Length of ports at pm2_cnt_blk */
+    u8  pm_पंचांगr_len;             /* Byte Length of ports at pm_पंचांग_blk */
+    u8  gpe0_blk_len;           /* Byte Length of ports at gpe0_blk */
+    u8  gpe1_blk_len;           /* Byte Length of ports at gpe1_blk */
+    u8  gpe1_base;              /* Offset in gpe model where gpe1 events start */
+    u8  reserved3;              /* Reserved */
+    u16 plvl2_lat;              /* Worst हाल HW latency to enter/निकास C2 state */
+    u16 plvl3_lat;              /* Worst हाल HW latency to enter/निकास C3 state */
+    u16 flush_size;             /* Size of area पढ़ो to flush caches */
+    u16 flush_stride;           /* Stride used in flushing caches */
+    u8  duty_offset;            /* Bit location of duty cycle field in p_cnt reg */
+    u8  duty_width;             /* Bit width of duty cycle field in p_cnt reg */
+    u8  day_alrm;               /* Index to day-of-month alarm in RTC CMOS RAM */
+    u8  mon_alrm;               /* Index to month-of-year alarm in RTC CMOS RAM */
+    u8  century;                /* Index to century in RTC CMOS RAM */
+    u8  reserved4;              /* Reserved */
+    u8  reserved4a;             /* Reserved */
+    u8  reserved4b;             /* Reserved */
+    u32 flags;
+पूर्ण PACKED;
+
+काष्ठा acpi_table_header         /* ACPI common table header */
+अणु
+    ACPI_TABLE_HEADER_DEF
+पूर्ण PACKED;
+
+/*
+ * ACPI 1.0 Root System Description Table (RSDT)
+ */
+#घोषणा RSDT_SIGNATURE 0x54445352 // RSDT
+काष्ठा rsdt_descriptor_rev1
+अणु
+    ACPI_TABLE_HEADER_DEF       /* ACPI common table header */
+    u32 table_offset_entry[0];  /* Array of poपूर्णांकers to other */
+    /* ACPI tables */
+पूर्ण PACKED;
+
+/*
+ * ACPI 2.0 eXtended System Description Table (XSDT)
+ */
+#घोषणा XSDT_SIGNATURE 0x54445358 // XSDT
+काष्ठा xsdt_descriptor_rev2
+अणु
+    ACPI_TABLE_HEADER_DEF       /* ACPI common table header */
+    u64 table_offset_entry[0];  /* Array of poपूर्णांकers to other */
+    /* ACPI tables */
+पूर्ण PACKED;
+
+/*
+ * ACPI 1.0 Firmware ACPI Control Structure (FACS)
+ */
+#घोषणा FACS_SIGNATURE 0x53434146 // FACS
+काष्ठा facs_descriptor_rev1
+अणु
+    u32 signature;           /* ACPI Signature */
+    u32 length;                 /* Length of काष्ठाure, in bytes */
+    u32 hardware_signature;     /* Hardware configuration signature */
+    u32 firmware_waking_vector; /* ACPI OS waking vector */
+    u32 global_lock;            /* Global Lock */
+    u32 flags;
+    u8  resverved3 [40];        /* Reserved - must be zero */
+पूर्ण PACKED;
+
+/*
+ * Dअगरferentiated System Description Table (DSDT)
+ */
+#घोषणा DSDT_SIGNATURE 0x54445344 // DSDT
+
+/*
+ * MADT values and काष्ठाures
+ */
+
+/* Values क्रम MADT PCATCompat */
+
+#घोषणा DUAL_PIC                0
+#घोषणा MULTIPLE_APIC           1
+
+/* Master MADT */
+
+#घोषणा APIC_SIGNATURE 0x43495041 // APIC
+काष्ठा multiple_apic_table
+अणु
+    ACPI_TABLE_HEADER_DEF     /* ACPI common table header */
+    u32 local_apic_address;     /* Physical address of local APIC */
+    u32 flags;
+पूर्ण PACKED;
+
+/* Values क्रम Type in APIC sub-headers */
+
+#घोषणा APIC_PROCESSOR          0
+#घोषणा APIC_IO                 1
+#घोषणा APIC_XRUPT_OVERRIDE     2
+#घोषणा APIC_NMI                3
+#घोषणा APIC_LOCAL_NMI          4
+#घोषणा APIC_ADDRESS_OVERRIDE   5
+#घोषणा APIC_IO_SAPIC           6
+#घोषणा APIC_LOCAL_SAPIC        7
+#घोषणा APIC_XRUPT_SOURCE       8
+#घोषणा APIC_RESERVED           9           /* 9 and greater are reserved */
+
+/*
+ * MADT sub-काष्ठाures (Follow MULTIPLE_APIC_DESCRIPTION_TABLE)
+ */
+#घोषणा ACPI_SUB_HEADER_DEF   /* Common ACPI sub-काष्ठाure header */\
+    u8  type;                               \
+    u8  length;
+
+/* Sub-काष्ठाures क्रम MADT */
+
+काष्ठा madt_processor_apic
+अणु
+    ACPI_SUB_HEADER_DEF
+    u8  processor_id;           /* ACPI processor id */
+    u8  local_apic_id;          /* Processor's local APIC id */
+    u32 flags;
+पूर्ण PACKED;
+
+काष्ठा madt_io_apic
+अणु
+    ACPI_SUB_HEADER_DEF
+    u8  io_apic_id;             /* I/O APIC ID */
+    u8  reserved;               /* Reserved - must be zero */
+    u32 address;                /* APIC physical address */
+    u32 पूर्णांकerrupt;              /* Global प्रणाली पूर्णांकerrupt where INTI
+                                 * lines start */
+पूर्ण PACKED;
+
+काष्ठा madt_पूर्णांकsrcovr अणु
+    ACPI_SUB_HEADER_DEF
+    u8  bus;
+    u8  source;
+    u32 gsi;
+    u16 flags;
+पूर्ण PACKED;
+
+काष्ठा madt_local_nmi अणु
+    ACPI_SUB_HEADER_DEF
+    u8  processor_id;           /* ACPI processor id */
+    u16 flags;                  /* MPS INTI flags */
+    u8  lपूर्णांक;                   /* Local APIC LINT# */
+पूर्ण PACKED;
+
+/*
+ * HPET Description Table
+ */
+#घोषणा HPET_SIGNATURE 0x54455048 // HPET
+काष्ठा acpi_20_hpet अणु
+    ACPI_TABLE_HEADER_DEF                    /* ACPI common table header */
+    u32           समयr_block_id;
+    काष्ठा acpi_20_generic_address addr;
+    u8            hpet_number;
+    u16           min_tick;
+    u8            page_protect;
+पूर्ण PACKED;
+
+/*
+ * SRAT (NUMA topology description) table
+ */
+
+#घोषणा SRAT_SIGNATURE 0x54415253 // SRAT
+काष्ठा प्रणाली_resource_affinity_table
+अणु
+    ACPI_TABLE_HEADER_DEF
+    u32    reserved1;
+    u32    reserved2[2];
+पूर्ण PACKED;
+
+#घोषणा SRAT_PROCESSOR          0
+#घोषणा SRAT_MEMORY             1
+
+काष्ठा srat_processor_affinity
+अणु
+    ACPI_SUB_HEADER_DEF
+    u8     proximity_lo;
+    u8     local_apic_id;
+    u32    flags;
+    u8     local_sapic_eid;
+    u8     proximity_hi[3];
+    u32    reserved;
+पूर्ण PACKED;
+
+काष्ठा srat_memory_affinity
+अणु
+    ACPI_SUB_HEADER_DEF
+    u8     proximity[4];
+    u16    reserved1;
+    u64    base_addr;
+    u64    range_length;
+    u32    reserved2;
+    u32    flags;
+    u32    reserved3[2];
+पूर्ण PACKED;
+
+/* PCI fw r3.0 MCFG table. */
+/* Subtable */
+काष्ठा acpi_mcfg_allocation अणु
+    u64 address;                /* Base address, processor-relative */
+    u16 pci_segment;            /* PCI segment group number */
+    u8 start_bus_number;       /* Starting PCI Bus number */
+    u8 end_bus_number;         /* Final PCI Bus number */
+    u32 reserved;
+पूर्ण PACKED;
+
+#घोषणा MCFG_SIGNATURE 0x4746434d       // MCFG
+काष्ठा acpi_table_mcfg अणु
+    ACPI_TABLE_HEADER_DEF;
+    u8 reserved[8];
+    काष्ठा acpi_mcfg_allocation allocation[0];
+पूर्ण PACKED;
+
+#घोषणा TCPA_SIGNATURE 0x41504354
+काष्ठा tcpa_descriptor_rev2
+अणु
+    ACPI_TABLE_HEADER_DEF
+    u16  platक्रमm_class;
+    u32  log_area_minimum_length;
+    u64  log_area_start_address;
+पूर्ण PACKED;
+
+/* TCPA ACPI definitions */
+#घोषणा TCPA_ACPI_CLASS_CLIENT          0
+#घोषणा TCPA_ACPI_CLASS_SERVER          1
+
+#घोषणा TPM2_SIGNATURE 0x324D5054
+काष्ठा tpm2_descriptor_rev2
+अणु
+    ACPI_TABLE_HEADER_DEF
+    u16  platक्रमm_class;
+    u16  reserved;
+    u64  address_of_control_area;
+    u32  start_method;
+    u8   start_method_params[12];
+    u32  log_area_minimum_length;
+    u64  log_area_start_address;
+पूर्ण PACKED;
+
+#पूर्ण_अगर // acpi.h

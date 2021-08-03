@@ -1,0 +1,112 @@
+<शैली गुरु>
+// Multiboot पूर्णांकerface support.
+//
+// Copyright (C) 2015  Vladimir Serbinenko <phcoder@gmail.com>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "config.h" // CONFIG_*
+#समावेश "malloc.h" // मुक्त
+#समावेश "output.h" // dम_लिखो
+#समावेश "romfile.h" // romfile_add
+#समावेश "std/multiboot.h" // MULTIBOOT_*
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // multiboot_init
+
+काष्ठा mbfs_romfile_s अणु
+    काष्ठा romfile_s file;
+    व्योम *data;
+पूर्ण;
+
+अटल पूर्णांक
+extract_filename(अक्षर *dest, अक्षर *src, माप_प्रकार lim)
+अणु
+    अक्षर *ptr;
+    क्रम (ptr = src; *ptr; ptr++) अणु
+        अगर (!(ptr == src || ptr[-1] == ' ' || ptr[-1] == '\t'))
+            जारी;
+        /* स_भेद stops early अगर it encounters \0 as it करोesn't match name=.  */
+        अगर (स_भेद(ptr, "name=", 5) == 0) अणु
+            पूर्णांक i;
+            अक्षर *optr = dest;
+            क्रम (i = 0, ptr += 5; *ptr && *ptr != ' ' && i < lim; i++) अणु
+                *optr++ = *ptr++;
+            पूर्ण
+            *optr++ = '\0';
+            वापस 1;
+        पूर्ण
+    पूर्ण
+    वापस 0;
+पूर्ण
+
+// Copy a file to memory
+अटल पूर्णांक
+mbfs_copyfile(काष्ठा romfile_s *file, व्योम *dst, u32 maxlen)
+अणु
+    काष्ठा mbfs_romfile_s *cfile;
+    cfile = container_of(file, काष्ठा mbfs_romfile_s, file);
+    u32 size = cfile->file.size;
+    व्योम *src = cfile->data;
+
+    // Not compressed.
+    dम_लिखो(3, "Copying data %d@%p to %d@%p\n", size, src, maxlen, dst);
+    अगर (size > maxlen) अणु
+        warn_noalloc();
+        वापस -1;
+    पूर्ण
+    ioस_नकल(dst, src, size);
+    वापस size;
+पूर्ण
+
+u32 __VISIBLE entry_elf_eax, entry_elf_ebx;
+
+व्योम
+multiboot_init(व्योम)
+अणु
+    काष्ठा multiboot_info *mbi;
+    अगर (!CONFIG_MULTIBOOT)
+        वापस;
+    dम_लिखो(1, "multiboot: eax=%x, ebx=%x\n", entry_elf_eax, entry_elf_ebx);
+    अगर (entry_elf_eax != MULTIBOOT_BOOTLOADER_MAGIC)
+        वापस;
+    mbi = (व्योम *)entry_elf_ebx;
+    dम_लिखो(1, "mbptr=%p\n", mbi);
+    dम_लिखो(1, "flags=0x%x, mods=0x%x, mods_c=%d\n", mbi->flags, mbi->mods_addr,
+            mbi->mods_count);
+    अगर (!(mbi->flags & MULTIBOOT_INFO_MODS))
+        वापस;
+    पूर्णांक i;
+    काष्ठा multiboot_mod_list *mod = (व्योम *)mbi->mods_addr;
+    क्रम (i = 0; i < mbi->mods_count; i++) अणु
+        काष्ठा mbfs_romfile_s *cfile;
+        u8 *copy;
+        u32 len;
+        अगर (!mod[i].cmdline)
+            जारी;
+        len = mod[i].mod_end - mod[i].mod_start;
+        cfile = दो_स्मृति_पंचांगp(माप(*cfile));
+        अगर (!cfile) अणु
+            warn_noalloc();
+            वापस;
+        पूर्ण
+        स_रखो(cfile, 0, माप(*cfile));
+        dम_लिखो(1, "module %s, size 0x%x\n", (अक्षर *)mod[i].cmdline, len);
+        अगर (!extract_filename(cfile->file.name, (अक्षर *)mod[i].cmdline,
+                              माप(cfile->file.name))) अणु
+            मुक्त(cfile);
+            जारी;
+        पूर्ण
+        dम_लिखो(1, "assigned file name <%s>\n", cfile->file.name);
+        cfile->file.size = len;
+        copy = दो_स्मृति_पंचांगp(len);
+        अगर (!copy) अणु
+            warn_noalloc();
+            मुक्त(cfile);
+            वापस;
+        पूर्ण
+        स_नकल(copy, (व्योम *)mod[i].mod_start, len);
+        cfile->file.copy = mbfs_copyfile;
+        cfile->data = copy;
+        romfile_add(&cfile->file);
+    पूर्ण
+पूर्ण

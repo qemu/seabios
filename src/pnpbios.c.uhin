@@ -1,0 +1,89 @@
+<शैली गुरु>
+// PNP BIOS calls
+//
+// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "config.h" // BUILD_BIOS_ADDR
+#समावेश "farptr.h" // SET_FARVAR
+#समावेश "output.h" // dम_लिखो
+#समावेश "std/pnpbios.h" // PNP_SIGNATURE
+#समावेश "string.h" // checksum
+#समावेश "util.h" // pnp_init
+
+बाह्य काष्ठा pnpheader PNPHEADER;
+बाह्य अक्षर pnp_string[];
+
+#अगर CONFIG_PNPBIOS
+काष्ठा pnpheader PNPHEADER __aligned(16) VARFSEG = अणु
+    .signature = PNP_SIGNATURE,
+    .version = 0x10,
+    .length = माप(PNPHEADER),
+    .real_cs = SEG_BIOS,
+    .prot_base = BUILD_BIOS_ADDR,
+    .real_ds = SEG_BIOS,
+    .prot_database = BUILD_BIOS_ADDR,
+पूर्ण;
+#अन्यथा
+// We need a copy of this string in the 0xf000 segment, but we are not
+// actually a PnP BIOS, so make sure it is *not* aligned, so OSes will
+// not see it अगर they scan.
+अक्षर pnp_string[] __aligned(2) VARFSEG = " $PnP";
+#पूर्ण_अगर
+
+// BBS - Get Version and Installation Check
+अटल u16
+handle_pnp60(u16 *args)
+अणु
+    u16 version_ptr = args[1];
+    u16 version_seg = args[2];
+    SET_FARVAR(version_seg, *(u16*)(version_ptr+0), 0x0101);
+    वापस 0;
+पूर्ण
+
+अटल u16
+handle_pnpXX(u16 *args)
+अणु
+    वापस FUNCTION_NOT_SUPPORTED;
+पूर्ण
+
+u16 VISIBLE16
+handle_pnp(u16 *args)
+अणु
+    अगर (! CONFIG_PNPBIOS)
+        वापस FUNCTION_NOT_SUPPORTED;
+
+    u16 arg1 = args[0];
+    dम_लिखो(DEBUG_HDL_pnp, "pnp call arg1=%x\n", arg1);
+
+    चयन (arg1) अणु
+    हाल 0x60: वापस handle_pnp60(args);
+    शेष:   वापस handle_pnpXX(args);
+    पूर्ण
+पूर्ण
+
+u16
+get_pnp_offset(व्योम)
+अणु
+    अगर (! CONFIG_PNPBIOS)
+        वापस (u32)pnp_string + 1 - BUILD_BIOS_ADDR;
+    वापस (u32)&PNPHEADER - BUILD_BIOS_ADDR;
+पूर्ण
+
+// romlayout.S
+बाह्य व्योम entry_pnp_real(व्योम);
+बाह्य व्योम entry_pnp_prot(व्योम);
+
+व्योम
+pnp_init(व्योम)
+अणु
+    अगर (! CONFIG_PNPBIOS)
+        वापस;
+
+    dम_लिखो(3, "init PNPBIOS table\n");
+
+    PNPHEADER.real_ip = (u32)entry_pnp_real - BUILD_BIOS_ADDR;
+    PNPHEADER.prot_ip = (u32)entry_pnp_prot - BUILD_BIOS_ADDR;
+    PNPHEADER.checksum -= checksum(&PNPHEADER, माप(PNPHEADER));
+पूर्ण

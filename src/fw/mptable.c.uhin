@@ -1,0 +1,198 @@
+<शैली गुरु>
+// MPTable generation (on emulators)
+// DO NOT ADD NEW FEATURES HERE.  (See paravirt.c / biostables.c instead.)
+//
+// Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2006 Fabrice Bellard
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "config.h" // CONFIG_*
+#समावेश "hw/pci.h" // pci_bdf_to_bus
+#समावेश "hw/pcidevice.h" // क्रमeachpci
+#समावेश "hw/pci_regs.h" // PCI_INTERRUPT_PIN
+#समावेश "malloc.h" // मुक्त
+#समावेश "output.h" // dम_लिखो
+#समावेश "romfile.h" // romfile_loadपूर्णांक
+#समावेश "std/mptable.h" // MPTABLE_SIGNATURE
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // MaxCountCPUs
+#समावेश "x86.h" // cpuid
+
+व्योम
+mptable_setup(व्योम)
+अणु
+    अगर (! CONFIG_MPTABLE)
+        वापस;
+
+    dम_लिखो(3, "init MPTable\n");
+
+    // Config काष्ठाure in temp area.
+    काष्ठा mptable_config_s *config = दो_स्मृति_पंचांगp(32*1024);
+    अगर (!config) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    स_रखो(config, 0, माप(*config));
+    config->signature = MPCONFIG_SIGNATURE;
+    config->spec = 4;
+    स_नकल(config->oemid, BUILD_CPUNAME8, माप(config->oemid));
+    स_नकल(config->productid, "0.1         ", माप(config->productid));
+    config->lapic = BUILD_APIC_ADDR;
+
+    // Detect cpu info
+    u32 cpuid_signature, ebx, ecx, cpuid_features;
+    cpuid(1, &cpuid_signature, &ebx, &ecx, &cpuid_features);
+    अगर (! cpuid_signature) अणु
+        // Use शेष values.
+        cpuid_signature = 0x600;
+        cpuid_features = 0x201;
+    पूर्ण
+    पूर्णांक pkgcpus = 1;
+    अगर (cpuid_features & (1 << 28)) अणु
+        /* Only populate the MPS tables with the first logical CPU in
+           each package */
+        pkgcpus = (ebx >> 16) & 0xff;
+        pkgcpus = 1 << (__fls(pkgcpus - 1) + 1); /* round up to घातer of 2 */
+    पूर्ण
+    u8 apic_version = पढ़ोl((u8*)BUILD_APIC_ADDR + 0x30) & 0xff;
+
+    // CPU definitions.
+    काष्ठा mpt_cpu *cpus = (व्योम*)&config[1], *cpu = cpus;
+    पूर्णांक i;
+    क्रम (i = 0; i < MaxCountCPUs; i+=pkgcpus) अणु
+        स_रखो(cpu, 0, माप(*cpu));
+        cpu->type = MPT_TYPE_CPU;
+        cpu->apicid = i;
+        cpu->apicver = apic_version;
+        /* cpu flags: enabled, bootstrap cpu */
+        cpu->cpuflag = (apic_id_is_present(i) ? 0x01 : 0x00) | ((i==0) ? 0x02 : 0x00);
+        cpu->cpusignature = cpuid_signature;
+        cpu->featureflag = cpuid_features;
+        cpu++;
+    पूर्ण
+    पूर्णांक entrycount = cpu - cpus;
+
+    // PCI bus
+    काष्ठा mpt_bus *buses = (व्योम*)cpu, *bus = buses;
+    अगर (!hlist_empty(&PCIDevices)) अणु
+        स_रखो(bus, 0, माप(*bus));
+        bus->type = MPT_TYPE_BUS;
+        bus->busid = 0;
+        स_नकल(bus->bustype, "PCI   ", माप(bus->bustype));
+        bus++;
+        entrycount++;
+    पूर्ण
+
+    /* isa bus */
+    पूर्णांक isabusid = bus - buses;
+    स_रखो(bus, 0, माप(*bus));
+    bus->type = MPT_TYPE_BUS;
+    bus->busid = isabusid;
+    स_नकल(bus->bustype, "ISA   ", माप(bus->bustype));
+    bus++;
+    entrycount++;
+
+    /* ioapic */
+    u8 ioapic_id = BUILD_IOAPIC_ID;
+    काष्ठा mpt_ioapic *ioapic = (व्योम*)bus;
+    स_रखो(ioapic, 0, माप(*ioapic));
+    ioapic->type = MPT_TYPE_IOAPIC;
+    ioapic->apicid = ioapic_id;
+    ioapic->apicver = 0x11;
+    ioapic->flags = 1; // enable
+    ioapic->apicaddr = BUILD_IOAPIC_ADDR;
+    entrycount++;
+
+    /* irqs */
+    काष्ठा mpt_पूर्णांकsrc *पूर्णांकsrcs = (व्योम*)&ioapic[1], *पूर्णांकsrc = पूर्णांकsrcs;
+    पूर्णांक dev = -1;
+    अचिन्हित लघु pinmask = 0;
+
+    काष्ठा pci_device *pci;
+    क्रमeachpci(pci) अणु
+        u16 bdf = pci->bdf;
+        अगर (pci_bdf_to_bus(bdf) != 0)
+            अवरोध;
+        पूर्णांक pin = pci_config_पढ़ोb(bdf, PCI_INTERRUPT_PIN);
+        पूर्णांक irq = pci_config_पढ़ोb(bdf, PCI_INTERRUPT_LINE);
+        अगर (pin == 0)
+            जारी;
+        अगर (dev != pci_bdf_to_busdev(bdf)) अणु
+            dev = pci_bdf_to_busdev(bdf);
+            pinmask = 0;
+        पूर्ण
+        अगर (pinmask & (1 << pin)) /* pin was seen alपढ़ोy */
+            जारी;
+        pinmask |= (1 << pin);
+        स_रखो(पूर्णांकsrc, 0, माप(*पूर्णांकsrc));
+        पूर्णांकsrc->type = MPT_TYPE_INTSRC;
+        पूर्णांकsrc->irqtype = 0; /* INT */
+        पूर्णांकsrc->irqflag = 1; /* active high */
+        पूर्णांकsrc->srcbus = pci_bdf_to_bus(bdf); /* PCI bus */
+        पूर्णांकsrc->srcbusirq = (pci_bdf_to_dev(bdf) << 2) | (pin - 1);
+        पूर्णांकsrc->dstapic = ioapic_id;
+        पूर्णांकsrc->dstirq = irq;
+        पूर्णांकsrc++;
+    पूर्ण
+
+    पूर्णांक irq0_override = romfile_loadपूर्णांक("etc/irq0-override", 0);
+    क्रम (i = 0; i < 16; i++) अणु
+        स_रखो(पूर्णांकsrc, 0, माप(*पूर्णांकsrc));
+        अगर (BUILD_PCI_IRQS & (1 << i))
+            जारी;
+        पूर्णांकsrc->type = MPT_TYPE_INTSRC;
+        पूर्णांकsrc->irqtype = 0; /* INT */
+        पूर्णांकsrc->irqflag = 0; /* conक्रमm to bus spec */
+        पूर्णांकsrc->srcbus = isabusid; /* ISA bus */
+        पूर्णांकsrc->srcbusirq = i;
+        पूर्णांकsrc->dstapic = ioapic_id;
+        पूर्णांकsrc->dstirq = i;
+        अगर (irq0_override) अणु
+            /* Destination 2 is covered by irq0->पूर्णांकi2 override (i ==
+               0). Source IRQ 2 is unused */
+            अगर (i == 0)
+                पूर्णांकsrc->dstirq = 2;
+            अन्यथा अगर (i == 2)
+                पूर्णांकsrc--;
+        पूर्ण
+        पूर्णांकsrc++;
+    पूर्ण
+
+    /* Local पूर्णांकerrupt assignment */
+    पूर्णांकsrc->type = MPT_TYPE_LOCAL_INT;
+    पूर्णांकsrc->irqtype = 3; /* ExtINT */
+    पूर्णांकsrc->irqflag = 0; /* PO, EL शेष */
+    पूर्णांकsrc->srcbus = isabusid; /* ISA */
+    पूर्णांकsrc->srcbusirq = 0;
+    पूर्णांकsrc->dstapic = 0; /* BSP == APIC #0 */
+    पूर्णांकsrc->dstirq = 0; /* LINTIN0 */
+    पूर्णांकsrc++;
+
+    पूर्णांकsrc->type = MPT_TYPE_LOCAL_INT;
+    पूर्णांकsrc->irqtype = 1; /* NMI */
+    पूर्णांकsrc->irqflag = 0; /* PO, EL शेष */
+    पूर्णांकsrc->srcbus = isabusid; /* ISA */
+    पूर्णांकsrc->srcbusirq = 0;
+    पूर्णांकsrc->dstapic = 0xff; /* to all local APICs */
+    पूर्णांकsrc->dstirq = 1; /* LINTIN1 */
+    पूर्णांकsrc++;
+    entrycount += पूर्णांकsrc - पूर्णांकsrcs;
+
+    // Finalize config काष्ठाure.
+    पूर्णांक length = (व्योम*)पूर्णांकsrc - (व्योम*)config;
+    config->entrycount = entrycount;
+    config->length = length;
+    config->checksum -= checksum(config, length);
+
+    // भग्नing poपूर्णांकer काष्ठाure
+    काष्ठा mptable_भग्नing_s भग्नing;
+    स_रखो(&भग्नing, 0, माप(भग्नing));
+    भग्नing.signature = MPTABLE_SIGNATURE;
+    भग्नing.physaddr = (u32)config;
+    भग्नing.length = 1;
+    भग्नing.spec_rev = 4;
+    भग्नing.checksum -= checksum(&भग्नing, माप(भग्नing));
+    copy_mptable(&भग्नing);
+    मुक्त(config);
+पूर्ण

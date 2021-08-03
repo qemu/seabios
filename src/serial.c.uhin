@@ -1,0 +1,318 @@
+<शैली गुरु>
+// 16bit code to handle serial and prपूर्णांकer services.
+//
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2002  MandrakeSoft S.A.
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // SET_BDA
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "hw/serialio.h" // SEROFF_IER
+#समावेश "output.h" // debug_enter
+#समावेश "romfile.h" // romfile_loadपूर्णांक
+#समावेश "stacks.h" // yield
+#समावेश "util.h" // serial_setup
+
+
+/****************************************************************
+ * COM ports
+ ****************************************************************/
+
+अटल u16
+detect_serial(u16 port, u8 समयout, u8 count)
+अणु
+    अगर (CONFIG_DEBUG_SERIAL && port == CONFIG_DEBUG_SERIAL_PORT
+        && !romfile_loadपूर्णांक("etc/advertise-serial-debug-port", 1))
+        वापस 0;
+    outb(0x02, port+SEROFF_IER);
+    u8 ier = inb(port+SEROFF_IER);
+    अगर (ier != 0x02)
+        वापस 0;
+    u8 iir = inb(port+SEROFF_IIR);
+    अगर ((iir & 0x3f) != 0x02)
+        वापस 0;
+
+    outb(0x00, port+SEROFF_IER);
+    SET_BDA(port_com[count], port);
+    SET_BDA(com_समयout[count], समयout);
+    वापस 1;
+पूर्ण
+
+व्योम
+serial_setup(व्योम)
+अणु
+    अगर (! CONFIG_SERIAL)
+        वापस;
+    dम_लिखो(3, "init serial\n");
+
+    u16 count = 0;
+    count += detect_serial(PORT_SERIAL1, 0x0a, count);
+    count += detect_serial(PORT_SERIAL2, 0x0a, count);
+    count += detect_serial(PORT_SERIAL3, 0x0a, count);
+    count += detect_serial(PORT_SERIAL4, 0x0a, count);
+    dम_लिखो(1, "Found %d serial ports\n", count);
+
+    // Equipment word bits 9..11 determing # serial ports
+    set_equipment_flags(0xe00, count << 9);
+पूर्ण
+
+अटल u16
+getComAddr(काष्ठा bregs *regs)
+अणु
+    अगर (regs->dx >= 4) अणु
+        set_invalid(regs);
+        वापस 0;
+    पूर्ण
+    u16 addr = GET_BDA(port_com[regs->dx]);
+    अगर (! addr)
+        set_invalid(regs);
+    वापस addr;
+पूर्ण
+
+// SERIAL - INITIALIZE PORT
+अटल व्योम
+handle_1400(काष्ठा bregs *regs)
+अणु
+    u16 addr = getComAddr(regs);
+    अगर (!addr)
+        वापस;
+    outb(inb(addr+SEROFF_LCR) | 0x80, addr+SEROFF_LCR);
+    अगर ((regs->al & 0xE0) == 0) अणु
+        outb(0x17, addr+SEROFF_DLL);
+        outb(0x04, addr+SEROFF_DLH);
+    पूर्ण अन्यथा अणु
+        u16 val16 = 0x600 >> ((regs->al & 0xE0) >> 5);
+        outb(val16 & 0xFF, addr+SEROFF_DLL);
+        outb(val16 >> 8, addr+SEROFF_DLH);
+    पूर्ण
+    outb(regs->al & 0x1F, addr+SEROFF_LCR);
+    regs->ah = inb(addr+SEROFF_LSR);
+    regs->al = inb(addr+SEROFF_MSR);
+    set_success(regs);
+पूर्ण
+
+// SERIAL - WRITE CHARACTER TO PORT
+अटल व्योम
+handle_1401(काष्ठा bregs *regs)
+अणु
+    u16 addr = getComAddr(regs);
+    अगर (!addr)
+        वापस;
+    u32 end = irqसमयr_calc_ticks(GET_BDA(com_समयout[regs->dx]));
+    क्रम (;;) अणु
+        u8 lsr = inb(addr+SEROFF_LSR);
+        अगर ((lsr & 0x60) == 0x60) अणु
+            // Success - can ग_लिखो data
+            outb(regs->al, addr+SEROFF_DATA);
+            // XXX - reपढ़ो lsr?
+            regs->ah = lsr;
+            अवरोध;
+        पूर्ण
+        अगर (irqसमयr_check(end)) अणु
+            // Timed out - can't ग_लिखो data.
+            regs->ah = lsr | 0x80;
+            अवरोध;
+        पूर्ण
+        yield();
+    पूर्ण
+    set_success(regs);
+पूर्ण
+
+// SERIAL - READ CHARACTER FROM PORT
+अटल व्योम
+handle_1402(काष्ठा bregs *regs)
+अणु
+    u16 addr = getComAddr(regs);
+    अगर (!addr)
+        वापस;
+    u32 end = irqसमयr_calc_ticks(GET_BDA(com_समयout[regs->dx]));
+    क्रम (;;) अणु
+        u8 lsr = inb(addr+SEROFF_LSR);
+        अगर (lsr & 0x01) अणु
+            // Success - can पढ़ो data
+            regs->al = inb(addr+SEROFF_DATA);
+            regs->ah = lsr;
+            अवरोध;
+        पूर्ण
+        अगर (irqसमयr_check(end)) अणु
+            // Timed out - can't पढ़ो data.
+            regs->ah = lsr | 0x80;
+            अवरोध;
+        पूर्ण
+        yield();
+    पूर्ण
+    set_success(regs);
+पूर्ण
+
+// SERIAL - GET PORT STATUS
+अटल व्योम
+handle_1403(काष्ठा bregs *regs)
+अणु
+    u16 addr = getComAddr(regs);
+    अगर (!addr)
+        वापस;
+    regs->ah = inb(addr+SEROFF_LSR);
+    regs->al = inb(addr+SEROFF_MSR);
+    set_success(regs);
+पूर्ण
+
+अटल व्योम
+handle_14XX(काष्ठा bregs *regs)
+अणु
+    set_unimplemented(regs);
+पूर्ण
+
+// INT 14h Serial Communications Service Entry Poपूर्णांक
+व्योम VISIBLE16
+handle_14(काष्ठा bregs *regs)
+अणु
+    debug_enter(regs, DEBUG_HDL_14);
+    अगर (! CONFIG_SERIAL) अणु
+        handle_14XX(regs);
+        वापस;
+    पूर्ण
+
+    चयन (regs->ah) अणु
+    हाल 0x00: handle_1400(regs); अवरोध;
+    हाल 0x01: handle_1401(regs); अवरोध;
+    हाल 0x02: handle_1402(regs); अवरोध;
+    हाल 0x03: handle_1403(regs); अवरोध;
+    शेष:   handle_14XX(regs); अवरोध;
+    पूर्ण
+पूर्ण
+
+
+/****************************************************************
+ * LPT ports
+ ****************************************************************/
+
+अटल u16
+detect_parport(u16 port, u8 समयout, u8 count)
+अणु
+    // clear input mode
+    outb(inb(port+2) & 0xdf, port+2);
+
+    outb(0xaa, port);
+    अगर (inb(port) != 0xaa)
+        // Not present
+        वापस 0;
+    SET_BDA(port_lpt[count], port);
+    SET_BDA(lpt_समयout[count], समयout);
+    वापस 1;
+पूर्ण
+
+व्योम
+lpt_setup(व्योम)
+अणु
+    अगर (! CONFIG_LPT)
+        वापस;
+    dम_लिखो(3, "init lpt\n");
+
+    u16 count = 0;
+    count += detect_parport(PORT_LPT1, 0x14, count);
+    count += detect_parport(PORT_LPT2, 0x14, count);
+    dम_लिखो(1, "Found %d lpt ports\n", count);
+
+    // Equipment word bits 14..15 determing # parallel ports
+    set_equipment_flags(0xc000, count << 14);
+पूर्ण
+
+अटल u16
+getLptAddr(काष्ठा bregs *regs)
+अणु
+    अगर (regs->dx >= 3) अणु
+        set_invalid(regs);
+        वापस 0;
+    पूर्ण
+    u16 addr = GET_BDA(port_lpt[regs->dx]);
+    अगर (! addr)
+        set_invalid(regs);
+    वापस addr;
+पूर्ण
+
+// INT 17 - PRINTER - WRITE CHARACTER
+अटल व्योम
+handle_1700(काष्ठा bregs *regs)
+अणु
+    u16 addr = getLptAddr(regs);
+    अगर (!addr)
+        वापस;
+
+    u32 end = irqसमयr_calc_ticks(GET_BDA(lpt_समयout[regs->dx]));
+
+    outb(regs->al, addr);
+    u8 val8 = inb(addr+2);
+    outb(val8 | 0x01, addr+2); // send strobe
+    udelay(5);
+    outb(val8 & ~0x01, addr+2);
+
+    क्रम (;;) अणु
+        u8 v = inb(addr+1);
+        अगर (!(v & 0x40)) अणु
+            // Success
+            regs->ah = v ^ 0x48;
+            अवरोध;
+        पूर्ण
+        अगर (irqसमयr_check(end)) अणु
+            // Timeout
+            regs->ah = (v ^ 0x48) | 0x01;
+            अवरोध;
+        पूर्ण
+        yield();
+    पूर्ण
+
+    set_success(regs);
+पूर्ण
+
+// INT 17 - PRINTER - INITIALIZE PORT
+अटल व्योम
+handle_1701(काष्ठा bregs *regs)
+अणु
+    u16 addr = getLptAddr(regs);
+    अगर (!addr)
+        वापस;
+
+    u8 val8 = inb(addr+2);
+    outb(val8 & ~0x04, addr+2); // send init
+    udelay(5);
+    outb(val8 | 0x04, addr+2);
+
+    regs->ah = inb(addr+1) ^ 0x48;
+    set_success(regs);
+पूर्ण
+
+// INT 17 - PRINTER - GET STATUS
+अटल व्योम
+handle_1702(काष्ठा bregs *regs)
+अणु
+    u16 addr = getLptAddr(regs);
+    अगर (!addr)
+        वापस;
+    regs->ah = inb(addr+1) ^ 0x48;
+    set_success(regs);
+पूर्ण
+
+अटल व्योम
+handle_17XX(काष्ठा bregs *regs)
+अणु
+    set_unimplemented(regs);
+पूर्ण
+
+// INT17h : Prपूर्णांकer Service Entry Poपूर्णांक
+व्योम VISIBLE16
+handle_17(काष्ठा bregs *regs)
+अणु
+    debug_enter(regs, DEBUG_HDL_17);
+    अगर (! CONFIG_LPT) अणु
+        handle_17XX(regs);
+        वापस;
+    पूर्ण
+
+    चयन (regs->ah) अणु
+    हाल 0x00: handle_1700(regs); अवरोध;
+    हाल 0x01: handle_1701(regs); अवरोध;
+    हाल 0x02: handle_1702(regs); अवरोध;
+    शेष:   handle_17XX(regs); अवरोध;
+    पूर्ण
+पूर्ण

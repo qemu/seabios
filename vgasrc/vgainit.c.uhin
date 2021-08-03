@@ -1,0 +1,203 @@
+<शैली गुरु>
+// Main VGA bios initialization
+//
+// Copyright (C) 2009-2013  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2001-2008 the LGPL VGABios developers Team
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // SET_BDA
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "hw/pci.h" // pci_config_पढ़ोw
+#समावेश "hw/pci_regs.h" // PCI_VENDOR_ID
+#समावेश "hw/serialio.h" // serial_debug_preinit
+#समावेश "output.h" // dम_लिखो
+#समावेश "std/optionrom.h" // काष्ठा pci_data
+#समावेश "std/pmm.h" // काष्ठा pmmheader
+#समावेश "string.h" // checksum_far
+#समावेश "vgabios.h" // SET_VGA
+#समावेश "vgahw.h" // vgahw_setup
+#समावेश "vgautil.h" // swcursor_check_event
+
+// Type of emulator platक्रमm - क्रम dम_लिखो with certain compile options.
+पूर्णांक Platक्रमmRunningOn VAR16;
+
+
+/****************************************************************
+ * PCI Data
+ ****************************************************************/
+
+काष्ठा pci_data rom_pci_data VAR16 VISIBLE16 = अणु
+    .signature = PCI_ROM_SIGNATURE,
+    .venकरोr = CONFIG_VGA_VID,
+    .device = CONFIG_VGA_DID,
+    .dlen = 0x18,
+    .class_hi = 0x300,
+    .irevision = 1,
+    .type = PCIROM_CODETYPE_X86,
+    .indicator = 0x80,
+पूर्ण;
+
+
+/****************************************************************
+ * PMM call and extra stack setup
+ ****************************************************************/
+
+u32
+allocate_pmm(u32 size, पूर्णांक highmem, पूर्णांक aligned)
+अणु
+    u32 pmmscan;
+    क्रम (pmmscan=0; pmmscan < BUILD_BIOS_SIZE; pmmscan+=16) अणु
+        काष्ठा pmmheader *pmm = (व्योम*)pmmscan;
+        अगर (GET_FARVAR(SEG_BIOS, pmm->signature) != PMM_SIGNATURE)
+            जारी;
+        अगर (checksum_far(SEG_BIOS, pmm, GET_FARVAR(SEG_BIOS, pmm->length)))
+            जारी;
+        काष्ठा segoff_s entry = GET_FARVAR(SEG_BIOS, pmm->entry);
+        dम_लिखो(1, "Attempting to allocate %u bytes %s via pmm call to %04x:%04x\n"
+                , size, highmem ? "highmem" : "lowmem"
+                , entry.seg, entry.offset);
+        u16 res1, res2;
+        u16 flags = 8 |
+            ( highmem ? 2 : 1 )|
+            ( aligned ? 4 : 0 );
+        size >>= 4;
+        यंत्र अस्थिर(
+            "pushl %0\n"
+            "pushw %2\n"                // flags
+            "pushl $0xffffffff\n"       // Anonymous handle
+            "pushl %1\n"                // size
+            "pushw $0x00\n"             // PMM allocation request
+            "lcallw *12(%%esp)\n"
+            "addl $16, %%esp\n"
+            "cli\n"
+            "cld\n"
+            : "+r" (entry.segoff), "+r" (size), "+r" (flags),
+              "=a" (res1), "=d" (res2) : : "cc", "memory");
+        u32 res = res1 | (res2 << 16);
+        अगर (!res || res == PMM_FUNCTION_NOT_SUPPORTED)
+            वापस 0;
+        वापस res;
+    पूर्ण
+    वापस 0;
+पूर्ण
+
+u16 ExtraStackSeg VAR16 VISIBLE16;
+
+अटल व्योम
+allocate_extra_stack(व्योम)
+अणु
+    अगर (!CONFIG_VGA_ALLOCATE_EXTRA_STACK)
+        वापस;
+    u32 res = allocate_pmm(CONFIG_VGA_EXTRA_STACK_SIZE, 0, 0);
+    अगर (!res)
+        वापस;
+    dम_लिखो(1, "VGA stack allocated at %x\n", res);
+    SET_VGA(ExtraStackSeg, res >> 4);
+    बाह्य व्योम entry_10_extrastack(व्योम);
+    SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10_extrastack));
+    वापस;
+पूर्ण
+
+
+/****************************************************************
+ * Timer hook
+ ****************************************************************/
+
+काष्ठा segoff_s Timer_Hook_Resume VAR16 VISIBLE16;
+
+व्योम VISIBLE16
+handle_समयr_hook(व्योम)
+अणु
+    swcursor_check_event();
+पूर्ण
+
+अटल व्योम
+hook_समयr_irq(व्योम)
+अणु
+    अगर (!CONFIG_VGA_EMULATE_TEXT)
+        वापस;
+    बाह्य व्योम entry_समयr_hook(व्योम);
+    बाह्य व्योम entry_समयr_hook_extrastack(व्योम);
+    काष्ठा segoff_s oldirq = GET_IVT(0x08);
+    काष्ठा segoff_s newirq = SEGOFF(get_global_seg(), (u32)entry_समयr_hook);
+    अगर (CONFIG_VGA_ALLOCATE_EXTRA_STACK && GET_GLOBAL(ExtraStackSeg))
+        newirq = SEGOFF(get_global_seg(), (u32)entry_समयr_hook_extrastack);
+    dम_लिखो(1, "Hooking hardware timer irq (old=%x new=%x)\n"
+            , oldirq.segoff, newirq.segoff);
+    SET_VGA(Timer_Hook_Resume, oldirq);
+    SET_IVT(0x08, newirq);
+पूर्ण
+
+
+/****************************************************************
+ * VGA post
+ ****************************************************************/
+
+अटल व्योम
+init_bios_area(व्योम)
+अणु
+    // init detected hardware BIOS Area
+    // set 80x25 color (not clear from RBIL but usual)
+    set_equipment_flags(0x30, 0x20);
+
+    // Set the basic modeset options
+    SET_BDA(modeset_ctl, 0x51);
+
+    SET_BDA(dcc_index, CONFIG_VGA_STDVGA_PORTS ? 0x08 : 0xff);
+
+    // FIXME
+    SET_BDA(video_msr, 0x00); // Unavailable on vanilla vga, but...
+    SET_BDA(video_pal, 0x00); // Unavailable on vanilla vga, but...
+पूर्ण
+
+पूर्णांक VgaBDF VAR16 = -1;
+पूर्णांक HaveRunInit VAR16;
+
+व्योम VISIBLE16
+vga_post(काष्ठा bregs *regs)
+अणु
+    serial_debug_preinit();
+    dम_लिखो(1, "Start AyeVGABIOS (version %s)\n", VERSION);
+    dम_लिखो(1, "VGABUILD: %s\n", BUILDINFO);
+    debug_enter(regs, DEBUG_VGA_POST);
+
+    अगर (CONFIG_VGA_PCI && !GET_GLOBAL(HaveRunInit)) अणु
+        u16 bdf = regs->ax;
+        अगर ((pci_config_पढ़ोw(bdf, PCI_VENDOR_ID)
+             == GET_GLOBAL(rom_pci_data.venकरोr))
+            && (pci_config_पढ़ोw(bdf, PCI_DEVICE_ID)
+                == GET_GLOBAL(rom_pci_data.device)))
+            SET_VGA(VgaBDF, bdf);
+    पूर्ण
+
+    पूर्णांक ret = vgahw_setup();
+    अगर (ret) अणु
+        dम_लिखो(1, "Failed to initialize VGA hardware.  Exiting.\n");
+        वापस;
+    पूर्ण
+
+    अगर (GET_GLOBAL(HaveRunInit))
+        वापस;
+
+    init_bios_area();
+
+    अगर (CONFIG_VGA_STDVGA_PORTS)
+        stdvga_build_video_param();
+
+    बाह्य व्योम entry_10(व्योम);
+    SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10));
+
+    allocate_extra_stack();
+
+    hook_समयr_irq();
+
+    SET_VGA(HaveRunInit, 1);
+
+    // Fixup checksum
+    बाह्य u8 _rom_header_size, _rom_header_checksum;
+    SET_VGA(_rom_header_checksum, 0);
+    u8 sum = -checksum_far(get_global_seg(), 0,
+                           GET_GLOBAL(_rom_header_size) * 512);
+    SET_VGA(_rom_header_checksum, sum);
+पूर्ण

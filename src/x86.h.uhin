@@ -1,0 +1,285 @@
+<शैली गुरु>
+// Basic x86 यंत्र functions.
+#अगर_अघोषित __X86_H
+#घोषणा __X86_H
+
+// CPU flag bitdefs
+#घोषणा F_CF (1<<0)
+#घोषणा F_ZF (1<<6)
+#घोषणा F_IF (1<<9)
+#घोषणा F_ID (1<<21)
+
+// CR0 flags
+#घोषणा CR0_PG (1<<31) // Paging
+#घोषणा CR0_CD (1<<30) // Cache disable
+#घोषणा CR0_NW (1<<29) // Not Write-through
+#घोषणा CR0_PE (1<<0)  // Protection enable
+
+// PORT_A20 bitdefs
+#घोषणा PORT_A20 0x0092
+#घोषणा A20_ENABLE_BIT 0x02
+
+#अगर_अघोषित __ASSEMBLY__
+
+#समावेश "types.h" // u32
+
+अटल अंतरभूत व्योम irq_disable(व्योम)
+अणु
+    यंत्र अस्थिर("cli": : :"memory");
+पूर्ण
+
+अटल अंतरभूत व्योम irq_enable(व्योम)
+अणु
+    यंत्र अस्थिर("sti": : :"memory");
+पूर्ण
+
+अटल अंतरभूत u32 save_flags(व्योम)
+अणु
+    u32 flags;
+    यंत्र अस्थिर("pushfl ; popl %0" : "=rm" (flags));
+    वापस flags;
+पूर्ण
+
+अटल अंतरभूत व्योम restore_flags(u32 flags)
+अणु
+    यंत्र अस्थिर("pushl %0 ; popfl" : : "g" (flags) : "memory", "cc");
+पूर्ण
+
+अटल अंतरभूत व्योम cpu_relax(व्योम)
+अणु
+    यंत्र अस्थिर("rep ; nop": : :"memory");
+पूर्ण
+
+अटल अंतरभूत व्योम nop(व्योम)
+अणु
+    यंत्र अस्थिर("nop");
+पूर्ण
+
+अटल अंतरभूत व्योम hlt(व्योम)
+अणु
+    यंत्र अस्थिर("hlt": : :"memory");
+पूर्ण
+
+अटल अंतरभूत व्योम wbinvd(व्योम)
+अणु
+    यंत्र अस्थिर("wbinvd": : :"memory");
+पूर्ण
+
+#घोषणा CPUID_TSC (1 << 4)
+#घोषणा CPUID_MSR (1 << 5)
+#घोषणा CPUID_APIC (1 << 9)
+#घोषणा CPUID_MTRR (1 << 12)
+#घोषणा CPUID_X2APIC (1 << 21)
+अटल अंतरभूत व्योम __cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx)
+अणु
+    यंत्र("cpuid"
+        : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
+        : "0" (index));
+पूर्ण
+
+अटल अंतरभूत u32 cr0_पढ़ो(व्योम) अणु
+    u32 cr0;
+    यंत्र("movl %%cr0, %0" : "=r"(cr0));
+    वापस cr0;
+पूर्ण
+अटल अंतरभूत व्योम cr0_ग_लिखो(u32 cr0) अणु
+    यंत्र("movl %0, %%cr0" : : "r"(cr0));
+पूर्ण
+अटल अंतरभूत व्योम cr0_mask(u32 off, u32 on) अणु
+    cr0_ग_लिखो((cr0_पढ़ो() & ~off) | on);
+पूर्ण
+अटल अंतरभूत u16 cr0_vm86_पढ़ो(व्योम) अणु
+    u16 cr0;
+    यंत्र("smsww %0" : "=r"(cr0));
+    वापस cr0;
+पूर्ण
+
+अटल अंतरभूत u64 rdmsr(u32 index)
+अणु
+    u64 ret;
+    यंत्र ("rdmsr" : "=A"(ret) : "c"(index));
+    वापस ret;
+पूर्ण
+
+अटल अंतरभूत व्योम wrmsr(u32 index, u64 val)
+अणु
+    यंत्र अस्थिर ("wrmsr" : : "c"(index), "A"(val));
+पूर्ण
+
+अटल अंतरभूत u64 rdtscll(व्योम)
+अणु
+    u64 val;
+    यंत्र अस्थिर("rdtsc" : "=A" (val));
+    वापस val;
+पूर्ण
+
+अटल अंतरभूत u32 __ffs(u32 word)
+अणु
+    यंत्र("bsf %1,%0"
+        : "=r" (word)
+        : "rm" (word));
+    वापस word;
+पूर्ण
+अटल अंतरभूत u32 __fls(u32 word)
+अणु
+    यंत्र("bsr %1,%0"
+        : "=r" (word)
+        : "rm" (word));
+    वापस word;
+पूर्ण
+
+अटल अंतरभूत u32 getesp(व्योम) अणु
+    u32 esp;
+    यंत्र("movl %%esp, %0" : "=rm"(esp));
+    वापस esp;
+पूर्ण
+
+अटल अंतरभूत u32 rol(u32 val, u16 rol) अणु
+    u32 res;
+    यंत्र अस्थिर("roll %%cl, %%eax"
+                 : "=a" (res) : "a" (val), "c" (rol));
+    वापस res;
+पूर्ण
+
+अटल अंतरभूत u32 ror(u32 val, u16 ror) अणु
+    u32 res;
+    यंत्र अस्थिर("rorl %%cl, %%eax"
+                 : "=a" (res) : "a" (val), "c" (ror));
+    वापस res;
+पूर्ण
+
+अटल अंतरभूत व्योम outb(u8 value, u16 port) अणु
+    __यंत्र__ __अस्थिर__("outb %b0, %w1" : : "a"(value), "Nd"(port));
+पूर्ण
+अटल अंतरभूत व्योम outw(u16 value, u16 port) अणु
+    __यंत्र__ __अस्थिर__("outw %w0, %w1" : : "a"(value), "Nd"(port));
+पूर्ण
+अटल अंतरभूत व्योम outl(u32 value, u16 port) अणु
+    __यंत्र__ __अस्थिर__("outl %0, %w1" : : "a"(value), "Nd"(port));
+पूर्ण
+अटल अंतरभूत u8 inb(u16 port) अणु
+    u8 value;
+    __यंत्र__ __अस्थिर__("inb %w1, %b0" : "=a"(value) : "Nd"(port));
+    वापस value;
+पूर्ण
+अटल अंतरभूत u16 inw(u16 port) अणु
+    u16 value;
+    __यंत्र__ __अस्थिर__("inw %w1, %w0" : "=a"(value) : "Nd"(port));
+    वापस value;
+पूर्ण
+अटल अंतरभूत u32 inl(u16 port) अणु
+    u32 value;
+    __यंत्र__ __अस्थिर__("inl %w1, %0" : "=a"(value) : "Nd"(port));
+    वापस value;
+पूर्ण
+
+अटल अंतरभूत व्योम insb(u16 port, u8 *data, u32 count) अणु
+    यंत्र अस्थिर("rep insb (%%dx), %%es:(%%edi)"
+                 : "+c"(count), "+D"(data) : "d"(port) : "memory");
+पूर्ण
+अटल अंतरभूत व्योम insw(u16 port, u16 *data, u32 count) अणु
+    यंत्र अस्थिर("rep insw (%%dx), %%es:(%%edi)"
+                 : "+c"(count), "+D"(data) : "d"(port) : "memory");
+पूर्ण
+अटल अंतरभूत व्योम insl(u16 port, u32 *data, u32 count) अणु
+    यंत्र अस्थिर("rep insl (%%dx), %%es:(%%edi)"
+                 : "+c"(count), "+D"(data) : "d"(port) : "memory");
+पूर्ण
+// XXX - outs not limited to es segment
+अटल अंतरभूत व्योम outsb(u16 port, u8 *data, u32 count) अणु
+    यंत्र अस्थिर("rep outsb %%es:(%%esi), (%%dx)"
+                 : "+c"(count), "+S"(data) : "d"(port) : "memory");
+पूर्ण
+अटल अंतरभूत व्योम outsw(u16 port, u16 *data, u32 count) अणु
+    यंत्र अस्थिर("rep outsw %%es:(%%esi), (%%dx)"
+                 : "+c"(count), "+S"(data) : "d"(port) : "memory");
+पूर्ण
+अटल अंतरभूत व्योम outsl(u16 port, u32 *data, u32 count) अणु
+    यंत्र अस्थिर("rep outsl %%es:(%%esi), (%%dx)"
+                 : "+c"(count), "+S"(data) : "d"(port) : "memory");
+पूर्ण
+
+/* Compiler barrier is enough as an x86 CPU करोes not reorder पढ़ोs or ग_लिखोs */
+अटल अंतरभूत व्योम smp_rmb(व्योम) अणु
+    barrier();
+पूर्ण
+अटल अंतरभूत व्योम smp_wmb(व्योम) अणु
+    barrier();
+पूर्ण
+
+अटल अंतरभूत व्योम ग_लिखोl(व्योम *addr, u32 val) अणु
+    barrier();
+    *(अस्थिर u32 *)addr = val;
+पूर्ण
+अटल अंतरभूत व्योम ग_लिखोw(व्योम *addr, u16 val) अणु
+    barrier();
+    *(अस्थिर u16 *)addr = val;
+पूर्ण
+अटल अंतरभूत व्योम ग_लिखोb(व्योम *addr, u8 val) अणु
+    barrier();
+    *(अस्थिर u8 *)addr = val;
+पूर्ण
+अटल अंतरभूत u64 पढ़ोq(स्थिर व्योम *addr) अणु
+    u64 val = *(अस्थिर स्थिर u64 *)addr;
+    barrier();
+    वापस val;
+पूर्ण
+अटल अंतरभूत u32 पढ़ोl(स्थिर व्योम *addr) अणु
+    u32 val = *(अस्थिर स्थिर u32 *)addr;
+    barrier();
+    वापस val;
+पूर्ण
+अटल अंतरभूत u16 पढ़ोw(स्थिर व्योम *addr) अणु
+    u16 val = *(अस्थिर स्थिर u16 *)addr;
+    barrier();
+    वापस val;
+पूर्ण
+अटल अंतरभूत u8 पढ़ोb(स्थिर व्योम *addr) अणु
+    u8 val = *(अस्थिर स्थिर u8 *)addr;
+    barrier();
+    वापस val;
+पूर्ण
+
+// GDT bits
+#घोषणा GDT_CODE     (0x9bULL << 40) // Code segment - P,R,A bits also set
+#घोषणा GDT_DATA     (0x93ULL << 40) // Data segment - W,A bits also set
+#घोषणा GDT_B        (0x1ULL << 54)  // Big flag
+#घोषणा GDT_G        (0x1ULL << 55)  // Granularity flag
+// GDT bits क्रम segment base
+#घोषणा GDT_BASE(v)  ((((u64)(v) & 0xff000000) << 32)           \
+                      | (((u64)(v) & 0x00ffffff) << 16))
+// GDT bits क्रम segment limit (0-1Meg)
+#घोषणा GDT_LIMIT(v) ((((u64)(v) & 0x000f0000) << 32)   \
+                      | (((u64)(v) & 0x0000ffff) << 0))
+// GDT bits क्रम segment limit (0-4Gig in 4K chunks)
+#घोषणा GDT_GRANLIMIT(v) (GDT_G | GDT_LIMIT((v) >> 12))
+
+काष्ठा descloc_s अणु
+    u16 length;
+    u32 addr;
+पूर्ण PACKED;
+
+अटल अंतरभूत व्योम sgdt(काष्ठा descloc_s *desc) अणु
+    यंत्र("sgdtl %0" : "=m"(*desc));
+पूर्ण
+अटल अंतरभूत व्योम lgdt(काष्ठा descloc_s *desc) अणु
+    यंत्र("lgdtl %0" : : "m"(*desc) : "memory");
+पूर्ण
+
+अटल अंतरभूत u8 get_a20(व्योम) अणु
+    वापस (inb(PORT_A20) & A20_ENABLE_BIT) != 0;
+पूर्ण
+
+अटल अंतरभूत u8 set_a20(u8 cond) अणु
+    u8 val = inb(PORT_A20), a20_enabled = (val & A20_ENABLE_BIT) != 0;
+    अगर (a20_enabled != !!cond)
+        outb(val ^ A20_ENABLE_BIT, PORT_A20);
+    वापस a20_enabled;
+पूर्ण
+
+// x86.c
+व्योम cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx);
+
+#पूर्ण_अगर // !__ASSEMBLY__
+
+#पूर्ण_अगर // x86.h

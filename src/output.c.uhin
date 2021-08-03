@@ -1,0 +1,593 @@
+<शैली गुरु>
+// Raw screen writing and debug output code.
+//
+// Copyright (C) 2008-2013  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश <मानकतर्क.स> // बहु_सूची
+
+#समावेश "farptr.h" // GET_VAR
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "config.h" // CONFIG_*
+#समावेश "biosvar.h" // GET_GLOBAL
+#समावेश "hw/pci.h" // pci_bdf_to_bus
+#समावेश "hw/pcidevice.h" // pci_device
+#समावेश "hw/serialio.h" // serial_debug_अ_दो
+#समावेश "malloc.h" // दो_स्मृति_पंचांगp
+#समावेश "output.h" // dम_लिखो
+#समावेश "stacks.h" // call16_पूर्णांक
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // ScreenAndDebug
+
+काष्ठा अ_दोinfo अणु
+    व्योम (*func)(काष्ठा अ_दोinfo *info, अक्षर c);
+पूर्ण;
+
+
+/****************************************************************
+ * Debug output
+ ****************************************************************/
+
+व्योम
+debug_banner(व्योम)
+अणु
+    dम_लिखो(1, "AyeBIOS (version %s)\n", VERSION);
+    dम_लिखो(1, "BUILD: %s\n", BUILDINFO);
+पूर्ण
+
+// Write a अक्षरacter to debug port(s).
+अटल व्योम
+debug_अ_दो(काष्ठा अ_दोinfo *action, अक्षर c)
+अणु
+    अगर (! CONFIG_DEBUG_LEVEL)
+        वापस;
+    qemu_debug_अ_दो(c);
+    अगर (!MODESEGMENT)
+        coreboot_debug_अ_दो(c);
+    serial_debug_अ_दो(c);
+पूर्ण
+
+// Flush any pending output to debug port(s).
+अटल व्योम
+debug_flush(व्योम)
+अणु
+    serial_debug_flush();
+पूर्ण
+
+// In segmented mode just need a dummy variable (debug_अ_दो is always
+// used anyway), and in 32bit flat mode need a poपूर्णांकer to the 32bit
+// instance of debug_अ_दो().
+#अगर MODE16
+अटल काष्ठा अ_दोinfo debuginfo VAR16;
+#या_अगर MODESEGMENT
+अटल काष्ठा अ_दोinfo debuginfo VAR32SEG;
+#अन्यथा
+अटल काष्ठा अ_दोinfo debuginfo = अणु debug_अ_दो पूर्ण;
+#पूर्ण_अगर
+
+
+/****************************************************************
+ * Screen writing
+ ****************************************************************/
+
+// Show a अक्षरacter on the screen.
+अटल व्योम
+screenc(अक्षर c)
+अणु
+    अगर (!MODESEGMENT && GET_IVT(0x10).segoff == FUNC16(entry_10).segoff)
+        // No need to thunk to 16bit mode अगर vgabios is not present
+        वापस;
+    काष्ठा bregs br;
+    स_रखो(&br, 0, माप(br));
+    br.flags = F_IF;
+    br.ah = 0x0e;
+    br.al = c;
+    br.bl = 0x07;
+    call16_पूर्णांक(0x10, &br);
+पूर्ण
+
+// Handle a अक्षरacter from a म_लिखो request.
+अटल व्योम
+screen_अ_दो(काष्ठा अ_दोinfo *action, अक्षर c)
+अणु
+    अगर (ScreenAndDebug)
+        debug_अ_दो(&debuginfo, c);
+    अगर (c == '\n')
+        screenc('\r');
+    screenc(c);
+पूर्ण
+
+अटल काष्ठा अ_दोinfo screeninfo = अणु screen_अ_दो पूर्ण;
+
+
+/****************************************************************
+ * Xम_लिखो code
+ ****************************************************************/
+
+// Output a अक्षरacter.
+अटल व्योम
+अ_दो(काष्ठा अ_दोinfo *action, अक्षर c)
+अणु
+    अगर (MODESEGMENT) अणु
+        // Only debugging output supported in segmented mode.
+        debug_अ_दो(action, c);
+        वापस;
+    पूर्ण
+
+    व्योम (*func)(काष्ठा अ_दोinfo *info, अक्षर c) = GET_GLOBAL(action->func);
+    func(action, c);
+पूर्ण
+
+// Ouptut a string.
+अटल व्योम
+माला_दो(काष्ठा अ_दोinfo *action, स्थिर अक्षर *s)
+अणु
+    अगर (!MODESEGMENT && !s)
+        s = "(NULL)";
+    क्रम (; *s; s++)
+        अ_दो(action, *s);
+पूर्ण
+
+// Output a string that is in the CS segment.
+अटल व्योम
+माला_दो_cs(काष्ठा अ_दोinfo *action, स्थिर अक्षर *s)
+अणु
+    अक्षर *vs = (अक्षर*)s;
+    क्रम (;; vs++) अणु
+        अक्षर c = GET_GLOBAL(*vs);
+        अगर (!c)
+            अवरोध;
+        अ_दो(action, c);
+    पूर्ण
+पूर्ण
+
+// Output an अचिन्हित पूर्णांकeger.
+अटल व्योम
+putuपूर्णांक(काष्ठा अ_दोinfo *action, u32 val)
+अणु
+    अक्षर buf[12];
+    अक्षर *d = &buf[माप(buf) - 1];
+    *d-- = '\0';
+    क्रम (;;) अणु
+        *d = (val % 10) + '0';
+        val /= 10;
+        अगर (!val)
+            अवरोध;
+        d--;
+    पूर्ण
+    माला_दो(action, d);
+पूर्ण
+
+// Output a single digit hex अक्षरacter.
+अटल अंतरभूत व्योम
+माला_दोinglehex(काष्ठा अ_दोinfo *action, u32 val, पूर्णांक uc)
+अणु
+    अगर (val <= 9)
+        val = '0' + val;
+    अन्यथा अगर (uc)
+        val = 'A' + val - 10;
+    अन्यथा
+        val = 'a' + val - 10;
+    अ_दो(action, val);
+पूर्ण
+
+// Output an पूर्णांकeger in hexadecimal with a specअगरied width.
+अटल व्योम
+puthex(काष्ठा अ_दोinfo *action, u32 val, पूर्णांक width, पूर्णांक uc)
+अणु
+    चयन (width) अणु
+    शेष: माला_दोinglehex(action, (val >> 28) & 0xf, uc);
+    हाल 7:  माला_दोinglehex(action, (val >> 24) & 0xf, uc);
+    हाल 6:  माला_दोinglehex(action, (val >> 20) & 0xf, uc);
+    हाल 5:  माला_दोinglehex(action, (val >> 16) & 0xf, uc);
+    हाल 4:  माला_दोinglehex(action, (val >> 12) & 0xf, uc);
+    हाल 3:  माला_दोinglehex(action, (val >> 8) & 0xf, uc);
+    हाल 2:  माला_दोinglehex(action, (val >> 4) & 0xf, uc);
+    हाल 1:  माला_दोinglehex(action, (val >> 0) & 0xf, uc);
+    पूर्ण
+पूर्ण
+
+// Output an पूर्णांकeger in hexadecimal with a minimum width.
+अटल व्योम
+putprettyhex(काष्ठा अ_दोinfo *action, u32 val, पूर्णांक width, अक्षर padअक्षर, पूर्णांक uc)
+अणु
+    u32 पंचांगp = val;
+    पूर्णांक count = 1;
+    जबतक (पंचांगp >>= 4)
+        count++;
+    width -= count;
+    जबतक (width-- > 0)
+        अ_दो(action, padअक्षर);
+    puthex(action, val, count, uc);
+पूर्ण
+
+// Output 'struct pci_device' BDF as %02x:%02x.%x
+अटल व्योम
+put_pci_device(काष्ठा अ_दोinfo *action, काष्ठा pci_device *pci)
+अणु
+    puthex(action, pci_bdf_to_bus(pci->bdf), 2, 0);
+    अ_दो(action, ':');
+    puthex(action, pci_bdf_to_dev(pci->bdf), 2, 0);
+    अ_दो(action, '.');
+    puthex(action, pci_bdf_to_fn(pci->bdf), 1, 0);
+पूर्ण
+
+अटल अंतरभूत पूर्णांक
+है_अंक(u8 c)
+अणु
+    वापस ((u8)(c - '0')) < 10;
+पूर्ण
+
+अटल व्योम
+bभ_लिखो(काष्ठा अ_दोinfo *action, स्थिर अक्षर *fmt, बहु_सूची args)
+अणु
+    स्थिर अक्षर *s = fmt;
+    पूर्णांक uc;
+    क्रम (;; s++) अणु
+        अक्षर c = GET_GLOBAL(*(u8*)s);
+        अगर (!c)
+            अवरोध;
+        अगर (c != '%') अणु
+            अ_दो(action, c);
+            जारी;
+        पूर्ण
+        स्थिर अक्षर *n = s+1;
+        पूर्णांक field_width = 0;
+        अक्षर padअक्षर = ' ';
+        u8 is64 = 0;
+        क्रम (;;) अणु
+            c = GET_GLOBAL(*(u8*)n);
+            अगर (!है_अंक(c))
+                अवरोध;
+            अगर (!field_width && (c == '0'))
+                padअक्षर = '0';
+            अन्यथा
+                field_width = field_width * 10 + c - '0';
+            n++;
+        पूर्ण
+        अगर (c == 'l') अणु
+            // Ignore दीर्घ क्रमmat indicator
+            n++;
+            c = GET_GLOBAL(*(u8*)n);
+        पूर्ण
+        अगर (c == 'l') अणु
+            is64 = 1;
+            n++;
+            c = GET_GLOBAL(*(u8*)n);
+        पूर्ण
+        s32 val;
+        स्थिर अक्षर *sarg;
+        चयन (c) अणु
+        हाल '%':
+            अ_दो(action, '%');
+            अवरोध;
+        हाल 'd':
+            val = बहु_तर्क(args, s32);
+            अगर (is64)
+                बहु_तर्क(args, s32);
+            अगर (val < 0) अणु
+                अ_दो(action, '-');
+                val = -val;
+            पूर्ण
+            putuपूर्णांक(action, val);
+            अवरोध;
+        हाल 'u':
+            val = बहु_तर्क(args, s32);
+            अगर (is64)
+                बहु_तर्क(args, s32);
+            putuपूर्णांक(action, val);
+            अवरोध;
+        हाल 'p':
+            val = बहु_तर्क(args, s32);
+            अगर (!MODESEGMENT && GET_GLOBAL(*(u8*)(n+1)) == 'P') अणु
+                // %pP is 'struct pci_device' prपूर्णांकer
+                put_pci_device(action, (व्योम*)val);
+                n++;
+                अवरोध;
+            पूर्ण
+            अ_दो(action, '0');
+            अ_दो(action, 'x');
+            puthex(action, val, 8, 0);
+            अवरोध;
+        हाल 'X':
+        हाल 'x':
+            uc = (c == 'X');
+            val = बहु_तर्क(args, s32);
+            अगर (is64) अणु
+                u32 upper = बहु_तर्क(args, s32);
+                अगर (upper) अणु
+                    putprettyhex(action, upper, field_width - 8, padअक्षर, uc);
+                    puthex(action, val, 8, uc);
+                    अवरोध;
+                पूर्ण
+            पूर्ण
+            putprettyhex(action, val, field_width, padअक्षर, uc);
+            अवरोध;
+        हाल 'c':
+            val = बहु_तर्क(args, पूर्णांक);
+            अ_दो(action, val);
+            अवरोध;
+        हाल '.':
+            // Hack to support "%.s" - meaning string on stack.
+            अगर (GET_GLOBAL(*(u8*)(n+1)) != 's')
+                अवरोध;
+            n++;
+            sarg = बहु_तर्क(args, स्थिर अक्षर *);
+            माला_दो(action, sarg);
+            अवरोध;
+        हाल 's':
+            sarg = बहु_तर्क(args, स्थिर अक्षर *);
+            माला_दो_cs(action, sarg);
+            अवरोध;
+        शेष:
+            अ_दो(action, '%');
+            n = s;
+        पूर्ण
+        s = n;
+    पूर्ण
+पूर्ण
+
+व्योम
+panic(स्थिर अक्षर *fmt, ...)
+अणु
+    अगर (CONFIG_DEBUG_LEVEL) अणु
+        बहु_सूची args;
+        बहु_शुरू(args, fmt);
+        bभ_लिखो(&debuginfo, fmt, args);
+        बहु_पूर्ण(args);
+        debug_flush();
+    पूर्ण
+
+    // XXX - use PANIC PORT.
+    irq_disable();
+    क्रम (;;)
+        hlt();
+पूर्ण
+
+व्योम
+__dम_लिखो(स्थिर अक्षर *fmt, ...)
+अणु
+    अगर (!MODESEGMENT && CONFIG_THREADS && CONFIG_DEBUG_LEVEL >= DEBUG_thपढ़ो
+        && *fmt != '\\' && *fmt != '/') अणु
+        काष्ठा thपढ़ो_info *cur = getCurThपढ़ो();
+        अगर (cur != &MainThपढ़ो) अणु
+            // Show "thread id" क्रम this debug message.
+            debug_अ_दो(&debuginfo, '|');
+            puthex(&debuginfo, (u32)cur, 8, 0);
+            debug_अ_दो(&debuginfo, '|');
+            debug_अ_दो(&debuginfo, ' ');
+        पूर्ण
+    पूर्ण
+
+    बहु_सूची args;
+    बहु_शुरू(args, fmt);
+    bभ_लिखो(&debuginfo, fmt, args);
+    बहु_पूर्ण(args);
+    debug_flush();
+पूर्ण
+
+व्योम
+म_लिखो(स्थिर अक्षर *fmt, ...)
+अणु
+    ASSERT32FLAT();
+    बहु_सूची args;
+    बहु_शुरू(args, fmt);
+    bभ_लिखो(&screeninfo, fmt, args);
+    बहु_पूर्ण(args);
+    अगर (ScreenAndDebug)
+        debug_flush();
+पूर्ण
+
+
+/****************************************************************
+ * snम_लिखो
+ ****************************************************************/
+
+काष्ठा snम_लिखोinfo अणु
+    काष्ठा अ_दोinfo info;
+    अक्षर *str, *end;
+पूर्ण;
+
+अटल व्योम
+अ_दो_str(काष्ठा अ_दोinfo *info, अक्षर c)
+अणु
+    काष्ठा snम_लिखोinfo *sinfo = container_of(info, काष्ठा snम_लिखोinfo, info);
+    अगर (sinfo->str >= sinfo->end)
+        वापस;
+    *sinfo->str = c;
+    sinfo->str++;
+पूर्ण
+
+// Build a क्रमmatted string.  Note, this function वापसs the actual
+// number of bytes used (not including null) even in the overflow
+// हाल.
+पूर्णांक
+snम_लिखो(अक्षर *str, माप_प्रकार size, स्थिर अक्षर *fmt, ...)
+अणु
+    ASSERT32FLAT();
+    अगर (!size)
+        वापस 0;
+    काष्ठा snम_लिखोinfo sinfo = अणु अणु अ_दो_str पूर्ण, str, str + size पूर्ण;
+    बहु_सूची args;
+    बहु_शुरू(args, fmt);
+    bभ_लिखो(&sinfo.info, fmt, args);
+    बहु_पूर्ण(args);
+    अक्षर *end = sinfo.str;
+    अगर (end >= sinfo.end)
+        end = sinfo.end - 1;
+    *end = '\0';
+    वापस end - str;
+पूर्ण
+
+// Build a क्रमmatted string - दो_स्मृति'ing the memory.
+अक्षर *
+znम_लिखो(माप_प्रकार size, स्थिर अक्षर *fmt, ...)
+अणु
+    ASSERT32FLAT();
+    अगर (!size)
+        वापस शून्य;
+    अक्षर *str = दो_स्मृति_पंचांगp(size);
+    अगर (!str) अणु
+        warn_noalloc();
+        वापस शून्य;
+    पूर्ण
+    काष्ठा snम_लिखोinfo sinfo = अणु अणु अ_दो_str पूर्ण, str, str + size पूर्ण;
+    बहु_सूची args;
+    बहु_शुरू(args, fmt);
+    bभ_लिखो(&sinfo.info, fmt, args);
+    बहु_पूर्ण(args);
+    अक्षर *end = sinfo.str;
+    अगर (end >= sinfo.end)
+        end = sinfo.end - 1;
+    *end = '\0';
+    वापस str;
+पूर्ण
+
+
+/****************************************************************
+ * Misc helpers
+ ****************************************************************/
+
+व्योम
+hexdump(स्थिर व्योम *d, पूर्णांक len)
+अणु
+    पूर्णांक count=0;
+    जबतक (len > 0) अणु
+        अगर (count % 8 == 0) अणु
+            अ_दो(&debuginfo, '\n');
+            puthex(&debuginfo, count*4, 8, 0);
+            अ_दो(&debuginfo, ':');
+        पूर्ण अन्यथा अणु
+            अ_दो(&debuginfo, ' ');
+        पूर्ण
+        puthex(&debuginfo, *(u32*)d, 8, 0);
+        count++;
+        len-=4;
+        d+=4;
+    पूर्ण
+    अ_दो(&debuginfo, '\n');
+    debug_flush();
+पूर्ण
+
+अटल व्योम
+dump_regs(काष्ठा bregs *regs)
+अणु
+    अगर (!regs) अणु
+        dम_लिखो(1, "  NULL\n");
+        वापस;
+    पूर्ण
+    dम_लिखो(1, "   a=%08x  b=%08x  c=%08x  d=%08x ds=%04x es=%04x ss=%04x\n"
+            , regs->eax, regs->ebx, regs->ecx, regs->edx
+            , regs->ds, regs->es, GET_SEG(SS));
+    dम_लिखो(1, "  si=%08x di=%08x bp=%08x sp=%08x cs=%04x ip=%04x  f=%04x\n"
+            , regs->esi, regs->edi, regs->ebp, (u32)&regs[1]
+            , regs->code.seg, regs->code.offset, regs->flags);
+पूर्ण
+
+// Report entry to an Interrupt Service Routine (ISR).
+व्योम
+__debug_isr(स्थिर अक्षर *fname)
+अणु
+    माला_दो_cs(&debuginfo, fname);
+    अ_दो(&debuginfo, '\n');
+    debug_flush();
+पूर्ण
+
+// Function called on handler startup.
+व्योम
+__debug_enter(काष्ठा bregs *regs, स्थिर अक्षर *fname)
+अणु
+    dम_लिखो(1, "enter %s:\n", fname);
+    dump_regs(regs);
+पूर्ण
+
+// Send debugging output info.
+व्योम
+__debug_stub(काष्ठा bregs *regs, पूर्णांक lineno, स्थिर अक्षर *fname)
+अणु
+    dम_लिखो(1, "stub %s:%d:\n", fname, lineno);
+    dump_regs(regs);
+पूर्ण
+
+// Report on an invalid parameter.
+व्योम
+__warn_invalid(काष्ठा bregs *regs, पूर्णांक lineno, स्थिर अक्षर *fname)
+अणु
+    अगर (CONFIG_DEBUG_LEVEL >= DEBUG_invalid) अणु
+        dम_लिखो(1, "invalid %s:%d:\n", fname, lineno);
+        dump_regs(regs);
+    पूर्ण
+पूर्ण
+
+// Report on an unimplemented feature.
+व्योम
+__warn_unimplemented(काष्ठा bregs *regs, पूर्णांक lineno, स्थिर अक्षर *fname)
+अणु
+    अगर (CONFIG_DEBUG_LEVEL >= DEBUG_unimplemented) अणु
+        dम_लिखो(1, "unimplemented %s:%d:\n", fname, lineno);
+        dump_regs(regs);
+    पूर्ण
+पूर्ण
+
+// Report a detected पूर्णांकernal inconsistency.
+व्योम
+__warn_पूर्णांकernalerror(पूर्णांक lineno, स्थिर अक्षर *fname)
+अणु
+    dम_लिखो(1, "WARNING - internal error detected at %s:%d!\n"
+            , fname, lineno);
+पूर्ण
+
+// Report on an allocation failure.
+व्योम
+__warn_noalloc(पूर्णांक lineno, स्थिर अक्षर *fname)
+अणु
+    dम_लिखो(1, "WARNING - Unable to allocate resource at %s:%d!\n"
+            , fname, lineno);
+पूर्ण
+
+// Report on a समयout exceeded.
+व्योम
+__warn_समयout(पूर्णांक lineno, स्थिर अक्षर *fname)
+अणु
+    dम_लिखो(1, "WARNING - Timeout at %s:%d!\n", fname, lineno);
+पूर्ण
+
+// Report a handler reporting an invalid parameter to the caller.
+व्योम
+__set_invalid(काष्ठा bregs *regs, पूर्णांक lineno, स्थिर अक्षर *fname)
+अणु
+    __warn_invalid(regs, lineno, fname);
+    set_invalid_silent(regs);
+पूर्ण
+
+// Report a call of an unimplemented function.
+व्योम
+__set_unimplemented(काष्ठा bregs *regs, पूर्णांक lineno, स्थिर अक्षर *fname)
+अणु
+    __warn_unimplemented(regs, lineno, fname);
+    set_invalid_silent(regs);
+पूर्ण
+
+// Report a handler reporting an invalid parameter code to the
+// caller.  Note, the lineno and वापस code are encoded in the same
+// parameter as gcc करोes a better job of scheduling function calls
+// when there are 3 or less parameters.
+व्योम
+__set_code_invalid(काष्ठा bregs *regs, u32 linecode, स्थिर अक्षर *fname)
+अणु
+    u8 code = linecode;
+    u32 lineno = linecode >> 8;
+    __warn_invalid(regs, lineno, fname);
+    set_code_invalid_silent(regs, code);
+पूर्ण
+
+// Report a call of an unimplemented function.
+व्योम
+__set_code_unimplemented(काष्ठा bregs *regs, u32 linecode, स्थिर अक्षर *fname)
+अणु
+    u8 code = linecode;
+    u32 lineno = linecode >> 8;
+    __warn_unimplemented(regs, lineno, fname);
+    set_code_invalid_silent(regs, code);
+पूर्ण

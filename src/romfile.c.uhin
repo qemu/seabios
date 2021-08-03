@@ -1,0 +1,147 @@
+<शैली गुरु>
+// Access to pseuकरो "file" पूर्णांकerface क्रम configuration inक्रमmation.
+//
+// Copyright (C) 2012  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "config.h" // CONFIG_*
+#समावेश "malloc.h" // मुक्त
+#समावेश "output.h" // dम_लिखो
+#समावेश "romfile.h" // काष्ठा romfile_s
+#समावेश "string.h" // स_भेद
+
+अटल काष्ठा romfile_s *RomfileRoot VARVERIFY32INIT;
+
+व्योम
+romfile_add(काष्ठा romfile_s *file)
+अणु
+    dम_लिखो(3, "Add romfile: %s (size=%d)\n", file->name, file->size);
+    file->next = RomfileRoot;
+    RomfileRoot = file;
+पूर्ण
+
+// Search क्रम the specअगरied file.
+अटल काष्ठा romfile_s *
+__romfile_findprefix(स्थिर अक्षर *prefix, पूर्णांक prefixlen, काष्ठा romfile_s *prev)
+अणु
+    काष्ठा romfile_s *cur = RomfileRoot;
+    अगर (prev)
+        cur = prev->next;
+    जबतक (cur) अणु
+        अगर (स_भेद(prefix, cur->name, prefixlen) == 0)
+            वापस cur;
+        cur = cur->next;
+    पूर्ण
+    वापस शून्य;
+पूर्ण
+
+काष्ठा romfile_s *
+romfile_findprefix(स्थिर अक्षर *prefix, काष्ठा romfile_s *prev)
+अणु
+    वापस __romfile_findprefix(prefix, म_माप(prefix), prev);
+पूर्ण
+
+काष्ठा romfile_s *
+romfile_find(स्थिर अक्षर *name)
+अणु
+    वापस __romfile_findprefix(name, म_माप(name) + 1, शून्य);
+पूर्ण
+
+// Helper function to find, दो_स्मृति_पंचांगphigh, and copy a romfile.  This
+// function adds a trailing zero to the दो_स्मृति'd copy.
+व्योम *
+romfile_loadfile(स्थिर अक्षर *name, पूर्णांक *psize)
+अणु
+    काष्ठा romfile_s *file = romfile_find(name);
+    अगर (!file)
+        वापस शून्य;
+
+    पूर्णांक filesize = file->size;
+    अगर (!filesize)
+        वापस शून्य;
+
+    अक्षर *data = दो_स्मृति_पंचांगphigh(filesize+1);
+    अगर (!data) अणु
+        warn_noalloc();
+        वापस शून्य;
+    पूर्ण
+
+    dम_लिखो(5, "Copying romfile '%s' (len %d)\n", name, filesize);
+    पूर्णांक ret = file->copy(file, data, filesize);
+    अगर (ret < 0) अणु
+        मुक्त(data);
+        वापस शून्य;
+    पूर्ण
+    अगर (psize)
+        *psize = filesize;
+    data[filesize] = '\0';
+    वापस data;
+पूर्ण
+
+// Attempt to load an पूर्णांकeger from the given file - वापस 'defval'
+// अगर unsuccessful.
+u64
+romfile_loadपूर्णांक(स्थिर अक्षर *name, u64 defval)
+अणु
+    काष्ठा romfile_s *file = romfile_find(name);
+    अगर (!file)
+        वापस defval;
+
+    पूर्णांक filesize = file->size;
+    अगर (!filesize || filesize > माप(u64) || (filesize & (filesize-1)))
+        // Doesn't look like a valid पूर्णांकeger.
+        वापस defval;
+
+    u64 val = 0;
+    पूर्णांक ret = file->copy(file, &val, माप(val));
+    अगर (ret < 0)
+        वापस defval;
+    वापस val;
+पूर्ण
+
+काष्ठा स्थिर_romfile_s अणु
+    काष्ठा romfile_s file;
+    व्योम *data;
+पूर्ण;
+
+अटल पूर्णांक
+स्थिर_पढ़ो_file(काष्ठा romfile_s *file, व्योम *dst, u32 maxlen)
+अणु
+    अगर (file->size > maxlen)
+        वापस -1;
+    काष्ठा स्थिर_romfile_s *cfile;
+    cfile = container_of(file, काष्ठा स्थिर_romfile_s, file);
+    अगर (maxlen > file->size)
+        maxlen = file->size;
+    स_नकल(dst, cfile->data, maxlen);
+    वापस file->size;
+पूर्ण
+
+अटल व्योम
+स्थिर_romfile_add(अक्षर *name, व्योम *data, पूर्णांक size)
+अणु
+    काष्ठा स्थिर_romfile_s *cfile = दो_स्मृति_पंचांगp(माप(*cfile));
+    अगर (!cfile) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    स_रखो(cfile, 0, माप(*cfile));
+    strtcpy(cfile->file.name, name, माप(cfile->file.name));
+    cfile->file.size = size;
+    cfile->file.copy = स्थिर_पढ़ो_file;
+    cfile->data = data;
+    romfile_add(&cfile->file);
+पूर्ण
+
+व्योम
+स्थिर_romfile_add_पूर्णांक(अक्षर *name, u32 value)
+अणु
+    u32 *data = दो_स्मृति_पंचांगp(माप(*data));
+    अगर (!data) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    *data = value;
+    स्थिर_romfile_add(name, data, माप(*data));
+पूर्ण

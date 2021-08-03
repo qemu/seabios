@@ -1,0 +1,356 @@
+<शैली गुरु>
+// Hooks क्रम via vgabios calls पूर्णांकo मुख्य bios.
+//
+// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_GLOBAL
+#समावेश "bregs.h" // set_code_invalid
+#समावेश "config.h" // CONFIG_*
+#समावेश "hw/pci.h" // pci_config_पढ़ोb
+#समावेश "hw/pcidevice.h" // pci_find_device
+#समावेश "hw/pci_ids.h" // PCI_VENDOR_ID_VIA
+#समावेश "hw/pci_regs.h" // PCI_VENDOR_ID
+#समावेश "output.h" // dम_लिखो
+#समावेश "string.h" // म_भेद
+#समावेश "util.h" // handle_155f, handle_157f
+
+#घोषणा VH_VIA 1
+#घोषणा VH_INTEL 2
+#घोषणा VH_SMI 3
+
+पूर्णांक VGAHookHandlerType VARFSEG;
+
+अटल व्योम
+handle_155fXX(काष्ठा bregs *regs)
+अणु
+    set_code_unimplemented(regs, RET_EUNSUPPORTED);
+पूर्ण
+
+अटल व्योम
+handle_157fXX(काष्ठा bregs *regs)
+अणु
+    set_code_unimplemented(regs, RET_EUNSUPPORTED);
+पूर्ण
+
+/****************************************************************
+ * Via hooks
+ ****************************************************************/
+
+पूर्णांक ViaFBsize VARFSEG, ViaRamSpeed VARFSEG;
+
+अटल व्योम
+via_155f01(काष्ठा bregs *regs)
+अणु
+    regs->eax = 0x5f;
+    regs->cl = 2; // panel type =  2 = 1024 * 768
+    set_success(regs);
+    dम_लिखो(1, "Warning: VGA panel type is hardcoded\n");
+पूर्ण
+
+अटल व्योम
+via_155f02(काष्ठा bregs *regs)
+अणु
+    regs->eax = 0x5f;
+    regs->bx = 2;
+    regs->cx = 0x401;  // PAL + crt only
+    regs->dx = 0;  // TV Layout - शेष
+    set_success(regs);
+    dम_लिखो(1, "Warning: VGA TV/CRT output type is hardcoded\n");
+पूर्ण
+
+अटल व्योम
+via_155f18(काष्ठा bregs *regs)
+अणु
+    पूर्णांक fbsize = GET_GLOBAL(ViaFBsize), ramspeed = GET_GLOBAL(ViaRamSpeed);
+    अगर (fbsize < 0 || ramspeed < 0) अणु
+        set_code_invalid(regs, RET_EUNSUPPORTED);
+        वापस;
+    पूर्ण
+    regs->eax = 0x5f;
+    regs->ebx = 0x500 | (ramspeed << 4) | fbsize;
+    regs->ecx = 0x060;
+    set_success(regs);
+पूर्ण
+
+अटल व्योम
+via_155f19(काष्ठा bregs *regs)
+अणु
+    set_invalid_silent(regs);
+पूर्ण
+
+अटल व्योम
+via_155f(काष्ठा bregs *regs)
+अणु
+    चयन (regs->al) अणु
+    हाल 0x01: via_155f01(regs); अवरोध;
+    हाल 0x02: via_155f02(regs); अवरोध;
+    हाल 0x18: via_155f18(regs); अवरोध;
+    हाल 0x19: via_155f19(regs); अवरोध;
+    शेष:   handle_155fXX(regs); अवरोध;
+    पूर्ण
+पूर्ण
+
+अटल पूर्णांक
+getFBSize(काष्ठा pci_device *pci)
+अणु
+    /* FB config */
+    u8 reg = pci_config_पढ़ोb(pci->bdf, 0xa1);
+
+    /* GFX disabled ? */
+    अगर (!(reg & 0x80))
+        वापस -1;
+
+    अटल u8 mem_घातer[] = अणु0, 3, 4, 5, 6, 7, 8, 9पूर्ण;
+    वापस mem_घातer[(reg >> 4) & 0x7];
+पूर्ण
+
+अटल पूर्णांक
+getViaRamSpeed(काष्ठा pci_device *pci)
+अणु
+    वापस (pci_config_पढ़ोb(pci->bdf, 0x90) & 0x07) + 3;
+पूर्ण
+
+अटल पूर्णांक
+getAMDRamSpeed(व्योम)
+अणु
+    काष्ठा pci_device *pci = pci_find_device(PCI_VENDOR_ID_AMD
+                                             , PCI_DEVICE_ID_AMD_K8_NB_MEMCTL);
+    अगर (!pci)
+        वापस -1;
+
+    /* mem clk 0 = DDR2 400 */
+    वापस (pci_config_पढ़ोb(pci->bdf, 0x94) & 0x7) + 6;
+पूर्ण
+
+/* पूर्णांक 0x15 - 5f18
+
+   ECX = unknown/करोn't care
+   EBX[3..0] Frame Buffer Size 2^N MiB
+   EBX[7..4] Memory speed:
+       0: SDR  66Mhz
+       1: SDR 100Mhz
+       2: SDR 133Mhz
+       3: DDR 100Mhz (PC1600 or DDR200)
+       4: DDR 133Mhz (PC2100 or DDR266)
+       5: DDR 166Mhz (PC2700 or DDR333)
+       6: DDR 200Mhz (PC3200 or DDR400)
+       7: DDR2 133Mhz (DDR2 533)
+       8: DDR2 166Mhz (DDR2 667)
+       9: DDR2 200Mhz (DDR2 800)
+       A: DDR2 233Mhz (DDR2 1066)
+       B: and above: Unknown
+   EBX[?..8] Total memory size?
+   EAX = 0x5f क्रम success
+*/
+
+#घोषणा PCI_DEVICE_ID_VIA_K8M890CE_3    0x3336
+#घोषणा PCI_DEVICE_ID_VIA_VX855_MEMCTRL 0x3409
+
+अटल व्योम
+via_setup(काष्ठा pci_device *pci)
+अणु
+    VGAHookHandlerType = VH_VIA;
+
+    काष्ठा pci_device *d = pci_find_device(PCI_VENDOR_ID_VIA
+                                           , PCI_DEVICE_ID_VIA_K8M890CE_3);
+    अगर (d) अणु
+        ViaFBsize = getFBSize(d);
+        ViaRamSpeed = getAMDRamSpeed();
+        वापस;
+    पूर्ण
+    d = pci_find_device(PCI_VENDOR_ID_VIA, PCI_DEVICE_ID_VIA_VX855_MEMCTRL);
+    अगर (d) अणु
+        ViaFBsize = getFBSize(d);
+        ViaRamSpeed = getViaRamSpeed(d);
+        वापस;
+    पूर्ण
+
+    dम_लिखो(1, "Warning: VGA memory size and speed is hardcoded\n");
+    ViaFBsize = 5; // 32M frame buffer
+    ViaRamSpeed = 4; // MCLK = DDR266
+पूर्ण
+
+
+/****************************************************************
+ * Intel VGA hooks
+ ****************************************************************/
+
+u8 IntelDisplayType VARFSEG, IntelDisplayId VARFSEG;
+
+अटल व्योम
+पूर्णांकel_155f35(काष्ठा bregs *regs)
+अणु
+    regs->ax = 0x005f;
+    regs->cl = GET_GLOBAL(IntelDisplayType);
+    set_success(regs);
+पूर्ण
+
+अटल व्योम
+पूर्णांकel_155f40(काष्ठा bregs *regs)
+अणु
+    regs->ax = 0x005f;
+    regs->cl = GET_GLOBAL(IntelDisplayId);
+    set_success(regs);
+पूर्ण
+
+अटल व्योम
+पूर्णांकel_155f50(काष्ठा bregs *regs)
+अणु
+    /* Mandatory hook on some Dell laptops */
+    regs->ax = 0x005f;
+    set_success(regs);
+पूर्ण
+
+अटल व्योम
+पूर्णांकel_155f(काष्ठा bregs *regs)
+अणु
+    चयन (regs->al) अणु
+    हाल 0x35: पूर्णांकel_155f35(regs); अवरोध;
+    हाल 0x40: पूर्णांकel_155f40(regs); अवरोध;
+    हाल 0x50: पूर्णांकel_155f50(regs); अवरोध;
+    शेष:   handle_155fXX(regs); अवरोध;
+    पूर्ण
+पूर्ण
+
+#घोषणा BOOT_DISPLAY_DEFAULT    (0)
+#घोषणा BOOT_DISPLAY_CRT        (1 << 0)
+#घोषणा BOOT_DISPLAY_TV         (1 << 1)
+#घोषणा BOOT_DISPLAY_EFP        (1 << 2)
+#घोषणा BOOT_DISPLAY_LCD        (1 << 3)
+#घोषणा BOOT_DISPLAY_CRT2       (1 << 4)
+#घोषणा BOOT_DISPLAY_TV2        (1 << 5)
+#घोषणा BOOT_DISPLAY_EFP2       (1 << 6)
+#घोषणा BOOT_DISPLAY_LCD2       (1 << 7)
+
+अटल व्योम
+पूर्णांकel_setup(काष्ठा pci_device *pci)
+अणु
+    VGAHookHandlerType = VH_INTEL;
+
+    IntelDisplayType = BOOT_DISPLAY_DEFAULT;
+    IntelDisplayId = 3;
+पूर्ण
+
+अटल व्योम
+roda_setup(काष्ठा pci_device *pci)
+अणु
+    VGAHookHandlerType = VH_INTEL;
+    // IntelDisplayType = BOOT_DISPLAY_DEFAULT;
+    IntelDisplayType = BOOT_DISPLAY_LCD;
+    // IntelDisplayId = inb(0x60f) & 0x0f; // Correct according to Crete
+    IntelDisplayId = 3; // Correct according to empirical studies
+पूर्ण
+
+अटल व्योम
+kontron_setup(काष्ठा pci_device *pci)
+अणु
+    VGAHookHandlerType = VH_INTEL;
+    IntelDisplayType = BOOT_DISPLAY_CRT;
+    IntelDisplayId = 3;
+पूर्ण
+
+अटल व्योम
+getac_setup(काष्ठा pci_device *pci)
+अणु
+पूर्ण
+
+/****************************************************************
+ * Silicon Motion hooks
+ ****************************************************************/
+
+u8 SmiBootDisplay VARFSEG; // 1: LCD, 2: CRT, 3: Both */
+
+अटल व्योम
+smi_157f02(काष्ठा bregs *regs)
+अणु
+    /* Boot Display Device Override */
+    regs->ax = 0x007f;
+    regs->bl = GET_GLOBAL(SmiBootDisplay);
+    set_success(regs);
+पूर्ण
+
+अटल व्योम
+smi_157f14(काष्ठा bregs *regs)
+अणु
+    /* ReduceOn support शेष status */
+    regs->ax = 0x007f;
+    regs->bl = 0x00;
+    set_success(regs);
+पूर्ण
+
+अटल व्योम
+smi_157f(काष्ठा bregs *regs)
+अणु
+    चयन (regs->al) अणु
+    हाल 0x02: smi_157f02(regs); अवरोध;
+    हाल 0x14: smi_157f14(regs); अवरोध;
+    शेष:   handle_157fXX(regs); अवरोध;
+    पूर्ण
+पूर्ण
+
+अटल व्योम
+winent_mb6047_setup(काष्ठा pci_device *pci)
+अणु
+    VGAHookHandlerType = VH_SMI;
+    SmiBootDisplay = 0x02;
+पूर्ण
+
+/****************************************************************
+ * Entry and setup
+ ****************************************************************/
+
+// Main 16bit entry poपूर्णांक
+व्योम
+handle_155f(काष्ठा bregs *regs)
+अणु
+    अगर (!CONFIG_VGAHOOKS) अणु
+        handle_155fXX(regs);
+        वापस;
+    पूर्ण
+
+    पूर्णांक htype = GET_GLOBAL(VGAHookHandlerType);
+    चयन (htype) अणु
+    हाल VH_VIA:   via_155f(regs); अवरोध;
+    हाल VH_INTEL: पूर्णांकel_155f(regs); अवरोध;
+    शेष:       handle_155fXX(regs); अवरोध;
+    पूर्ण
+पूर्ण
+
+// Main 16bit entry poपूर्णांक
+व्योम
+handle_157f(काष्ठा bregs *regs)
+अणु
+    अगर (!CONFIG_VGAHOOKS) अणु
+        handle_157fXX(regs);
+        वापस;
+    पूर्ण
+
+    पूर्णांक htype = GET_GLOBAL(VGAHookHandlerType);
+    चयन (htype) अणु
+    हाल VH_SMI:   smi_157f(regs); अवरोध;
+    शेष:       handle_157fXX(regs); अवरोध;
+    पूर्ण
+पूर्ण
+
+// Setup
+व्योम
+vgahook_setup(काष्ठा pci_device *pci)
+अणु
+    अगर (!CONFIG_VGAHOOKS)
+        वापस;
+
+    अगर (म_भेद(CBvenकरोr, "KONTRON") == 0 && म_भेद(CBpart, "986LCD-M") == 0)
+        kontron_setup(pci);
+    अन्यथा अगर (म_भेद(CBvenकरोr, "GETAC") == 0 && म_भेद(CBpart, "P470") == 0)
+        getac_setup(pci);
+    अन्यथा अगर (म_भेद(CBvenकरोr, "RODA") == 0 && म_भेद(CBpart, "RK886EX") == 0)
+        roda_setup(pci);
+    अन्यथा अगर (म_भेद(CBvenकरोr, "Win Enterprise") == 0 && म_भेद(CBpart, "MB6047") == 0)
+        winent_mb6047_setup(pci);
+    अन्यथा अगर (pci->venकरोr == PCI_VENDOR_ID_VIA)
+        via_setup(pci);
+    अन्यथा अगर (pci->venकरोr == PCI_VENDOR_ID_INTEL)
+        पूर्णांकel_setup(pci);
+पूर्ण

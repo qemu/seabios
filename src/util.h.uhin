@@ -1,0 +1,274 @@
+<शैली गुरु>
+// Misc function and variable declarations.
+#अगर_अघोषित __UTIL_H
+#घोषणा __UTIL_H
+
+#समावेश "types.h" // u32
+
+// apm.c
+व्योम apm_shutकरोwn(व्योम);
+काष्ठा bregs;
+व्योम handle_1553(काष्ठा bregs *regs);
+
+// bmp.c
+काष्ठा bmp_decdata *bmp_alloc(व्योम);
+पूर्णांक bmp_decode(काष्ठा bmp_decdata *bmp, अचिन्हित अक्षर *data, पूर्णांक data_size);
+व्योम bmp_get_info(काष्ठा bmp_decdata *bmp, पूर्णांक *width, पूर्णांक *height, पूर्णांक *bpp);
+पूर्णांक bmp_show(काष्ठा bmp_decdata *bmp, अचिन्हित अक्षर *pic, पूर्णांक width
+             , पूर्णांक height, पूर्णांक depth, पूर्णांक bytes_per_line_dest);
+
+// boot.c
+व्योम boot_init(व्योम);
+व्योम boot_add_bev(u16 seg, u16 bev, u16 desc, पूर्णांक prio);
+व्योम boot_add_bcv(u16 seg, u16 ip, u16 desc, पूर्णांक prio);
+काष्ठा drive_s;
+व्योम boot_add_floppy(काष्ठा drive_s *drive_g, स्थिर अक्षर *desc, पूर्णांक prio);
+व्योम boot_add_hd(काष्ठा drive_s *drive_g, स्थिर अक्षर *desc, पूर्णांक prio);
+व्योम boot_add_cd(काष्ठा drive_s *drive_g, स्थिर अक्षर *desc, पूर्णांक prio);
+व्योम boot_add_cbfs(व्योम *data, स्थिर अक्षर *desc, पूर्णांक prio);
+व्योम पूर्णांकeractive_booपंचांगenu(व्योम);
+व्योम bcv_prepboot(व्योम);
+u8 is_bootprio_strict(व्योम);
+काष्ठा pci_device;
+पूर्णांक bootprio_find_pci_device(काष्ठा pci_device *pci);
+पूर्णांक bootprio_find_mmio_device(व्योम *mmio);
+पूर्णांक bootprio_find_scsi_device(काष्ठा pci_device *pci, पूर्णांक target, पूर्णांक lun);
+पूर्णांक bootprio_find_scsi_mmio_device(व्योम *mmio, पूर्णांक target, पूर्णांक lun);
+पूर्णांक bootprio_find_ata_device(काष्ठा pci_device *pci, पूर्णांक chanid, पूर्णांक slave);
+पूर्णांक bootprio_find_fdc_device(काष्ठा pci_device *pci, पूर्णांक port, पूर्णांक fdid);
+पूर्णांक bootprio_find_pci_rom(काष्ठा pci_device *pci, पूर्णांक instance);
+पूर्णांक bootprio_find_named_rom(स्थिर अक्षर *name, पूर्णांक instance);
+काष्ठा usbdevice_s;
+पूर्णांक bootprio_find_usb(काष्ठा usbdevice_s *usbdev, पूर्णांक lun);
+पूर्णांक get_keystroke_full(पूर्णांक msec);
+पूर्णांक get_keystroke(पूर्णांक msec);
+काष्ठा chs_s;
+पूर्णांक boot_lchs_find_pci_device(काष्ठा pci_device *pci, काष्ठा chs_s *chs);
+पूर्णांक boot_lchs_find_scsi_device(काष्ठा pci_device *pci, पूर्णांक target, पूर्णांक lun,
+                               काष्ठा chs_s *chs);
+पूर्णांक boot_lchs_find_ata_device(काष्ठा pci_device *pci, पूर्णांक chanid, पूर्णांक slave,
+                              काष्ठा chs_s *chs);
+
+// bootsplash.c
+व्योम enable_vga_console(व्योम);
+व्योम enable_bootsplash(व्योम);
+व्योम disable_bootsplash(व्योम);
+
+// cdrom.c
+बाह्य काष्ठा eltorito_s CDEmu;
+बाह्य काष्ठा drive_s *cdemu_drive_gf;
+काष्ठा disk_op_s;
+पूर्णांक cdemu_process_op(काष्ठा disk_op_s *op);
+व्योम cdrom_prepboot(व्योम);
+पूर्णांक cdrom_boot(काष्ठा drive_s *drive_g);
+अक्षर *cdrom_media_info(काष्ठा drive_s *drive_g);
+
+// घड़ी.c
+व्योम घड़ी_setup(व्योम);
+व्योम handle_1583(काष्ठा bregs *regs);
+व्योम घड़ी_poll_irq(व्योम);
+u32 irqसमयr_calc_ticks(u32 count);
+u32 irqसमयr_calc(u32 msecs);
+पूर्णांक irqसमयr_check(u32 end);
+व्योम handle_1586(काष्ठा bregs *regs);
+
+// fw/acpi.c
+व्योम acpi_setup(व्योम);
+
+// fw/biostable.c
+व्योम copy_pir(व्योम *pos);
+व्योम copy_mptable(व्योम *pos);
+बाह्य काष्ठा pir_header *PirAddr;
+व्योम copy_acpi_rsdp(व्योम *pos);
+बाह्य काष्ठा rsdp_descriptor *RsdpAddr;
+बाह्य u32 acpi_pm1a_cnt;
+बाह्य u16 acpi_pm_base;
+व्योम *find_acpi_rsdp(व्योम);
+व्योम *find_acpi_table(u32 signature);
+u32 find_resume_vector(व्योम);
+व्योम acpi_reboot(व्योम);
+व्योम find_acpi_features(व्योम);
+बाह्य काष्ठा smbios_entry_poपूर्णांक *SMBiosAddr;
+काष्ठा smbios_entry_poपूर्णांक *get_smbios_entry_poपूर्णांक();
+व्योम copy_smbios(व्योम *pos);
+व्योम display_uuid(व्योम);
+व्योम copy_table(व्योम *pos);
+व्योम smbios_setup(व्योम);
+
+// fw/dsdt_parser.c
+काष्ठा acpi_device;
+व्योम acpi_dsdt_parse(व्योम);
+काष्ठा acpi_device *acpi_dsdt_find_string(काष्ठा acpi_device *prev, स्थिर अक्षर *hid);
+काष्ठा acpi_device *acpi_dsdt_find_eisaid(काष्ठा acpi_device *prev, u16 eisaid);
+अक्षर *acpi_dsdt_name(काष्ठा acpi_device *dev);
+पूर्णांक acpi_dsdt_present_eisaid(u16 eisaid);
+पूर्णांक acpi_dsdt_find_io(काष्ठा acpi_device *dev, u64 *min, u64 *max);
+पूर्णांक acpi_dsdt_find_mem(काष्ठा acpi_device *dev, u64 *min, u64 *max);
+पूर्णांक acpi_dsdt_find_irq(काष्ठा acpi_device *dev, u64 *irq);
+
+// fw/coreboot.c
+बाह्य स्थिर अक्षर *CBvenकरोr, *CBpart;
+काष्ठा cbfs_file;
+व्योम coreboot_debug_अ_दो(अक्षर c);
+व्योम cbfs_run_payload(काष्ठा cbfs_file *file);
+व्योम coreboot_platक्रमm_setup(व्योम);
+व्योम cbfs_payload_setup(व्योम);
+व्योम coreboot_preinit(व्योम);
+व्योम coreboot_cbfs_init(व्योम);
+काष्ठा cb_header;
+व्योम *find_cb_subtable(काष्ठा cb_header *cbh, u32 tag);
+काष्ठा cb_header *find_cb_table(व्योम);
+
+// fw/csm.c
+पूर्णांक csm_bootprio_fdc(काष्ठा pci_device *pci, पूर्णांक port, पूर्णांक fdid);
+पूर्णांक csm_bootprio_ata(काष्ठा pci_device *pci, पूर्णांक chanid, पूर्णांक slave);
+पूर्णांक csm_bootprio_pci(काष्ठा pci_device *pci);
+
+// fw/mptable.c
+व्योम mptable_setup(व्योम);
+
+// fw/mtrr.c
+व्योम mtrr_setup(व्योम);
+
+// fw/multiboot.c
+व्योम multiboot_init(व्योम);
+
+// fw/pciinit.c
+बाह्य u64 pcimem_start, pcimem_end;
+बाह्य u64 pcimem64_start, pcimem64_end;
+बाह्य स्थिर u8 pci_irqs[4];
+व्योम pci_setup(व्योम);
+व्योम pci_resume(व्योम);
+
+// fw/pirtable.c
+व्योम pirtable_setup(व्योम);
+
+// fw/shaकरोw.c
+व्योम make_bios_writable(व्योम);
+व्योम make_bios_पढ़ोonly(व्योम);
+व्योम qemu_reboot(व्योम);
+
+// fw/smbios.c
+व्योम smbios_legacy_setup(व्योम);
+
+// fw/smm.c
+व्योम smm_device_setup(व्योम);
+व्योम smm_setup(व्योम);
+
+// fw/smp.c
+बाह्य u32 MaxCountCPUs;
+व्योम wrmsr_smp(u32 index, u64 val);
+व्योम smp_setup(व्योम);
+व्योम smp_resume(व्योम);
+पूर्णांक apic_id_is_present(u8 apic_id);
+
+// hw/dma.c
+पूर्णांक dma_floppy(u32 addr, पूर्णांक count, पूर्णांक isWrite);
+व्योम dma_setup(व्योम);
+
+// hw/floppy.c
+बाह्य काष्ठा floppy_ext_dbt_s diskette_param_table2;
+व्योम floppy_setup(व्योम);
+काष्ठा drive_s *init_floppy(पूर्णांक floppyid, पूर्णांक ftype);
+पूर्णांक find_floppy_type(u32 size);
+पूर्णांक floppy_process_op(काष्ठा disk_op_s *op);
+व्योम floppy_tick(व्योम);
+
+// hw/ramdisk.c
+व्योम ramdisk_setup(व्योम);
+पूर्णांक ramdisk_process_op(काष्ठा disk_op_s *op);
+
+// hw/sdcard.c
+पूर्णांक sdcard_process_op(काष्ठा disk_op_s *op);
+व्योम sdcard_setup(व्योम);
+
+// hw/समयr.c
+व्योम समयr_setup(व्योम);
+व्योम pmसमयr_setup(u16 ioport);
+व्योम tsस_समयr_setfreq(u32 khz, स्थिर अक्षर *src);
+u32 समयr_calc(u32 msecs);
+u32 समयr_calc_usec(u32 usecs);
+पूर्णांक समयr_check(u32 end);
+व्योम ndelay(u32 count);
+व्योम udelay(u32 count);
+व्योम mdelay(u32 count);
+व्योम nsleep(u32 count);
+व्योम usleep(u32 count);
+व्योम msleep(u32 count);
+u32 ticks_to_ms(u32 ticks);
+u32 ticks_from_ms(u32 ms);
+व्योम pit_setup(व्योम);
+
+// jpeg.c
+काष्ठा jpeg_decdata *jpeg_alloc(व्योम);
+पूर्णांक jpeg_decode(काष्ठा jpeg_decdata *jpeg, अचिन्हित अक्षर *buf);
+व्योम jpeg_get_size(काष्ठा jpeg_decdata *jpeg, पूर्णांक *width, पूर्णांक *height);
+पूर्णांक jpeg_show(काष्ठा jpeg_decdata *jpeg, अचिन्हित अक्षर *pic, पूर्णांक width
+              , पूर्णांक height, पूर्णांक depth, पूर्णांक bytes_per_line_dest);
+
+// kbd.c
+व्योम kbd_init(व्योम);
+व्योम handle_15c2(काष्ठा bregs *regs);
+व्योम process_key(u8 key);
+u8 enqueue_key(u16 keycode);
+u16 ascii_to_keycode(u8 ascii);
+
+// misc.c
+बाह्य पूर्णांक HaveRunPost;
+बाह्य काष्ठा bios_config_table_s BIOS_CONFIG_TABLE __aligned(1);
+बाह्य काष्ठा floppy_dbt_s diskette_param_table __aligned(1);
+बाह्य u8 BiosChecksum;
+पूर्णांक in_post(व्योम);
+व्योम mathcp_setup(व्योम);
+
+// mouse.c
+व्योम mouse_init(व्योम);
+व्योम process_mouse(u8 data);
+
+// optionroms.c
+काष्ठा rom_header;
+व्योम callrom(काष्ठा rom_header *rom, u16 bdf);
+व्योम call_bcv(u16 seg, u16 ip);
+पूर्णांक is_pci_vga(काष्ठा pci_device *pci);
+व्योम optionrom_setup(व्योम);
+व्योम vgarom_setup(व्योम);
+व्योम s3_resume_vga(व्योम);
+बाह्य पूर्णांक ScreenAndDebug;
+
+// pcibios.c
+व्योम handle_1ab1(काष्ठा bregs *regs);
+व्योम bios32_init(व्योम);
+
+// pmm.c
+व्योम pmm_init(व्योम);
+व्योम pmm_prepboot(व्योम);
+
+// pnpbios.c
+u16 get_pnp_offset(व्योम);
+व्योम pnp_init(व्योम);
+
+// post.c
+व्योम पूर्णांकerface_init(व्योम);
+व्योम device_hardware_setup(व्योम);
+व्योम prepareboot(व्योम);
+व्योम startBoot(व्योम);
+व्योम reloc_preinit(व्योम *f, व्योम *arg);
+व्योम code_mutable_preinit(व्योम);
+
+// sercon.c
+व्योम sercon_setup(व्योम);
+व्योम sercon_check_event(व्योम);
+
+// serial.c
+व्योम serial_setup(व्योम);
+व्योम lpt_setup(व्योम);
+
+// version.c
+बाह्य स्थिर अक्षर VERSION[], BUILDINFO[];
+
+// vgahooks.c
+व्योम handle_155f(काष्ठा bregs *regs);
+व्योम handle_157f(काष्ठा bregs *regs);
+व्योम vgahook_setup(काष्ठा pci_device *pci);
+
+#पूर्ण_अगर // util.h

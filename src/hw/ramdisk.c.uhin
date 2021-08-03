@@ -1,0 +1,109 @@
+<शैली गुरु>
+// Code क्रम emulating a drive via high-memory accesses.
+//
+// Copyright (C) 2009  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_GLOBALFLAT
+#समावेश "block.h" // काष्ठा drive_s
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "e820map.h" // e820_add
+#समावेश "malloc.h" // memalign_पंचांगphigh
+#समावेश "memmap.h" // PAGE_SIZE
+#समावेश "output.h" // dम_लिखो
+#समावेश "romfile.h" // romfile_findprefix
+#समावेश "stacks.h" // call16_पूर्णांक
+#समावेश "std/disk.h" // DISK_RET_SUCCESS
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // process_ramdisk_op
+
+व्योम
+ramdisk_setup(व्योम)
+अणु
+    अगर (!CONFIG_FLASH_FLOPPY)
+        वापस;
+
+    // Find image.
+    काष्ठा romfile_s *file = romfile_findprefix("floppyimg/", शून्य);
+    अगर (!file)
+        वापस;
+    स्थिर अक्षर *filename = file->name;
+    u32 size = file->size;
+    dम_लिखो(3, "Found floppy file %s of size %d\n", filename, size);
+    पूर्णांक ftype = find_floppy_type(size);
+    अगर (ftype < 0) अणु
+        dम_लिखो(3, "No floppy type found for ramdisk size\n");
+        वापस;
+    पूर्ण
+
+    // Allocate ram क्रम image.
+    व्योम *pos = memalign_पंचांगphigh(PAGE_SIZE, size);
+    अगर (!pos) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    e820_add((u32)pos, size, E820_RESERVED);
+
+    // Copy image पूर्णांकo ram.
+    पूर्णांक ret = file->copy(file, pos, size);
+    अगर (ret < 0)
+        वापस;
+
+    // Setup driver.
+    काष्ठा drive_s *drive = init_floppy((u32)pos, ftype);
+    अगर (!drive)
+        वापस;
+    drive->type = DTYPE_RAMDISK;
+    dम_लिखो(1, "Mapping floppy %s to addr %p\n", filename, pos);
+    अक्षर *desc = znम_लिखो(MAXDESCSIZE, "Ramdisk [%s]", &filename[10]);
+    boot_add_floppy(drive, desc, bootprio_find_named_rom(filename, 0));
+पूर्ण
+
+अटल पूर्णांक
+ramdisk_copy(काष्ठा disk_op_s *op, पूर्णांक isग_लिखो)
+अणु
+    u32 offset = GET_GLOBALFLAT(op->drive_fl->cntl_id);
+    offset += (u32)op->lba * DISK_SECTOR_SIZE;
+    u64 opd = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE((u32)op->buf_fl);
+    u64 ramd = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE(offset);
+
+    u64 gdt[6];
+    अगर (isग_लिखो) अणु
+        gdt[2] = opd;
+        gdt[3] = ramd;
+    पूर्ण अन्यथा अणु
+        gdt[2] = ramd;
+        gdt[3] = opd;
+    पूर्ण
+
+    // Call पूर्णांक 1587 to copy data.
+    काष्ठा bregs br;
+    स_रखो(&br, 0, माप(br));
+    br.flags = F_CF|F_IF;
+    br.ah = 0x87;
+    br.es = GET_SEG(SS);
+    br.si = (u32)gdt;
+    br.cx = op->count * DISK_SECTOR_SIZE / 2;
+    call16_पूर्णांक(0x15, &br);
+
+    अगर (br.flags & F_CF)
+        वापस DISK_RET_EBADTRACK;
+    वापस DISK_RET_SUCCESS;
+पूर्ण
+
+पूर्णांक
+ramdisk_process_op(काष्ठा disk_op_s *op)
+अणु
+    अगर (!CONFIG_FLASH_FLOPPY)
+        वापस 0;
+
+    चयन (op->command) अणु
+    हाल CMD_READ:
+        वापस ramdisk_copy(op, 0);
+    हाल CMD_WRITE:
+        वापस ramdisk_copy(op, 1);
+    शेष:
+        वापस शेष_process_op(op);
+    पूर्ण
+पूर्ण

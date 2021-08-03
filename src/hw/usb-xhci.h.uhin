@@ -1,0 +1,134 @@
+<शैली गुरु>
+#अगर_अघोषित __USB_XHCI_H
+#घोषणा __USB_XHCI_H
+
+काष्ठा usbdevice_s;
+काष्ठा usb_endpoपूर्णांक_descriptor;
+काष्ठा usb_pipe;
+
+// --------------------------------------------------------------
+
+// usb-xhci.c
+व्योम xhci_setup(व्योम);
+काष्ठा usb_pipe *xhci_पुनः_स्मृति_pipe(काष्ठा usbdevice_s *usbdev
+                                   , काष्ठा usb_pipe *upipe
+                                   , काष्ठा usb_endpoपूर्णांक_descriptor *epdesc);
+पूर्णांक xhci_send_pipe(काष्ठा usb_pipe *p, पूर्णांक dir, स्थिर व्योम *cmd
+                   , व्योम *data, पूर्णांक datasize);
+पूर्णांक xhci_poll_पूर्णांकr(काष्ठा usb_pipe *p, व्योम *data);
+
+// --------------------------------------------------------------
+// रेजिस्टर पूर्णांकerface
+
+// capabilities
+काष्ठा xhci_caps अणु
+    u8  caplength;
+    u8  reserved_01;
+    u16 hciversion;
+    u32 hcsparams1;
+    u32 hcsparams2;
+    u32 hcsparams3;
+    u32 hccparams;
+    u32 dboff;
+    u32 rtsoff;
+पूर्ण PACKED;
+
+// extended capabilities
+काष्ठा xhci_xcap अणु
+    u32 cap;
+    u32 data[];
+पूर्ण PACKED;
+
+// operational रेजिस्टरs
+काष्ठा xhci_op अणु
+    u32 usbcmd;
+    u32 usbsts;
+    u32 pagesize;
+    u32 reserved_01[2];
+    u32 dnctl;
+    u32 crcr_low;
+    u32 crcr_high;
+    u32 reserved_02[4];
+    u32 dcbaap_low;
+    u32 dcbaap_high;
+    u32 config;
+पूर्ण PACKED;
+
+// port रेजिस्टरs
+काष्ठा xhci_pr अणु
+    u32 portsc;
+    u32 portpmsc;
+    u32 portli;
+    u32 reserved_01;
+पूर्ण PACKED;
+
+// करोorbell रेजिस्टरs
+काष्ठा xhci_db अणु
+    u32 करोorbell;
+पूर्ण PACKED;
+
+// runसमय रेजिस्टरs
+काष्ठा xhci_rts अणु
+    u32 mfindex;
+पूर्ण PACKED;
+
+// पूर्णांकerrupter रेजिस्टरs
+काष्ठा xhci_ir अणु
+    u32 iman;
+    u32 imod;
+    u32 erstsz;
+    u32 reserved_01;
+    u32 erstba_low;
+    u32 erstba_high;
+    u32 erdp_low;
+    u32 erdp_high;
+पूर्ण PACKED;
+
+// --------------------------------------------------------------
+// memory data काष्ठाs
+
+// slot context
+काष्ठा xhci_slotctx अणु
+    u32 ctx[4];
+    u32 reserved_01[4];
+पूर्ण PACKED;
+
+// endpoपूर्णांक context
+काष्ठा xhci_epctx अणु
+    u32 ctx[2];
+    u32 deq_low;
+    u32 deq_high;
+    u32 length;
+    u32 reserved_01[3];
+पूर्ण PACKED;
+
+// device context array element
+काष्ठा xhci_devlist अणु
+    u32 ptr_low;
+    u32 ptr_high;
+पूर्ण PACKED;
+
+// input context
+काष्ठा xhci_inctx अणु
+    u32 del;
+    u32 add;
+    u32 reserved_01[6];
+पूर्ण PACKED;
+
+// transfer block (ring element)
+काष्ठा xhci_trb अणु
+    u32 ptr_low;
+    u32 ptr_high;
+    u32 status;
+    u32 control;
+पूर्ण PACKED;
+
+// event ring segment
+काष्ठा xhci_er_seg अणु
+    u32 ptr_low;
+    u32 ptr_high;
+    u32 size;
+    u32 reserved_01;
+पूर्ण PACKED;
+
+#पूर्ण_अगर // usb-xhci.h

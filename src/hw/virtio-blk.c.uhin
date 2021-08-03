@@ -1,0 +1,294 @@
+<शैली गुरु>
+// Virtio block boot support.
+//
+// Copyright (C) 2010 Red Hat Inc.
+//
+// Authors:
+//  Gleb Natapov <gnatapov@redhat.com>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_GLOBALFLAT
+#समावेश "config.h" // CONFIG_*
+#समावेश "block.h" // काष्ठा drive_s
+#समावेश "malloc.h" // मुक्त
+#समावेश "output.h" // dम_लिखो
+#समावेश "pcidevice.h" // क्रमeachpci
+#समावेश "pci_ids.h" // PCI_DEVICE_ID_VIRTIO_BLK
+#समावेश "pci_regs.h" // PCI_VENDOR_ID
+#समावेश "stacks.h" // run_thपढ़ो
+#समावेश "std/disk.h" // DISK_RET_SUCCESS
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // usleep, bootprio_find_pci_device, is_bootprio_strict
+#समावेश "virtio-pci.h"
+#समावेश "virtio-mmio.h"
+#समावेश "virtio-ring.h"
+#समावेश "virtio-blk.h"
+
+काष्ठा virtiodrive_s अणु
+    काष्ठा drive_s drive;
+    काष्ठा vring_virtqueue *vq;
+    काष्ठा vp_device vp;
+पूर्ण;
+
+अटल पूर्णांक
+virtio_blk_op(काष्ठा disk_op_s *op, पूर्णांक ग_लिखो)
+अणु
+    काष्ठा virtiodrive_s *vdrive =
+        container_of(op->drive_fl, काष्ठा virtiodrive_s, drive);
+    काष्ठा vring_virtqueue *vq = vdrive->vq;
+    काष्ठा virtio_blk_outhdr hdr = अणु
+        .type = ग_लिखो ? VIRTIO_BLK_T_OUT : VIRTIO_BLK_T_IN,
+        .ioprio = 0,
+        .sector = op->lba,
+    पूर्ण;
+    u8 status = VIRTIO_BLK_S_UNSUPP;
+    काष्ठा vring_list sg[] = अणु
+        अणु
+            .addr       = (व्योम*)(&hdr),
+            .length     = माप(hdr),
+        पूर्ण,
+        अणु
+            .addr       = op->buf_fl,
+            .length     = vdrive->drive.blksize * op->count,
+        पूर्ण,
+        अणु
+            .addr       = (व्योम*)(&status),
+            .length     = माप(status),
+        पूर्ण,
+    पूर्ण;
+
+    /* Add to virtqueue and kick host */
+    अगर (ग_लिखो)
+        vring_add_buf(vq, sg, 2, 1, 0, 0);
+    अन्यथा
+        vring_add_buf(vq, sg, 1, 2, 0, 0);
+    vring_kick(&vdrive->vp, vq, 1);
+
+    /* Wait क्रम reply */
+    जबतक (!vring_more_used(vq))
+        usleep(5);
+
+    /* Reclaim virtqueue element */
+    vring_get_buf(vq, शून्य);
+
+    /* Clear पूर्णांकerrupt status रेजिस्टर.  Aव्योम leaving पूर्णांकerrupts stuck अगर
+     * VRING_AVAIL_F_NO_INTERRUPT was ignored and पूर्णांकerrupts were उठाओd.
+     */
+    vp_get_isr(&vdrive->vp);
+
+    वापस status == VIRTIO_BLK_S_OK ? DISK_RET_SUCCESS : DISK_RET_EBADTRACK;
+पूर्ण
+
+पूर्णांक
+virtio_blk_process_op(काष्ठा disk_op_s *op)
+अणु
+    अगर (! CONFIG_VIRTIO_BLK)
+        वापस 0;
+    चयन (op->command) अणु
+    हाल CMD_READ:
+        वापस virtio_blk_op(op, 0);
+    हाल CMD_WRITE:
+        वापस virtio_blk_op(op, 1);
+    शेष:
+        वापस शेष_process_op(op);
+    पूर्ण
+पूर्ण
+
+अटल व्योम
+init_virtio_blk(व्योम *data)
+अणु
+    काष्ठा pci_device *pci = data;
+    u8 status = VIRTIO_CONFIG_S_ACKNOWLEDGE | VIRTIO_CONFIG_S_DRIVER;
+    dम_लिखो(1, "found virtio-blk at %pP\n", pci);
+    काष्ठा virtiodrive_s *vdrive = दो_स्मृति_low(माप(*vdrive));
+    अगर (!vdrive) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    स_रखो(vdrive, 0, माप(*vdrive));
+    vdrive->drive.type = DTYPE_VIRTIO_BLK;
+    vdrive->drive.cntl_id = pci->bdf;
+
+    vp_init_simple(&vdrive->vp, pci);
+    अगर (vp_find_vq(&vdrive->vp, 0, &vdrive->vq) < 0 ) अणु
+        dम_लिखो(1, "fail to find vq for virtio-blk %pP\n", pci);
+        जाओ fail;
+    पूर्ण
+
+    अगर (vdrive->vp.use_modern) अणु
+        काष्ठा vp_device *vp = &vdrive->vp;
+        u64 features = vp_get_features(vp);
+        u64 version1 = 1ull << VIRTIO_F_VERSION_1;
+        u64 iommu_platक्रमm = 1ull << VIRTIO_F_IOMMU_PLATFORM;
+        u64 blk_size = 1ull << VIRTIO_BLK_F_BLK_SIZE;
+        अगर (!(features & version1)) अणु
+            dम_लिखो(1, "modern device without virtio_1 feature bit: %pP\n", pci);
+            जाओ fail;
+        पूर्ण
+
+        features = features & (version1 | iommu_platक्रमm | blk_size);
+        vp_set_features(vp, features);
+        status |= VIRTIO_CONFIG_S_FEATURES_OK;
+        vp_set_status(vp, status);
+        अगर (!(vp_get_status(vp) & VIRTIO_CONFIG_S_FEATURES_OK)) अणु
+            dम_लिखो(1, "device didn't accept features: %pP\n", pci);
+            जाओ fail;
+        पूर्ण
+
+        vdrive->drive.sectors =
+            vp_पढ़ो(&vp->device, काष्ठा virtio_blk_config, capacity);
+        अगर (features & blk_size) अणु
+            vdrive->drive.blksize =
+                vp_पढ़ो(&vp->device, काष्ठा virtio_blk_config, blk_size);
+        पूर्ण अन्यथा अणु
+            vdrive->drive.blksize = DISK_SECTOR_SIZE;
+        पूर्ण
+        अगर (vdrive->drive.blksize != DISK_SECTOR_SIZE) अणु
+            dम_लिखो(1, "virtio-blk %pP block size %d is unsupported\n",
+                    pci, vdrive->drive.blksize);
+            जाओ fail;
+        पूर्ण
+        dम_लिखो(3, "virtio-blk %pP blksize=%d sectors=%u\n",
+                pci, vdrive->drive.blksize, (u32)vdrive->drive.sectors);
+
+        vdrive->drive.pchs.cylinder =
+            vp_पढ़ो(&vp->device, काष्ठा virtio_blk_config, cylinders);
+        vdrive->drive.pchs.head =
+            vp_पढ़ो(&vp->device, काष्ठा virtio_blk_config, heads);
+        vdrive->drive.pchs.sector =
+            vp_पढ़ो(&vp->device, काष्ठा virtio_blk_config, sectors);
+    पूर्ण अन्यथा अणु
+        काष्ठा virtio_blk_config cfg;
+        vp_get_legacy(&vdrive->vp, 0, &cfg, माप(cfg));
+
+        u64 f = vp_get_features(&vdrive->vp);
+        vdrive->drive.blksize = (f & (1 << VIRTIO_BLK_F_BLK_SIZE)) ?
+            cfg.blk_size : DISK_SECTOR_SIZE;
+
+        vdrive->drive.sectors = cfg.capacity;
+        dम_लिखो(3, "virtio-blk %pP blksize=%d sectors=%u\n",
+                pci, vdrive->drive.blksize, (u32)vdrive->drive.sectors);
+
+        अगर (vdrive->drive.blksize != DISK_SECTOR_SIZE) अणु
+            dम_लिखो(1, "virtio-blk %pP block size %d is unsupported\n",
+                    pci, vdrive->drive.blksize);
+            जाओ fail;
+        पूर्ण
+        vdrive->drive.pchs.cylinder = cfg.cylinders;
+        vdrive->drive.pchs.head = cfg.heads;
+        vdrive->drive.pchs.sector = cfg.sectors;
+    पूर्ण
+
+    अक्षर *desc = znम_लिखो(MAXDESCSIZE, "Virtio disk PCI:%pP", pci);
+    boot_add_hd(&vdrive->drive, desc, bootprio_find_pci_device(pci));
+
+    status |= VIRTIO_CONFIG_S_DRIVER_OK;
+    vp_set_status(&vdrive->vp, status);
+
+    boot_lchs_find_pci_device(pci, &vdrive->drive.lchs);
+    वापस;
+
+fail:
+    vp_reset(&vdrive->vp);
+    मुक्त(vdrive->vq);
+    मुक्त(vdrive);
+पूर्ण
+
+व्योम
+init_virtio_blk_mmio(व्योम *mmio)
+अणु
+    u8 status = VIRTIO_CONFIG_S_ACKNOWLEDGE | VIRTIO_CONFIG_S_DRIVER;
+    dम_लिखो(1, "found virtio-blk-mmio at %p\n", mmio);
+    काष्ठा virtiodrive_s *vdrive = दो_स्मृति_low(माप(*vdrive));
+    अगर (!vdrive) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    स_रखो(vdrive, 0, माप(*vdrive));
+    vdrive->drive.type = DTYPE_VIRTIO_BLK;
+    vdrive->drive.cntl_id = (u32)mmio;
+
+    vp_init_mmio(&vdrive->vp, mmio);
+    अगर (vp_find_vq(&vdrive->vp, 0, &vdrive->vq) < 0 ) अणु
+        dम_लिखो(1, "fail to find vq for virtio-blk-mmio %p\n", mmio);
+        जाओ fail;
+    पूर्ण
+
+    काष्ठा vp_device *vp = &vdrive->vp;
+    u64 features = vp_get_features(vp);
+    u64 version1 = 1ull << VIRTIO_F_VERSION_1;
+    u64 blk_size = 1ull << VIRTIO_BLK_F_BLK_SIZE;
+
+    features = features & (version1 | blk_size);
+    vp_set_features(vp, features);
+    status |= VIRTIO_CONFIG_S_FEATURES_OK;
+    vp_set_status(vp, status);
+    अगर (!(vp_get_status(vp) & VIRTIO_CONFIG_S_FEATURES_OK)) अणु
+        dम_लिखो(1, "device didn't accept features: %p\n", mmio);
+        जाओ fail;
+    पूर्ण
+
+    vdrive->drive.sectors =
+        vp_पढ़ो(&vp->device, काष्ठा virtio_blk_config, capacity);
+    अगर (features & blk_size) अणु
+        vdrive->drive.blksize =
+            vp_पढ़ो(&vp->device, काष्ठा virtio_blk_config, blk_size);
+    पूर्ण अन्यथा अणु
+        vdrive->drive.blksize = DISK_SECTOR_SIZE;
+    पूर्ण
+    अगर (vdrive->drive.blksize != DISK_SECTOR_SIZE) अणु
+        dम_लिखो(1, "virtio-blk-mmio %p block size %d is unsupported\n",
+                mmio, vdrive->drive.blksize);
+        जाओ fail;
+    पूर्ण
+    dम_लिखो(1, "virtio-blk-mmio %p blksize=%d sectors=%u\n",
+            mmio, vdrive->drive.blksize, (u32)vdrive->drive.sectors);
+
+    vdrive->drive.pchs.cylinder =
+        vp_पढ़ो(&vp->device, काष्ठा virtio_blk_config, cylinders);
+    vdrive->drive.pchs.head =
+        vp_पढ़ो(&vp->device, काष्ठा virtio_blk_config, heads);
+    vdrive->drive.pchs.sector =
+        vp_पढ़ो(&vp->device, काष्ठा virtio_blk_config, sectors);
+
+    अक्षर *desc = znम_लिखो(MAXDESCSIZE, "Virtio disk mmio:%p", mmio);
+    boot_add_hd(&vdrive->drive, desc, bootprio_find_mmio_device(mmio));
+
+    status |= VIRTIO_CONFIG_S_DRIVER_OK;
+    vp_set_status(&vdrive->vp, status);
+    वापस;
+
+fail:
+    vp_reset(&vdrive->vp);
+    मुक्त(vdrive->vq);
+    मुक्त(vdrive);
+पूर्ण
+
+व्योम
+virtio_blk_setup(व्योम)
+अणु
+    u8 skip_nonbootable = is_bootprio_strict();
+
+    ASSERT32FLAT();
+    अगर (! CONFIG_VIRTIO_BLK)
+        वापस;
+
+    dम_लिखो(3, "init virtio-blk\n");
+
+    काष्ठा pci_device *pci;
+    क्रमeachpci(pci) अणु
+        अगर (pci->venकरोr != PCI_VENDOR_ID_REDHAT_QUMRANET ||
+            (pci->device != PCI_DEVICE_ID_VIRTIO_BLK_09 &&
+             pci->device != PCI_DEVICE_ID_VIRTIO_BLK_10))
+            जारी;
+
+        अगर (skip_nonbootable && bootprio_find_pci_device(pci) < 0) अणु
+            dम_लिखो(1, "skipping init of a non-bootable virtio-blk at %pP\n",
+                    pci);
+            जारी;
+        पूर्ण
+
+        run_thपढ़ो(init_virtio_blk, pci);
+    पूर्ण
+पूर्ण

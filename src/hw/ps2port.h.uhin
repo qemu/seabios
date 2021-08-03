@@ -1,0 +1,68 @@
+<शैली गुरु>
+// Basic ps2 port (keyboard/mouse) command handling.
+#अगर_अघोषित __PS2PORT_H
+#घोषणा __PS2PORT_H
+
+#समावेश "types.h" // u8
+
+#घोषणा PORT_PS2_DATA          0x0060
+#घोषणा PORT_PS2_STATUS        0x0064
+
+// Standard commands.
+#घोषणा I8042_CMD_CTL_RCTR      0x0120
+#घोषणा I8042_CMD_CTL_WCTR      0x1060
+#घोषणा I8042_CMD_CTL_TEST      0x01aa
+
+#घोषणा I8042_CMD_KBD_TEST      0x01ab
+#घोषणा I8042_CMD_KBD_DISABLE   0x00ad
+#घोषणा I8042_CMD_KBD_ENABLE    0x00ae
+
+#घोषणा I8042_CMD_AUX_DISABLE   0x00a7
+#घोषणा I8042_CMD_AUX_ENABLE    0x00a8
+#घोषणा I8042_CMD_AUX_SEND      0x10d4
+
+// Keyboard commands
+#घोषणा ATKBD_CMD_SETLEDS       0x10ed
+#घोषणा ATKBD_CMD_SSCANSET      0x10f0
+#घोषणा ATKBD_CMD_GETID         0x02f2
+#घोषणा ATKBD_CMD_ENABLE        0x00f4
+#घोषणा ATKBD_CMD_RESET_DIS     0x00f5
+#घोषणा ATKBD_CMD_RESET_BAT     0x01ff
+
+// Mouse commands
+#घोषणा PSMOUSE_CMD_SETSCALE11  0x00e6
+#घोषणा PSMOUSE_CMD_SETSCALE21  0x00e7
+#घोषणा PSMOUSE_CMD_SETRES      0x10e8
+#घोषणा PSMOUSE_CMD_GETINFO     0x03e9
+#घोषणा PSMOUSE_CMD_GETID       0x02f2
+#घोषणा PSMOUSE_CMD_SETRATE     0x10f3
+#घोषणा PSMOUSE_CMD_ENABLE      0x00f4
+#घोषणा PSMOUSE_CMD_DISABLE     0x00f5
+#घोषणा PSMOUSE_CMD_RESET_BAT   0x02ff
+
+// Status रेजिस्टर bits.
+#घोषणा I8042_STR_PARITY        0x80
+#घोषणा I8042_STR_TIMEOUT       0x40
+#घोषणा I8042_STR_AUXDATA       0x20
+#घोषणा I8042_STR_KEYLOCK       0x10
+#घोषणा I8042_STR_CMDDAT        0x08
+#घोषणा I8042_STR_MUXERR        0x04
+#घोषणा I8042_STR_IBF           0x02
+#घोषणा I8042_STR_OBF           0x01
+
+// Control रेजिस्टर bits.
+#घोषणा I8042_CTR_KBDINT        0x01
+#घोषणा I8042_CTR_AUXINT        0x02
+#घोषणा I8042_CTR_IGNKEYLOCK    0x08
+#घोषणा I8042_CTR_KBDDIS        0x10
+#घोषणा I8042_CTR_AUXDIS        0x20
+#घोषणा I8042_CTR_XLATE         0x40
+
+// ps2port.c
+व्योम i8042_reboot(व्योम);
+पूर्णांक ps2_kbd_command(पूर्णांक command, u8 *param);
+पूर्णांक ps2_mouse_command(पूर्णांक command, u8 *param);
+व्योम ps2_check_event(व्योम);
+व्योम ps2port_setup(व्योम);
+
+#पूर्ण_अगर // ps2port.h

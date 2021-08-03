@@ -1,0 +1,49 @@
+<शैली गुरु>
+#अगर_अघोषित __PCI_H
+#घोषणा __PCI_H
+
+#समावेश "types.h" // u32
+
+#घोषणा PORT_PCI_REBOOT        0x0cf9
+
+अटल अंतरभूत u8 pci_bdf_to_bus(u16 bdf) अणु
+    वापस bdf >> 8;
+पूर्ण
+अटल अंतरभूत u8 pci_bdf_to_devfn(u16 bdf) अणु
+    वापस bdf & 0xff;
+पूर्ण
+अटल अंतरभूत u16 pci_bdf_to_busdev(u16 bdf) अणु
+    वापस bdf & ~0x07;
+पूर्ण
+अटल अंतरभूत u8 pci_bdf_to_dev(u16 bdf) अणु
+    वापस (bdf >> 3) & 0x1f;
+पूर्ण
+अटल अंतरभूत u8 pci_bdf_to_fn(u16 bdf) अणु
+    वापस bdf & 0x07;
+पूर्ण
+अटल अंतरभूत u16 pci_to_bdf(पूर्णांक bus, पूर्णांक dev, पूर्णांक fn) अणु
+    वापस (bus<<8) | (dev<<3) | fn;
+पूर्ण
+अटल अंतरभूत u16 pci_bus_devfn_to_bdf(पूर्णांक bus, u16 devfn) अणु
+    वापस (bus << 8) | devfn;
+पूर्ण
+
+#घोषणा क्रमeachbdf(BDF, BUS)                                    \
+    क्रम (BDF=pci_next(pci_bus_devfn_to_bdf((BUS), 0)-1, (BUS))  \
+         ; BDF >= 0                                             \
+         ; BDF=pci_next(BDF, (BUS)))
+
+व्योम pci_config_ग_लिखोl(u16 bdf, u32 addr, u32 val);
+व्योम pci_config_ग_लिखोw(u16 bdf, u32 addr, u16 val);
+व्योम pci_config_ग_लिखोb(u16 bdf, u32 addr, u8 val);
+u32 pci_config_पढ़ोl(u16 bdf, u32 addr);
+u16 pci_config_पढ़ोw(u16 bdf, u32 addr);
+u8 pci_config_पढ़ोb(u16 bdf, u32 addr);
+व्योम pci_config_maskw(u16 bdf, u32 addr, u16 off, u16 on);
+व्योम pci_enable_mmconfig(u64 addr, स्थिर अक्षर *name);
+u8 pci_find_capability(u16 bdf, u8 cap_id, u8 cap);
+पूर्णांक pci_next(पूर्णांक bdf, पूर्णांक bus);
+पूर्णांक pci_probe_host(व्योम);
+व्योम pci_reboot(व्योम);
+
+#पूर्ण_अगर // pci.h

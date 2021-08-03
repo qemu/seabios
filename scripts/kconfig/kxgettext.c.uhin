@@ -1,0 +1,236 @@
+<शैली गुरु>
+/*
+ * Arnalकरो Carvalho de Melo <acme@conectiva.com.br>, 2005
+ *
+ * Released under the terms of the GNU GPL v2.0
+ */
+
+#समावेश <मानककोष.स>
+#समावेश <माला.स>
+
+#समावेश "lkc.h"
+
+अटल अक्षर *escape(स्थिर अक्षर* text, अक्षर *bf, पूर्णांक len)
+अणु
+	अक्षर *bfp = bf;
+	पूर्णांक multiline = म_अक्षर(text, '\n') != शून्य;
+	पूर्णांक eol = 0;
+	पूर्णांक textlen = म_माप(text);
+
+	अगर ((textlen > 0) && (text[textlen-1] == '\n'))
+		eol = 1;
+
+	*bfp++ = '"';
+	--len;
+
+	अगर (multiline) अणु
+		*bfp++ = '"';
+		*bfp++ = '\n';
+		*bfp++ = '"';
+		len -= 3;
+	पूर्ण
+
+	जबतक (*text != '\0' && len > 1) अणु
+		अगर (*text == '"')
+			*bfp++ = '\\';
+		अन्यथा अगर (*text == '\n') अणु
+			*bfp++ = '\\';
+			*bfp++ = 'n';
+			*bfp++ = '"';
+			*bfp++ = '\n';
+			*bfp++ = '"';
+			len -= 5;
+			++text;
+			जाओ next;
+		पूर्ण
+		अन्यथा अगर (*text == '\\') अणु
+			*bfp++ = '\\';
+			len--;
+		पूर्ण
+		*bfp++ = *text++;
+next:
+		--len;
+	पूर्ण
+
+	अगर (multiline && eol)
+		bfp -= 3;
+
+	*bfp++ = '"';
+	*bfp = '\0';
+
+	वापस bf;
+पूर्ण
+
+काष्ठा file_line अणु
+	काष्ठा file_line *next;
+	स्थिर अक्षर *file;
+	पूर्णांक lineno;
+पूर्ण;
+
+अटल काष्ठा file_line *file_line__new(स्थिर अक्षर *file, पूर्णांक lineno)
+अणु
+	काष्ठा file_line *self = दो_स्मृति(माप(*self));
+
+	अगर (self == शून्य)
+		जाओ out;
+
+	self->file   = file;
+	self->lineno = lineno;
+	self->next   = शून्य;
+out:
+	वापस self;
+पूर्ण
+
+काष्ठा message अणु
+	स्थिर अक्षर	 *msg;
+	स्थिर अक्षर	 *option;
+	काष्ठा message	 *next;
+	काष्ठा file_line *files;
+पूर्ण;
+
+अटल काष्ठा message *message__list;
+
+अटल काष्ठा message *message__new(स्थिर अक्षर *msg, अक्षर *option,
+				    स्थिर अक्षर *file, पूर्णांक lineno)
+अणु
+	काष्ठा message *self = दो_स्मृति(माप(*self));
+
+	अगर (self == शून्य)
+		जाओ out;
+
+	self->files = file_line__new(file, lineno);
+	अगर (self->files == शून्य)
+		जाओ out_fail;
+
+	self->msg = strdup(msg);
+	अगर (self->msg == शून्य)
+		जाओ out_fail_msg;
+
+	self->option = option;
+	self->next = शून्य;
+out:
+	वापस self;
+out_fail_msg:
+	मुक्त(self->files);
+out_fail:
+	मुक्त(self);
+	self = शून्य;
+	जाओ out;
+पूर्ण
+
+अटल काष्ठा message *mesage__find(स्थिर अक्षर *msg)
+अणु
+	काष्ठा message *m = message__list;
+
+	जबतक (m != शून्य) अणु
+		अगर (म_भेद(m->msg, msg) == 0)
+			अवरोध;
+		m = m->next;
+	पूर्ण
+
+	वापस m;
+पूर्ण
+
+अटल पूर्णांक message__add_file_line(काष्ठा message *self, स्थिर अक्षर *file,
+				  पूर्णांक lineno)
+अणु
+	पूर्णांक rc = -1;
+	काष्ठा file_line *fl = file_line__new(file, lineno);
+
+	अगर (fl == शून्य)
+		जाओ out;
+
+	fl->next    = self->files;
+	self->files = fl;
+	rc = 0;
+out:
+	वापस rc;
+पूर्ण
+
+अटल पूर्णांक message__add(स्थिर अक्षर *msg, अक्षर *option, स्थिर अक्षर *file,
+			पूर्णांक lineno)
+अणु
+	पूर्णांक rc = 0;
+	अक्षर bf[16384];
+	अक्षर *escaped = escape(msg, bf, माप(bf));
+	काष्ठा message *m = mesage__find(escaped);
+
+	अगर (m != शून्य)
+		rc = message__add_file_line(m, file, lineno);
+	अन्यथा अणु
+		m = message__new(escaped, option, file, lineno);
+
+		अगर (m != शून्य) अणु
+			m->next	      = message__list;
+			message__list = m;
+		पूर्ण अन्यथा
+			rc = -1;
+	पूर्ण
+	वापस rc;
+पूर्ण
+
+अटल व्योम menu_build_message_list(काष्ठा menu *menu)
+अणु
+	काष्ठा menu *child;
+
+	message__add(menu_get_prompt(menu), शून्य,
+		     menu->file == शून्य ? "Root Menu" : menu->file->name,
+		     menu->lineno);
+
+	अगर (menu->sym != शून्य && menu_has_help(menu))
+		message__add(menu_get_help(menu), menu->sym->name,
+			     menu->file == शून्य ? "Root Menu" : menu->file->name,
+			     menu->lineno);
+
+	क्रम (child = menu->list; child != शून्य; child = child->next)
+		अगर (child->prompt != शून्य)
+			menu_build_message_list(child);
+पूर्ण
+
+अटल व्योम message__prपूर्णांक_file_lineno(काष्ठा message *self)
+अणु
+	काष्ठा file_line *fl = self->files;
+
+	अक्षर_दो('\n');
+	अगर (self->option != शून्य)
+		म_लिखो("# %s:00000\n", self->option);
+
+	म_लिखो("#: %s:%d", fl->file, fl->lineno);
+	fl = fl->next;
+
+	जबतक (fl != शून्य) अणु
+		म_लिखो(", %s:%d", fl->file, fl->lineno);
+		fl = fl->next;
+	पूर्ण
+
+	अक्षर_दो('\n');
+पूर्ण
+
+अटल व्योम message__prपूर्णांक_gettext_msgid_msgstr(काष्ठा message *self)
+अणु
+	message__prपूर्णांक_file_lineno(self);
+
+	म_लिखो("msgid %s\n"
+	       "msgstr \"\"\n", self->msg);
+पूर्ण
+
+अटल व्योम menu__xgettext(व्योम)
+अणु
+	काष्ठा message *m = message__list;
+
+	जबतक (m != शून्य) अणु
+		/* skip empty lines ("") */
+		अगर (म_माप(m->msg) > माप("\"\""))
+			message__prपूर्णांक_gettext_msgid_msgstr(m);
+		m = m->next;
+	पूर्ण
+पूर्ण
+
+पूर्णांक मुख्य(पूर्णांक ac, अक्षर **av)
+अणु
+	conf_parse(av[1]);
+
+	menu_build_message_list(menu_get_root_menu(शून्य));
+	menu__xgettext();
+	वापस 0;
+पूर्ण

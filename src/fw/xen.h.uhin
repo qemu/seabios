@@ -1,0 +1,126 @@
+<शैली गुरु>
+#अगर_अघोषित __XEN_H
+#घोषणा __XEN_H
+
+व्योम xen_preinit(व्योम);
+व्योम xen_ramsize_preinit(व्योम);
+व्योम xen_hypercall_setup(व्योम);
+व्योम xen_biostable_setup(व्योम);
+
+बाह्य अचिन्हित दीर्घ xen_hypercall_page;
+
+#घोषणा _hypercall0(type, name)                                         \
+(अणु                                                                      \
+    अचिन्हित दीर्घ __hentry = xen_hypercall_page+__HYPERVISOR_##name*32; \
+    दीर्घ __res;                                                         \
+    यंत्र अस्थिर (                                                      \
+        "call *%%eax"                                                   \
+        : "=a" (__res)                                                  \
+        : "0" (__hentry)                                                \
+        : "memory" );                                                   \
+    (type)__res;                                                        \
+पूर्ण)
+
+#घोषणा _hypercall1(type, name, a1)                                     \
+(अणु                                                                      \
+    अचिन्हित दीर्घ __hentry = xen_hypercall_page+__HYPERVISOR_##name*32; \
+    दीर्घ __res, __ign1;                                                 \
+    यंत्र अस्थिर (                                                      \
+        "call *%%eax"                                                   \
+        : "=a" (__res), "=b" (__ign1)                                   \
+        : "0" (__hentry), "1" ((दीर्घ)(a1))                              \
+        : "memory" );                                                   \
+    (type)__res;                                                        \
+पूर्ण)
+
+#घोषणा _hypercall2(type, name, a1, a2)                                 \
+(अणु                                                                      \
+    अचिन्हित दीर्घ __hentry = xen_hypercall_page+__HYPERVISOR_##name*32; \
+    दीर्घ __res, __ign1, __ign2;                                         \
+    यंत्र अस्थिर (                                                      \
+        "call *%%eax"                                                   \
+        : "=a" (__res), "=b" (__ign1), "=c" (__ign2)                    \
+        : "0" (__hentry), "1" ((दीर्घ)(a1)), "2" ((दीर्घ)(a2))            \
+        : "memory" );                                                   \
+    (type)__res;                                                        \
+पूर्ण)
+
+#घोषणा _hypercall3(type, name, a1, a2, a3)                             \
+(अणु                                                                      \
+    अचिन्हित दीर्घ __hentry = xen_hypercall_page+__HYPERVISOR_##name*32; \
+    दीर्घ __res, __ign1, __ign2, __ign3;                                 \
+    यंत्र अस्थिर (                                                      \
+        "call *%%eax"                                                   \
+        : "=a" (__res), "=b" (__ign1), "=c" (__ign2),                   \
+          "=d" (__ign3)                                                 \
+        : "0" (__hentry), "1" ((दीर्घ)(a1)), "2" ((दीर्घ)(a2)),           \
+          "3" ((दीर्घ)(a3))                                              \
+        : "memory" );                                                   \
+    (type)__res;                                                        \
+पूर्ण)
+
+#घोषणा _hypercall4(type, name, a1, a2, a3, a4)                         \
+(अणु                                                                      \
+    अचिन्हित दीर्घ __hentry = xen_hypercall_page+__HYPERVISOR_##name*32; \
+    दीर्घ __res, __ign1, __ign2, __ign3, __ign4;                         \
+    यंत्र अस्थिर (                                                      \
+        "call *%%eax"                                                   \
+        : "=a" (__res), "=b" (__ign1), "=c" (__ign2),                   \
+          "=d" (__ign3), "=S" (__ign4)                                  \
+        : "0" (__hentry), "1" ((दीर्घ)(a1)), "2" ((दीर्घ)(a2)),           \
+          "3" ((दीर्घ)(a3)), "4" ((दीर्घ)(a4))                            \
+        : "memory" );                                                   \
+    (type)__res;                                                        \
+पूर्ण)
+
+#घोषणा _hypercall5(type, name, a1, a2, a3, a4, a5)                     \
+(अणु                                                                      \
+    अचिन्हित दीर्घ __hentry = xen_hypercall_page+__HYPERVISOR_##name*32; \
+    दीर्घ __res, __ign1, __ign2, __ign3, __ign4, __ign5;                 \
+    यंत्र अस्थिर (                                                      \
+        "call *%%eax"                                                   \
+        : "=a" (__res), "=b" (__ign1), "=c" (__ign2),                   \
+          "=d" (__ign3), "=S" (__ign4), "=D" (__ign5)                   \
+        : "0" (__hentry), "1" ((दीर्घ)(a1)), "2" ((दीर्घ)(a2)),           \
+          "3" ((दीर्घ)(a3)), "4" ((दीर्घ)(a4)),                           \
+          "5" ((दीर्घ)(a5))                                              \
+        : "memory" );                                                   \
+    (type)__res;                                                        \
+पूर्ण)
+
+/******************************************************************************
+ *
+ * The following पूर्णांकerface definitions are taken from Xen and have the
+ * following license:
+ *
+ * Permission is hereby granted, मुक्त of अक्षरge, to any person obtaining a copy
+ * of this software and associated करोcumentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modअगरy, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to करो so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+/* xen.h */
+
+#घोषणा __HYPERVISOR_xen_version          17
+
+/* version.h */
+
+/* arg == xen_extraversion_t. */
+#घोषणा XENVER_extraversion 1
+प्रकार अक्षर xen_extraversion_t[16];
+#घोषणा XEN_EXTRAVERSION_LEN (माप(xen_extraversion_t))
+
+#पूर्ण_अगर

@@ -1,0 +1,6 @@
+<शैली गुरु>
+// Place build generated version पूर्णांकo a C variable
+#समावेश "autoversion.h"
+
+अक्षर VERSION[] = BUILD_VERSION;
+अक्षर BUILDINFO[] = BUILD_TOOLS;

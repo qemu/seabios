@@ -1,0 +1,116 @@
+<शैली गुरु>
+// Helpers क्रम working with i8259 पूर्णांकerrupt controller.
+//
+// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2002  MandrakeSoft S.A.
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // SET_IVT
+#समावेश "config.h" // CONFIG_*
+#समावेश "output.h" // dम_लिखो
+#समावेश "pic.h" // pic_*
+
+u16
+pic_irqmask_पढ़ो(व्योम)
+अणु
+    अगर (!CONFIG_HARDWARE_IRQ)
+        वापस 0;
+    वापस inb(PORT_PIC1_DATA) | (inb(PORT_PIC2_DATA) << 8);
+पूर्ण
+
+व्योम
+pic_irqmask_ग_लिखो(u16 mask)
+अणु
+    अगर (!CONFIG_HARDWARE_IRQ)
+        वापस;
+    outb(mask, PORT_PIC1_DATA);
+    outb(mask >> 8, PORT_PIC2_DATA);
+पूर्ण
+
+व्योम
+pic_irqmask_mask(u16 off, u16 on)
+अणु
+    अगर (!CONFIG_HARDWARE_IRQ)
+        वापस;
+    u8 pic1off = off, pic1on = on, pic2off = off>>8, pic2on = on>>8;
+    outb((inb(PORT_PIC1_DATA) & ~pic1off) | pic1on, PORT_PIC1_DATA);
+    outb((inb(PORT_PIC2_DATA) & ~pic2off) | pic2on, PORT_PIC2_DATA);
+पूर्ण
+
+व्योम
+pic_reset(u8 irq0, u8 irq8)
+अणु
+    अगर (!CONFIG_HARDWARE_IRQ)
+        वापस;
+    // Send ICW1 (select OCW1 + will send ICW4)
+    outb(0x11, PORT_PIC1_CMD);
+    outb(0x11, PORT_PIC2_CMD);
+    // Send ICW2 (base irqs: 0x08-0x0f क्रम irq0-7, 0x70-0x77 क्रम irq8-15)
+    outb(irq0, PORT_PIC1_DATA);
+    outb(irq8, PORT_PIC2_DATA);
+    // Send ICW3 (cascaded pic ids)
+    outb(0x04, PORT_PIC1_DATA);
+    outb(0x02, PORT_PIC2_DATA);
+    // Send ICW4 (enable 8086 mode)
+    outb(0x01, PORT_PIC1_DATA);
+    outb(0x01, PORT_PIC2_DATA);
+    // Mask all irqs (except cascaded PIC2 irq)
+    pic_irqmask_ग_लिखो(PIC_IRQMASK_DEFAULT);
+पूर्ण
+
+व्योम
+pic_setup(व्योम)
+अणु
+    dम_लिखो(3, "init pic\n");
+    pic_reset(BIOS_HWIRQ0_VECTOR, BIOS_HWIRQ8_VECTOR);
+पूर्ण
+
+व्योम
+enable_hwirq(पूर्णांक hwirq, काष्ठा segoff_s func)
+अणु
+    अगर (!CONFIG_HARDWARE_IRQ)
+        वापस;
+    pic_irqmask_mask(1 << hwirq, 0);
+    पूर्णांक vector;
+    अगर (hwirq < 8)
+        vector = BIOS_HWIRQ0_VECTOR + hwirq;
+    अन्यथा
+        vector = BIOS_HWIRQ8_VECTOR + hwirq - 8;
+    SET_IVT(vector, func);
+पूर्ण
+
+अटल u8
+pic_isr1_पढ़ो(व्योम)
+अणु
+    अगर (!CONFIG_HARDWARE_IRQ)
+        वापस 0;
+    // 0x0b == select OCW1 + पढ़ो ISR
+    outb(0x0b, PORT_PIC1_CMD);
+    वापस inb(PORT_PIC1_CMD);
+पूर्ण
+
+अटल u8
+pic_isr2_पढ़ो(व्योम)
+अणु
+    अगर (!CONFIG_HARDWARE_IRQ)
+        वापस 0;
+    // 0x0b == select OCW1 + पढ़ो ISR
+    outb(0x0b, PORT_PIC2_CMD);
+    वापस inb(PORT_PIC2_CMD);
+पूर्ण
+
+// Handler क्रम otherwise unused hardware irqs.
+व्योम VISIBLE16
+handle_hwpic1(व्योम)
+अणु
+    dम_लिखो(DEBUG_ISR_hwpic1, "handle_hwpic1 irq=%x\n", pic_isr1_पढ़ो());
+    pic_eoi1();
+पूर्ण
+
+व्योम VISIBLE16
+handle_hwpic2(व्योम)
+अणु
+    dम_लिखो(DEBUG_ISR_hwpic2, "handle_hwpic2 irq=%x\n", pic_isr2_पढ़ो());
+    pic_eoi2();
+पूर्ण

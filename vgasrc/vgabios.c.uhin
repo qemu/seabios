@@ -1,0 +1,1131 @@
+<शैली गुरु>
+// VGA bios implementation
+//
+// Copyright (C) 2009-2013  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2001-2008 the LGPL VGABios developers Team
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_BDA
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "config.h" // CONFIG_*
+#समावेश "output.h" // dम_लिखो
+#समावेश "std/vbe.h" // VBE_RETURN_STATUS_FAILED
+#समावेश "std/vga.h" // काष्ठा video_func_अटल
+#समावेश "stdvga.h" // stdvga_set_cursor_shape
+#समावेश "string.h" // स_रखो_far
+#समावेश "vgabios.h" // calc_page_size
+#समावेश "vgafb.h" // vgafb_ग_लिखो_अक्षर
+#समावेश "vgahw.h" // vgahw_set_mode
+#समावेश "vgautil.h" // swcursor_pre_handle10
+
+
+/****************************************************************
+ * Helper functions
+ ****************************************************************/
+
+// Return the bits per pixel in प्रणाली memory क्रम a given mode.
+पूर्णांक
+vga_bpp(काष्ठा vgamode_s *vmode_g)
+अणु
+    चयन (GET_GLOBAL(vmode_g->memmodel)) अणु
+    हाल MM_TEXT:
+        वापस 16;
+    हाल MM_PLANAR:
+        वापस 1;
+    पूर्ण
+    u8 depth = GET_GLOBAL(vmode_g->depth);
+    अगर (depth > 8)
+        वापस ALIGN(depth, 8);
+    वापस depth;
+पूर्ण
+
+u16
+calc_page_size(u8 memmodel, u16 width, u16 height)
+अणु
+    चयन (memmodel) अणु
+    हाल MM_TEXT:
+        वापस ALIGN(width * height * 2, 2*1024);
+    हाल MM_CGA:
+        वापस 16*1024;
+    शेष:
+        वापस ALIGN(width * height / 8, 8*1024);
+    पूर्ण
+पूर्ण
+
+// Determine cursor shape (taking पूर्णांकo account possible cursor scaling)
+u16
+get_cursor_shape(व्योम)
+अणु
+    u16 cursor_type = GET_BDA(cursor_type);
+    u8 emulate_cursor = (GET_BDA(video_ctl) & 1) == 0;
+    अगर (!emulate_cursor)
+        वापस cursor_type;
+    u8 start = (cursor_type >> 8) & 0x3f;
+    u8 end = cursor_type & 0x1f;
+    u16 cheight = GET_BDA(अक्षर_height);
+    अगर (cheight <= 8 || end >= 8 || start >= 0x20)
+        वापस cursor_type;
+    अगर (end != (start + 1))
+        start = ((start + 1) * cheight / 8) - 1;
+    अन्यथा
+        start = ((end + 1) * cheight / 8) - 2;
+    end = ((end + 1) * cheight / 8) - 1;
+    वापस (start << 8) | end;
+पूर्ण
+
+अटल व्योम
+set_cursor_shape(u16 cursor_type)
+अणु
+    SET_BDA(cursor_type, cursor_type);
+    अगर (CONFIG_VGA_STDVGA_PORTS)
+        stdvga_set_cursor_shape(get_cursor_shape());
+पूर्ण
+
+अटल व्योम
+set_cursor_pos(काष्ठा cursorpos cp)
+अणु
+    अगर (cp.page > 7)
+        // Should not happen...
+        वापस;
+
+    अगर (cp.page == GET_BDA(video_page)) अणु
+        // Update cursor in hardware
+        अगर (CONFIG_VGA_STDVGA_PORTS)
+            stdvga_set_cursor_pos((पूर्णांक)text_address(cp));
+    पूर्ण
+
+    // Update BIOS cursor pos
+    SET_BDA(cursor_pos[cp.page], (cp.y << 8) | cp.x);
+पूर्ण
+
+काष्ठा cursorpos
+get_cursor_pos(u8 page)
+अणु
+    अगर (page > 7)
+        वापस (काष्ठा cursorpos) अणु 0, 0, 0 पूर्ण;
+    u16 xy = GET_BDA(cursor_pos[page]);
+    वापस (काष्ठा cursorpos) अणु xy, xy>>8, page पूर्ण;
+पूर्ण
+
+अटल व्योम
+set_active_page(u8 page)
+अणु
+    अगर (page > 7)
+        वापस;
+
+    // Get the mode
+    काष्ठा vgamode_s *vmode_g = get_current_mode();
+    अगर (!vmode_g)
+        वापस;
+
+    // Calculate memory address of start of page
+    काष्ठा cursorpos cp = अणु0, 0, pageपूर्ण;
+    पूर्णांक address = (पूर्णांक)text_address(cp);
+    vgahw_set_displaystart(vmode_g, address);
+
+    // And change the BIOS page
+    SET_BDA(video_pagestart, address);
+    SET_BDA(video_page, page);
+
+    dम_लिखो(1, "Set active page %02x address %04x\n", page, address);
+
+    // Display the cursor, now the page is active
+    set_cursor_pos(get_cursor_pos(page));
+पूर्ण
+
+अटल व्योम
+set_scan_lines(u8 lines)
+अणु
+    stdvga_set_scan_lines(lines);
+    SET_BDA(अक्षर_height, lines);
+    u16 vde = stdvga_get_vde();
+    u8 rows = vde / lines;
+    SET_BDA(video_rows, rows - 1);
+    u16 cols = GET_BDA(video_cols);
+    SET_BDA(video_pagesize, calc_page_size(MM_TEXT, cols, rows));
+    अगर (lines == 8)
+        set_cursor_shape(0x0607);
+    अन्यथा
+        set_cursor_shape(((lines - 3) << 8) | (lines - 2));
+पूर्ण
+
+
+/****************************************************************
+ * Character writing
+ ****************************************************************/
+
+// Write a अक्षरacter to the screen and calculate new cursor position.
+अटल व्योम
+ग_लिखो_अक्षर(काष्ठा cursorpos *pcp, काष्ठा carattr ca)
+अणु
+    vgafb_ग_लिखो_अक्षर(*pcp, ca);
+    pcp->x++;
+    // Do we need to wrap ?
+    अगर (pcp->x == GET_BDA(video_cols)) अणु
+        pcp->x = 0;
+        pcp->y++;
+    पूर्ण
+पूर्ण
+
+// Write a अक्षरacter to the screen at a given position.  Implement
+// special अक्षरacters and scroll the screen अगर necessary.
+अटल व्योम
+ग_लिखो_teletype(काष्ठा cursorpos *pcp, काष्ठा carattr ca)
+अणु
+    चयन (ca.car) अणु
+    हाल 7:
+        //FIXME should beep
+        अवरोध;
+    हाल 8:
+        अगर (pcp->x > 0)
+            pcp->x--;
+        अवरोध;
+    हाल '\r':
+        pcp->x = 0;
+        अवरोध;
+    हाल '\n':
+        pcp->y++;
+        अवरोध;
+    शेष:
+        ग_लिखो_अक्षर(pcp, ca);
+        अवरोध;
+    पूर्ण
+
+    // Do we need to scroll ?
+    u16 nbrows = GET_BDA(video_rows);
+    अगर (pcp->y > nbrows) अणु
+        pcp->y--;
+
+        काष्ठा cursorpos win = अणु0, 0, pcp->pageपूर्ण;
+        काष्ठा cursorpos winsize = अणुGET_BDA(video_cols), nbrows+1पूर्ण;
+        काष्ठा carattr attr = अणु' ', 0, 0पूर्ण;
+        vgafb_scroll(win, winsize, 1, attr);
+    पूर्ण
+पूर्ण
+
+
+/****************************************************************
+ * Save and restore bda state
+ ****************************************************************/
+
+काष्ठा saveBDAstate अणु
+    u8 bda_0x49[28];
+    u8 bda_0x84[6];
+    u16 vbe_mode;
+    काष्ठा segoff_s font0;
+    काष्ठा segoff_s font1;
+पूर्ण;
+
+पूर्णांक
+bda_save_restore(पूर्णांक cmd, u16 seg, व्योम *data)
+अणु
+    अगर (!(cmd & SR_BDA))
+        वापस 0;
+    काष्ठा saveBDAstate *info = data;
+    अगर (cmd & SR_SAVE) अणु
+        स_नकल_far(seg, info->bda_0x49, SEG_BDA, (व्योम*)0x49
+                   , माप(info->bda_0x49));
+        स_नकल_far(seg, info->bda_0x84, SEG_BDA, (व्योम*)0x84
+                   , माप(info->bda_0x84));
+        SET_FARVAR(seg, info->vbe_mode, GET_BDA_EXT(vbe_mode));
+        SET_FARVAR(seg, info->font0, GET_IVT(0x1f));
+        SET_FARVAR(seg, info->font1, GET_IVT(0x43));
+    पूर्ण
+    अगर (cmd & SR_RESTORE) अणु
+        स_नकल_far(SEG_BDA, (व्योम*)0x49, seg, info->bda_0x49
+                   , माप(info->bda_0x49));
+        स_नकल_far(SEG_BDA, (व्योम*)0x84, seg, info->bda_0x84
+                   , माप(info->bda_0x84));
+        u16 vbe_mode = GET_FARVAR(seg, info->vbe_mode);
+        SET_BDA_EXT(vbe_mode, vbe_mode);
+        काष्ठा vgamode_s *vmode_g = vgahw_find_mode(vbe_mode & ~MF_VBEFLAGS);
+        SET_BDA_EXT(vgamode_offset, (u32)vmode_g);
+        SET_IVT(0x1f, GET_FARVAR(seg, info->font0));
+        SET_IVT(0x43, GET_FARVAR(seg, info->font1));
+    पूर्ण
+    वापस माप(*info);
+पूर्ण
+
+
+/****************************************************************
+ * Mode setting
+ ****************************************************************/
+
+काष्ठा vgamode_s *
+get_current_mode(व्योम)
+अणु
+    वापस (व्योम*)(GET_BDA_EXT(vgamode_offset)+0);
+पूर्ण
+
+// Setup BDA after a mode चयन.
+पूर्णांक
+vga_set_mode(पूर्णांक mode, पूर्णांक flags)
+अणु
+    dम_लिखो(1, "set VGA mode %x\n", mode);
+    काष्ठा vgamode_s *vmode_g = vgahw_find_mode(mode);
+    अगर (!vmode_g)
+        वापस VBE_RETURN_STATUS_FAILED;
+
+    पूर्णांक ret = vgahw_set_mode(vmode_g, flags);
+    अगर (ret)
+        वापस ret;
+
+    // Set the BIOS mem
+    पूर्णांक width = GET_GLOBAL(vmode_g->width);
+    पूर्णांक height = GET_GLOBAL(vmode_g->height);
+    u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
+    पूर्णांक cheight = GET_GLOBAL(vmode_g->cheight);
+    अगर (mode < 0x100)
+        SET_BDA(video_mode, mode);
+    अन्यथा
+        SET_BDA(video_mode, 0xff);
+    SET_BDA_EXT(vbe_mode, mode | (flags & MF_VBEFLAGS));
+    SET_BDA_EXT(vgamode_offset, (u32)vmode_g);
+    अगर (CONFIG_VGA_ALLOCATE_EXTRA_STACK)
+        // Disable extra stack अगर it appears a modern OS is in use.
+        // This works around bugs in some versions of Winकरोws (Vista
+        // and possibly later) when the stack is in the e-segment.
+        MASK_BDA_EXT(flags, BF_EXTRA_STACK
+                     , (flags & MF_LEGACY) ? BF_EXTRA_STACK : 0);
+    अगर (memmodel == MM_TEXT) अणु
+        SET_BDA(video_cols, width);
+        SET_BDA(video_rows, height-1);
+        SET_BDA(cursor_type, 0x0607);
+    पूर्ण अन्यथा अणु
+        पूर्णांक cwidth = GET_GLOBAL(vmode_g->cwidth);
+        SET_BDA(video_cols, width / cwidth);
+        SET_BDA(video_rows, (height / cheight) - 1);
+        SET_BDA(cursor_type, vga_emulate_text() ? 0x0607 : 0x0000);
+    पूर्ण
+    SET_BDA(video_pagesize, calc_page_size(memmodel, width, height));
+    SET_BDA(crtc_address, CONFIG_VGA_STDVGA_PORTS ? stdvga_get_crtc() : 0);
+    SET_BDA(अक्षर_height, cheight);
+    SET_BDA(video_ctl, 0x60 | (flags & MF_NOCLEARMEM ? 0x80 : 0x00));
+    SET_BDA(video_चयनes, 0xF9);
+    SET_BDA(modeset_ctl, GET_BDA(modeset_ctl) & 0x7f);
+    पूर्णांक i;
+    क्रम (i=0; i<8; i++)
+        SET_BDA(cursor_pos[i], 0x0000);
+    SET_BDA(video_pagestart, 0x0000);
+    SET_BDA(video_page, 0x00);
+
+    // Set the पूर्णांकs 0x1F and 0x43
+    SET_IVT(0x1f, SEGOFF(get_global_seg(), (u32)&vgafont8[128 * 8]));
+
+    चयन (cheight) अणु
+    हाल 8:
+        SET_IVT(0x43, SEGOFF(get_global_seg(), (u32)vgafont8));
+        अवरोध;
+    हाल 14:
+        SET_IVT(0x43, SEGOFF(get_global_seg(), (u32)vgafont14));
+        अवरोध;
+    हाल 16:
+        SET_IVT(0x43, SEGOFF(get_global_seg(), (u32)vgafont16));
+        अवरोध;
+    पूर्ण
+
+    वापस 0;
+पूर्ण
+
+
+/****************************************************************
+ * VGA पूर्णांक 10 handler
+ ****************************************************************/
+
+अटल व्योम
+handle_1000(काष्ठा bregs *regs)
+अणु
+    पूर्णांक mode = regs->al & 0x7f;
+    पूर्णांक flags = MF_LEGACY | (GET_BDA(modeset_ctl) & (MF_NOPALETTE|MF_GRAYSUM));
+    अगर (regs->al & 0x80)
+        flags |= MF_NOCLEARMEM;
+
+    // Set regs->al
+    अगर (mode > 7)
+        regs->al = 0x20;
+    अन्यथा अगर (mode == 6)
+        regs->al = 0x3f;
+    अन्यथा
+        regs->al = 0x30;
+
+    vga_set_mode(mode, flags);
+पूर्ण
+
+अटल व्योम
+handle_1001(काष्ठा bregs *regs)
+अणु
+    set_cursor_shape(regs->cx);
+पूर्ण
+
+अटल व्योम
+handle_1002(काष्ठा bregs *regs)
+अणु
+    काष्ठा cursorpos cp = अणुregs->dl, regs->dh, regs->bhपूर्ण;
+    set_cursor_pos(cp);
+पूर्ण
+
+अटल व्योम
+handle_1003(काष्ठा bregs *regs)
+अणु
+    regs->cx = GET_BDA(cursor_type);
+    काष्ठा cursorpos cp = get_cursor_pos(regs->bh);
+    regs->dl = cp.x;
+    regs->dh = cp.y;
+पूर्ण
+
+// Read light pen pos (unimplemented)
+अटल व्योम
+handle_1004(काष्ठा bregs *regs)
+अणु
+    debug_stub(regs);
+    regs->ax = regs->bx = regs->cx = regs->dx = 0;
+पूर्ण
+
+अटल व्योम
+handle_1005(काष्ठा bregs *regs)
+अणु
+    set_active_page(regs->al);
+पूर्ण
+
+अटल व्योम
+verअगरy_scroll(काष्ठा bregs *regs, पूर्णांक dir)
+अणु
+    // Verअगरy parameters
+    u8 ulx = regs->cl, uly = regs->ch, lrx = regs->dl, lry = regs->dh;
+    u16 nbrows = GET_BDA(video_rows) + 1;
+    अगर (lry >= nbrows)
+        lry = nbrows - 1;
+    u16 nbcols = GET_BDA(video_cols);
+    अगर (lrx >= nbcols)
+        lrx = nbcols - 1;
+    पूर्णांक wincols = lrx - ulx + 1, winrows = lry - uly + 1;
+    अगर (wincols <= 0 || winrows <= 0)
+        वापस;
+    पूर्णांक lines = regs->al;
+    अगर (lines >= winrows)
+        lines = 0;
+    lines *= dir;
+
+    // Scroll (or clear) winकरोw
+    काष्ठा cursorpos win = अणुulx, uly, GET_BDA(video_page)पूर्ण;
+    काष्ठा cursorpos winsize = अणुwincols, winrowsपूर्ण;
+    काष्ठा carattr attr = अणु' ', regs->bh, 1पूर्ण;
+    vgafb_scroll(win, winsize, lines, attr);
+पूर्ण
+
+अटल व्योम
+handle_1006(काष्ठा bregs *regs)
+अणु
+    verअगरy_scroll(regs, 1);
+पूर्ण
+
+अटल व्योम
+handle_1007(काष्ठा bregs *regs)
+अणु
+    verअगरy_scroll(regs, -1);
+पूर्ण
+
+अटल व्योम
+handle_1008(काष्ठा bregs *regs)
+अणु
+    काष्ठा carattr ca = vgafb_पढ़ो_अक्षर(get_cursor_pos(regs->bh));
+    regs->al = ca.car;
+    regs->ah = ca.attr;
+पूर्ण
+
+अटल व्योम noअंतरभूत
+handle_1009(काष्ठा bregs *regs)
+अणु
+    काष्ठा carattr ca = अणुregs->al, regs->bl, 1पूर्ण;
+    काष्ठा cursorpos cp = get_cursor_pos(regs->bh);
+    पूर्णांक count = regs->cx;
+    जबतक (count--)
+        ग_लिखो_अक्षर(&cp, ca);
+पूर्ण
+
+अटल व्योम noअंतरभूत
+handle_100a(काष्ठा bregs *regs)
+अणु
+    काष्ठा carattr ca = अणुregs->al, regs->bl, 0पूर्ण;
+    काष्ठा cursorpos cp = get_cursor_pos(regs->bh);
+    पूर्णांक count = regs->cx;
+    जबतक (count--)
+        ग_लिखो_अक्षर(&cp, ca);
+पूर्ण
+
+
+अटल व्योम
+handle_100b00(काष्ठा bregs *regs)
+अणु
+    stdvga_set_border_color(regs->bl);
+पूर्ण
+
+अटल व्योम
+handle_100b01(काष्ठा bregs *regs)
+अणु
+    stdvga_set_palette(regs->bl);
+पूर्ण
+
+अटल व्योम
+handle_100bXX(काष्ठा bregs *regs)
+अणु
+    debug_stub(regs);
+पूर्ण
+
+अटल व्योम
+handle_100b(काष्ठा bregs *regs)
+अणु
+    अगर (!CONFIG_VGA_STDVGA_PORTS) अणु
+        handle_100bXX(regs);
+        वापस;
+    पूर्ण
+    चयन (regs->bh) अणु
+    हाल 0x00: handle_100b00(regs); अवरोध;
+    हाल 0x01: handle_100b01(regs); अवरोध;
+    शेष:   handle_100bXX(regs); अवरोध;
+    पूर्ण
+पूर्ण
+
+
+अटल व्योम
+handle_100c(काष्ठा bregs *regs)
+अणु
+    // XXX - page (regs->bh) is unused
+    vgafb_ग_लिखो_pixel(regs->al, regs->cx, regs->dx);
+पूर्ण
+
+अटल व्योम
+handle_100d(काष्ठा bregs *regs)
+अणु
+    // XXX - page (regs->bh) is unused
+    regs->al = vgafb_पढ़ो_pixel(regs->cx, regs->dx);
+पूर्ण
+
+अटल व्योम noअंतरभूत
+handle_100e(काष्ठा bregs *regs)
+अणु
+    // Ralf Brown Interrupt list is WRONG on bh(page)
+    // We करो output only on the current page !
+    काष्ठा carattr ca = अणुregs->al, regs->bl, 0पूर्ण;
+    काष्ठा cursorpos cp = get_cursor_pos(GET_BDA(video_page));
+    ग_लिखो_teletype(&cp, ca);
+    set_cursor_pos(cp);
+पूर्ण
+
+अटल व्योम
+handle_100f(काष्ठा bregs *regs)
+अणु
+    regs->bh = GET_BDA(video_page);
+    regs->al = GET_BDA(video_mode) | (GET_BDA(video_ctl) & 0x80);
+    regs->ah = GET_BDA(video_cols);
+पूर्ण
+
+
+अटल व्योम
+handle_101000(काष्ठा bregs *regs)
+अणु
+    अगर (regs->bl > 0x14)
+        वापस;
+    stdvga_attr_ग_लिखो(regs->bl, regs->bh);
+पूर्ण
+
+अटल व्योम
+handle_101001(काष्ठा bregs *regs)
+अणु
+    stdvga_set_overscan_border_color(regs->bh);
+पूर्ण
+
+अटल व्योम
+handle_101002(काष्ठा bregs *regs)
+अणु
+    stdvga_set_all_palette_reg(regs->es, (u8*)(regs->dx + 0));
+पूर्ण
+
+अटल व्योम
+handle_101003(काष्ठा bregs *regs)
+अणु
+    stdvga_toggle_पूर्णांकensity(regs->bl);
+पूर्ण
+
+अटल व्योम
+handle_101007(काष्ठा bregs *regs)
+अणु
+    अगर (regs->bl > 0x14)
+        वापस;
+    regs->bh = stdvga_attr_पढ़ो(regs->bl);
+पूर्ण
+
+अटल व्योम
+handle_101008(काष्ठा bregs *regs)
+अणु
+    regs->bh = stdvga_get_overscan_border_color();
+पूर्ण
+
+अटल व्योम
+handle_101009(काष्ठा bregs *regs)
+अणु
+    stdvga_get_all_palette_reg(regs->es, (u8*)(regs->dx + 0));
+पूर्ण
+
+अटल व्योम noअंतरभूत
+handle_101010(काष्ठा bregs *regs)
+अणु
+    u8 rgb[3] = अणुregs->dh, regs->ch, regs->clपूर्ण;
+    stdvga_dac_ग_लिखो(GET_SEG(SS), rgb, regs->bx, 1);
+पूर्ण
+
+अटल व्योम
+handle_101012(काष्ठा bregs *regs)
+अणु
+    stdvga_dac_ग_लिखो(regs->es, (u8*)(regs->dx + 0), regs->bx, regs->cx);
+पूर्ण
+
+अटल व्योम
+handle_101013(काष्ठा bregs *regs)
+अणु
+    stdvga_select_video_dac_color_page(regs->bl, regs->bh);
+पूर्ण
+
+अटल व्योम noअंतरभूत
+handle_101015(काष्ठा bregs *regs)
+अणु
+    u8 rgb[3];
+    stdvga_dac_पढ़ो(GET_SEG(SS), rgb, regs->bx, 1);
+    regs->dh = rgb[0];
+    regs->ch = rgb[1];
+    regs->cl = rgb[2];
+पूर्ण
+
+अटल व्योम
+handle_101017(काष्ठा bregs *regs)
+अणु
+    stdvga_dac_पढ़ो(regs->es, (u8*)(regs->dx + 0), regs->bx, regs->cx);
+पूर्ण
+
+अटल व्योम
+handle_101018(काष्ठा bregs *regs)
+अणु
+    stdvga_pelmask_ग_लिखो(regs->bl);
+पूर्ण
+
+अटल व्योम
+handle_101019(काष्ठा bregs *regs)
+अणु
+    regs->bl = stdvga_pelmask_पढ़ो();
+पूर्ण
+
+अटल व्योम
+handle_10101a(काष्ठा bregs *regs)
+अणु
+    stdvga_पढ़ो_video_dac_state(&regs->bl, &regs->bh);
+पूर्ण
+
+अटल व्योम
+handle_10101b(काष्ठा bregs *regs)
+अणु
+    stdvga_perक्रमm_gray_scale_summing(regs->bx, regs->cx);
+पूर्ण
+
+अटल व्योम
+handle_1010XX(काष्ठा bregs *regs)
+अणु
+    debug_stub(regs);
+पूर्ण
+
+अटल व्योम
+handle_1010(काष्ठा bregs *regs)
+अणु
+    अगर (!CONFIG_VGA_STDVGA_PORTS) अणु
+        handle_1010XX(regs);
+        वापस;
+    पूर्ण
+    चयन (regs->al) अणु
+    हाल 0x00: handle_101000(regs); अवरोध;
+    हाल 0x01: handle_101001(regs); अवरोध;
+    हाल 0x02: handle_101002(regs); अवरोध;
+    हाल 0x03: handle_101003(regs); अवरोध;
+    हाल 0x07: handle_101007(regs); अवरोध;
+    हाल 0x08: handle_101008(regs); अवरोध;
+    हाल 0x09: handle_101009(regs); अवरोध;
+    हाल 0x10: handle_101010(regs); अवरोध;
+    हाल 0x12: handle_101012(regs); अवरोध;
+    हाल 0x13: handle_101013(regs); अवरोध;
+    हाल 0x15: handle_101015(regs); अवरोध;
+    हाल 0x17: handle_101017(regs); अवरोध;
+    हाल 0x18: handle_101018(regs); अवरोध;
+    हाल 0x19: handle_101019(regs); अवरोध;
+    हाल 0x1a: handle_10101a(regs); अवरोध;
+    हाल 0x1b: handle_10101b(regs); अवरोध;
+    शेष:   handle_1010XX(regs); अवरोध;
+    पूर्ण
+पूर्ण
+
+
+अटल व्योम
+handle_101100(काष्ठा bregs *regs)
+अणु
+    stdvga_load_font(regs->es, (व्योम*)(regs->bp+0), regs->cx
+                     , regs->dx, regs->bl, regs->bh);
+पूर्ण
+
+अटल व्योम
+handle_101101(काष्ठा bregs *regs)
+अणु
+    stdvga_load_font(get_global_seg(), vgafont14, 0x100, 0, regs->bl, 14);
+पूर्ण
+
+अटल व्योम
+handle_101102(काष्ठा bregs *regs)
+अणु
+    stdvga_load_font(get_global_seg(), vgafont8, 0x100, 0, regs->bl, 8);
+पूर्ण
+
+अटल व्योम
+handle_101103(काष्ठा bregs *regs)
+अणु
+    stdvga_set_text_block_specअगरier(regs->bl);
+पूर्ण
+
+अटल व्योम
+handle_101104(काष्ठा bregs *regs)
+अणु
+    stdvga_load_font(get_global_seg(), vgafont16, 0x100, 0, regs->bl, 16);
+पूर्ण
+
+अटल व्योम
+handle_101110(काष्ठा bregs *regs)
+अणु
+    stdvga_load_font(regs->es, (व्योम*)(regs->bp+0), regs->cx
+                     , regs->dx, regs->bl, regs->bh);
+    set_scan_lines(regs->bh);
+पूर्ण
+
+अटल व्योम
+handle_101111(काष्ठा bregs *regs)
+अणु
+    stdvga_load_font(get_global_seg(), vgafont14, 0x100, 0, regs->bl, 14);
+    set_scan_lines(14);
+पूर्ण
+
+अटल व्योम
+handle_101112(काष्ठा bregs *regs)
+अणु
+    stdvga_load_font(get_global_seg(), vgafont8, 0x100, 0, regs->bl, 8);
+    set_scan_lines(8);
+पूर्ण
+
+अटल व्योम
+handle_101114(काष्ठा bregs *regs)
+अणु
+    stdvga_load_font(get_global_seg(), vgafont16, 0x100, 0, regs->bl, 16);
+    set_scan_lines(16);
+पूर्ण
+
+अटल व्योम
+handle_101120(काष्ठा bregs *regs)
+अणु
+    SET_IVT(0x1f, SEGOFF(regs->es, regs->bp));
+पूर्ण
+
+व्योम
+load_gfx_font(u16 seg, u16 off, u8 height, u8 bl, u8 dl)
+अणु
+    u8 rows;
+
+    SET_IVT(0x43, SEGOFF(seg, off));
+    चयन(bl) अणु
+    हाल 0:
+        rows = dl;
+        अवरोध;
+    हाल 1:
+        rows = 14;
+        अवरोध;
+    हाल 3:
+        rows = 43;
+        अवरोध;
+    हाल 2:
+    शेष:
+        rows = 25;
+        अवरोध;
+    पूर्ण
+    SET_BDA(video_rows, rows - 1);
+    SET_BDA(अक्षर_height, height);
+पूर्ण
+
+अटल व्योम
+handle_101121(काष्ठा bregs *regs)
+अणु
+    load_gfx_font(regs->es, regs->bp, regs->cx, regs->bl, regs->dl);
+पूर्ण
+
+अटल व्योम
+handle_101122(काष्ठा bregs *regs)
+अणु
+    load_gfx_font(get_global_seg(), (u32)vgafont14, 14, regs->bl, regs->dl);
+पूर्ण
+
+अटल व्योम
+handle_101123(काष्ठा bregs *regs)
+अणु
+    load_gfx_font(get_global_seg(), (u32)vgafont8, 8, regs->bl, regs->dl);
+पूर्ण
+
+अटल व्योम
+handle_101124(काष्ठा bregs *regs)
+अणु
+    load_gfx_font(get_global_seg(), (u32)vgafont16, 16, regs->bl, regs->dl);
+पूर्ण
+
+अटल व्योम
+handle_101130(काष्ठा bregs *regs)
+अणु
+    चयन (regs->bh) अणु
+    हाल 0x00: अणु
+        काष्ठा segoff_s so = GET_IVT(0x1f);
+        regs->es = so.seg;
+        regs->bp = so.offset;
+        अवरोध;
+    पूर्ण
+    हाल 0x01: अणु
+        काष्ठा segoff_s so = GET_IVT(0x43);
+        regs->es = so.seg;
+        regs->bp = so.offset;
+        अवरोध;
+    पूर्ण
+    हाल 0x02:
+        regs->es = get_global_seg();
+        regs->bp = (u32)vgafont14;
+        अवरोध;
+    हाल 0x03:
+        regs->es = get_global_seg();
+        regs->bp = (u32)vgafont8;
+        अवरोध;
+    हाल 0x04:
+        regs->es = get_global_seg();
+        regs->bp = (u32)vgafont8 + 128 * 8;
+        अवरोध;
+    हाल 0x05:
+        regs->es = get_global_seg();
+        regs->bp = (u32)vgafont14alt;
+        अवरोध;
+    हाल 0x06:
+        regs->es = get_global_seg();
+        regs->bp = (u32)vgafont16;
+        अवरोध;
+    हाल 0x07:
+        regs->es = get_global_seg();
+        regs->bp = (u32)vgafont16alt;
+        अवरोध;
+    शेष:
+        dम_लिखो(1, "Get font info BH(%02x) was discarded\n", regs->bh);
+        वापस;
+    पूर्ण
+    // Set byte/अक्षर of on screen font
+    regs->cx = GET_BDA(अक्षर_height) & 0xff;
+
+    // Set Highest अक्षर row
+    regs->dl = GET_BDA(video_rows);
+पूर्ण
+
+अटल व्योम
+handle_1011XX(काष्ठा bregs *regs)
+अणु
+    debug_stub(regs);
+पूर्ण
+
+अटल व्योम
+handle_1011(काष्ठा bregs *regs)
+अणु
+    अगर (CONFIG_VGA_STDVGA_PORTS) अणु
+        चयन (regs->al) अणु
+        हाल 0x00: handle_101100(regs); वापस;
+        हाल 0x01: handle_101101(regs); वापस;
+        हाल 0x02: handle_101102(regs); वापस;
+        हाल 0x03: handle_101103(regs); वापस;
+        हाल 0x04: handle_101104(regs); वापस;
+        हाल 0x10: handle_101110(regs); वापस;
+        हाल 0x11: handle_101111(regs); वापस;
+        हाल 0x12: handle_101112(regs); वापस;
+        हाल 0x14: handle_101114(regs); वापस;
+        पूर्ण
+    पूर्ण
+    चयन (regs->al) अणु
+    हाल 0x30: handle_101130(regs); अवरोध;
+    हाल 0x20: handle_101120(regs); अवरोध;
+    हाल 0x21: handle_101121(regs); अवरोध;
+    हाल 0x22: handle_101122(regs); अवरोध;
+    हाल 0x23: handle_101123(regs); अवरोध;
+    हाल 0x24: handle_101124(regs); अवरोध;
+    शेष:   handle_1011XX(regs); अवरोध;
+    पूर्ण
+पूर्ण
+
+
+अटल व्योम
+handle_101210(काष्ठा bregs *regs)
+अणु
+    u16 crtc_addr = GET_BDA(crtc_address);
+    अगर (crtc_addr == VGAREG_MDA_CRTC_ADDRESS)
+        regs->bx = 0x0103;
+    अन्यथा
+        regs->bx = 0x0003;
+    regs->cx = GET_BDA(video_चयनes) & 0x0f;
+पूर्ण
+
+अटल व्योम
+handle_101230(काष्ठा bregs *regs)
+अणु
+    u8 mctl = GET_BDA(modeset_ctl);
+    u8 vswt = GET_BDA(video_चयनes);
+    चयन (regs->al) अणु
+    हाल 0x00:
+        // 200 lines
+        mctl = (mctl & ~0x10) | 0x80;
+        vswt = (vswt & ~0x0f) | 0x08;
+        अवरोध;
+    हाल 0x01:
+        // 350 lines
+        mctl &= ~0x90;
+        vswt = (vswt & ~0x0f) | 0x09;
+        अवरोध;
+    हाल 0x02:
+        // 400 lines
+        mctl = (mctl & ~0x80) | 0x10;
+        vswt = (vswt & ~0x0f) | 0x09;
+        अवरोध;
+    शेष:
+        dम_लिखो(1, "Select vert res (%02x) was discarded\n", regs->al);
+        अवरोध;
+    पूर्ण
+    SET_BDA(modeset_ctl, mctl);
+    SET_BDA(video_चयनes, vswt);
+    regs->al = 0x12;
+पूर्ण
+
+अटल व्योम
+handle_101231(काष्ठा bregs *regs)
+अणु
+    u8 v = (regs->al & 0x01) << 3;
+    u8 mctl = GET_BDA(video_ctl) & ~0x08;
+    SET_BDA(video_ctl, mctl | v);
+    regs->al = 0x12;
+पूर्ण
+
+अटल व्योम
+handle_101232(काष्ठा bregs *regs)
+अणु
+    अगर (CONFIG_VGA_STDVGA_PORTS) अणु
+        stdvga_enable_video_addressing(regs->al);
+        regs->al = 0x12;
+    पूर्ण
+पूर्ण
+
+अटल व्योम
+handle_101233(काष्ठा bregs *regs)
+अणु
+    u8 v = ((regs->al << 1) & 0x02) ^ 0x02;
+    u8 v2 = GET_BDA(modeset_ctl) & ~0x02;
+    SET_BDA(modeset_ctl, v | v2);
+    regs->al = 0x12;
+पूर्ण
+
+अटल व्योम
+handle_101234(काष्ठा bregs *regs)
+अणु
+    SET_BDA(video_ctl, (GET_BDA(video_ctl) & ~0x01) | (regs->al & 0x01));
+    regs->al = 0x12;
+पूर्ण
+
+अटल व्योम
+handle_101235(काष्ठा bregs *regs)
+अणु
+    debug_stub(regs);
+    regs->al = 0x12;
+पूर्ण
+
+अटल व्योम
+handle_101236(काष्ठा bregs *regs)
+अणु
+    debug_stub(regs);
+    regs->al = 0x12;
+पूर्ण
+
+अटल व्योम
+handle_1012XX(काष्ठा bregs *regs)
+अणु
+    debug_stub(regs);
+पूर्ण
+
+अटल व्योम
+handle_1012(काष्ठा bregs *regs)
+अणु
+    अगर (CONFIG_VGA_CIRRUS && regs->bl >= 0x80) अणु
+        clext_1012(regs);
+        वापस;
+    पूर्ण
+
+    चयन (regs->bl) अणु
+    हाल 0x10: handle_101210(regs); अवरोध;
+    हाल 0x30: handle_101230(regs); अवरोध;
+    हाल 0x31: handle_101231(regs); अवरोध;
+    हाल 0x32: handle_101232(regs); अवरोध;
+    हाल 0x33: handle_101233(regs); अवरोध;
+    हाल 0x34: handle_101234(regs); अवरोध;
+    हाल 0x35: handle_101235(regs); अवरोध;
+    हाल 0x36: handle_101236(regs); अवरोध;
+    शेष:   handle_1012XX(regs); अवरोध;
+    पूर्ण
+पूर्ण
+
+
+// Write string
+अटल व्योम noअंतरभूत
+handle_1013(काष्ठा bregs *regs)
+अणु
+    काष्ठा cursorpos cp = अणुregs->dl, regs->dh, regs->bhपूर्ण;
+    u16 count = regs->cx;
+    u8 *offset_far = (व्योम*)(regs->bp + 0);
+    u8 attr = regs->bl;
+    जबतक (count--) अणु
+        u8 car = GET_FARVAR(regs->es, *offset_far);
+        offset_far++;
+        अगर (regs->al & 2) अणु
+            attr = GET_FARVAR(regs->es, *offset_far);
+            offset_far++;
+        पूर्ण
+
+        काष्ठा carattr ca = अणुcar, attr, 1पूर्ण;
+        ग_लिखो_teletype(&cp, ca);
+    पूर्ण
+
+    अगर (regs->al & 1)
+        set_cursor_pos(cp);
+पूर्ण
+
+
+अटल व्योम
+handle_101a00(काष्ठा bregs *regs)
+अणु
+    regs->bx = GET_BDA(dcc_index);
+    regs->al = 0x1a;
+पूर्ण
+
+अटल व्योम
+handle_101a01(काष्ठा bregs *regs)
+अणु
+    SET_BDA(dcc_index, regs->bl);
+    dम_लिखो(1, "Alternate Display code (%02x) was discarded\n", regs->bh);
+    regs->al = 0x1a;
+पूर्ण
+
+अटल व्योम
+handle_101aXX(काष्ठा bregs *regs)
+अणु
+    debug_stub(regs);
+पूर्ण
+
+अटल व्योम
+handle_101a(काष्ठा bregs *regs)
+अणु
+    चयन (regs->al) अणु
+    हाल 0x00: handle_101a00(regs); अवरोध;
+    हाल 0x01: handle_101a01(regs); अवरोध;
+    शेष:   handle_101aXX(regs); अवरोध;
+    पूर्ण
+पूर्ण
+
+
+काष्ठा video_func_अटल अटल_functionality VAR16 = अणु
+    .modes          = 0x00,   // Filled in by stdvga_build_video_param()
+    .scanlines      = 0x07,   // 200, 350, 400 scan lines
+    .cblocks        = 0x02,   // mamimum number of visible अक्षरsets in text mode
+    .active_cblocks = 0x08,   // total number of अक्षरset blocks in text mode
+    .misc_flags     = 0x0ce7,
+पूर्ण;
+
+अटल व्योम
+handle_101b(काष्ठा bregs *regs)
+अणु
+    u16 seg = regs->es;
+    काष्ठा video_func_info *info = (व्योम*)(regs->di+0);
+    स_रखो_far(seg, info, 0, माप(*info));
+    // Address of अटल functionality table
+    SET_FARVAR(seg, info->अटल_functionality
+               , SEGOFF(get_global_seg(), (u32)&अटल_functionality));
+
+    // Hard coded copy from BIOS area. Should it be cleaner ?
+    स_नकल_far(seg, info->bda_0x49, SEG_BDA, (व्योम*)0x49
+               , माप(info->bda_0x49));
+    स_नकल_far(seg, info->bda_0x84, SEG_BDA, (व्योम*)0x84
+               , माप(info->bda_0x84));
+
+    SET_FARVAR(seg, info->dcc_index, GET_BDA(dcc_index));
+    SET_FARVAR(seg, info->colors, 16);
+    SET_FARVAR(seg, info->pages, 8);
+    SET_FARVAR(seg, info->scan_lines, 2);
+    SET_FARVAR(seg, info->video_mem, 3);
+    regs->al = 0x1B;
+पूर्ण
+
+
+अटल व्योम
+handle_101c(काष्ठा bregs *regs)
+अणु
+    u16 seg = regs->es;
+    व्योम *data = (व्योम*)(regs->bx+0);
+    u16 states = regs->cx;
+    u8 cmd = regs->al;
+    अगर (states & ~0x07 || cmd > 2)
+        जाओ fail;
+    पूर्णांक ret = vgahw_save_restore(states | (cmd<<8), seg, data);
+    अगर (ret < 0)
+        जाओ fail;
+    अगर (cmd == 0)
+        regs->bx = ret / 64;
+    regs->al = 0x1c;
+fail:
+    वापस;
+पूर्ण
+
+अटल व्योम
+handle_10XX(काष्ठा bregs *regs)
+अणु
+    debug_stub(regs);
+पूर्ण
+
+// INT 10h Video Support Service Entry Poपूर्णांक
+व्योम VISIBLE16
+handle_10(काष्ठा bregs *regs)
+अणु
+    debug_enter(regs, DEBUG_VGA_10);
+    swcursor_pre_handle10(regs);
+
+    चयन (regs->ah) अणु
+    हाल 0x00: handle_1000(regs); अवरोध;
+    हाल 0x01: handle_1001(regs); अवरोध;
+    हाल 0x02: handle_1002(regs); अवरोध;
+    हाल 0x03: handle_1003(regs); अवरोध;
+    हाल 0x04: handle_1004(regs); अवरोध;
+    हाल 0x05: handle_1005(regs); अवरोध;
+    हाल 0x06: handle_1006(regs); अवरोध;
+    हाल 0x07: handle_1007(regs); अवरोध;
+    हाल 0x08: handle_1008(regs); अवरोध;
+    हाल 0x09: handle_1009(regs); अवरोध;
+    हाल 0x0a: handle_100a(regs); अवरोध;
+    हाल 0x0b: handle_100b(regs); अवरोध;
+    हाल 0x0c: handle_100c(regs); अवरोध;
+    हाल 0x0d: handle_100d(regs); अवरोध;
+    हाल 0x0e: handle_100e(regs); अवरोध;
+    हाल 0x0f: handle_100f(regs); अवरोध;
+    हाल 0x10: handle_1010(regs); अवरोध;
+    हाल 0x11: handle_1011(regs); अवरोध;
+    हाल 0x12: handle_1012(regs); अवरोध;
+    हाल 0x13: handle_1013(regs); अवरोध;
+    हाल 0x1a: handle_101a(regs); अवरोध;
+    हाल 0x1b: handle_101b(regs); अवरोध;
+    हाल 0x1c: handle_101c(regs); अवरोध;
+    हाल 0x4f: handle_104f(regs); अवरोध;
+    शेष:   handle_10XX(regs); अवरोध;
+    पूर्ण
+पूर्ण

@@ -1,0 +1,276 @@
+<शैली गुरु>
+// Simple framebuffer vgabios क्रम use with coreboot native vga init.
+//
+// Copyright (C) 2014  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2017  Patrick Ruकरोlph <siro@das-labor.org>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_BDA
+#समावेश "output.h" // dम_लिखो
+#समावेश "stdvga.h" // SEG_CTEXT
+#समावेश "string.h" // स_रखो16_far
+#समावेश "util.h" // find_cb_table
+#समावेश "vgabios.h" // SET_VGA
+#समावेश "vgafb.h" // handle_gfx_op
+#समावेश "vgautil.h" // VBE_total_memory
+#समावेश "svgamodes.h" // svga_modes
+
+अटल पूर्णांक CBmode VAR16;
+अटल काष्ठा vgamode_s CBmodeinfo VAR16;
+अटल काष्ठा vgamode_s CBemulinfo VAR16;
+अटल u32 CBlinelength VAR16;
+
+काष्ठा vgamode_s *cbvga_find_mode(पूर्णांक mode)
+अणु
+    अगर (mode == GET_GLOBAL(CBmode))
+        वापस &CBmodeinfo;
+    अगर (mode == 0x03)
+        वापस &CBemulinfo;
+
+    पूर्णांक i;
+    क्रम (i = 0; i < GET_GLOBAL(svga_mcount); i++) अणु
+        काष्ठा generic_svga_mode *cbmode_g = &svga_modes[i];
+        अगर (GET_GLOBAL(cbmode_g->mode) == 0xffff)
+            जारी;
+        अगर (GET_GLOBAL(cbmode_g->mode) == mode)
+            वापस &cbmode_g->info;
+    पूर्ण
+    वापस शून्य;
+पूर्ण
+
+व्योम
+cbvga_list_modes(u16 seg, u16 *dest, u16 *last)
+अणु
+    पूर्णांक seen = 0;
+
+    अगर (GET_GLOBAL(CBmode) != 0x3) अणु
+        /* Advertise additional SVGA modes क्रम Microsoft NTLDR graphical mode.
+         * Microsoft NTLDR:
+         * + Graphical mode uses a maximum resolution of 1600x1200.
+         * + Expects to find VESA mode with 800x600 or 1024x768.
+         * + 24 Bpp and 32 Bpp are supported
+         */
+        पूर्णांक i;
+        क्रम (i = 0; i < GET_GLOBAL(svga_mcount) && dest < last; i++) अणु
+            काष्ठा generic_svga_mode *cbmode_g = &svga_modes[i];
+            u16 mode = GET_GLOBAL(cbmode_g->mode);
+            अगर (mode == 0xffff)
+                जारी;
+            SET_FARVAR(seg, *dest, mode);
+            dest++;
+            अगर (GET_GLOBAL(CBmode) == mode)
+                seen = 1;
+        पूर्ण
+    पूर्ण
+    अगर (dest < last && !seen) अणु
+        SET_FARVAR(seg, *dest, GET_GLOBAL(CBmode));
+        dest++;
+    पूर्ण
+    SET_FARVAR(seg, *dest, 0xffff);
+पूर्ण
+
+पूर्णांक
+cbvga_get_winकरोw(काष्ठा vgamode_s *vmode_g, पूर्णांक winकरोw)
+अणु
+    वापस -1;
+पूर्ण
+
+पूर्णांक
+cbvga_set_winकरोw(काष्ठा vgamode_s *vmode_g, पूर्णांक winकरोw, पूर्णांक val)
+अणु
+    वापस -1;
+पूर्ण
+
+पूर्णांक
+cbvga_get_linelength(काष्ठा vgamode_s *vmode_g)
+अणु
+    वापस GET_GLOBAL(CBlinelength);
+पूर्ण
+
+पूर्णांक
+cbvga_set_linelength(काष्ठा vgamode_s *vmode_g, पूर्णांक val)
+अणु
+    वापस -1;
+पूर्ण
+
+पूर्णांक
+cbvga_get_displaystart(काष्ठा vgamode_s *vmode_g)
+अणु
+    वापस 0;
+पूर्ण
+
+पूर्णांक
+cbvga_set_displaystart(काष्ठा vgamode_s *vmode_g, पूर्णांक val)
+अणु
+    वापस -1;
+पूर्ण
+
+पूर्णांक
+cbvga_get_dacक्रमmat(काष्ठा vgamode_s *vmode_g)
+अणु
+    वापस -1;
+पूर्ण
+
+पूर्णांक
+cbvga_set_dacक्रमmat(काष्ठा vgamode_s *vmode_g, पूर्णांक val)
+अणु
+    वापस -1;
+पूर्ण
+
+पूर्णांक
+cbvga_save_restore(पूर्णांक cmd, u16 seg, व्योम *data)
+अणु
+    अगर (cmd & (SR_HARDWARE|SR_DAC|SR_REGISTERS))
+        वापस -1;
+    वापस bda_save_restore(cmd, seg, data);
+पूर्ण
+
+पूर्णांक
+cbvga_set_mode(काष्ठा vgamode_s *vmode_g, पूर्णांक flags)
+अणु
+    u8 emul = vmode_g == &CBemulinfo || GET_GLOBAL(CBmode) == 0x03;
+    /*
+     * The extra_stack flag is false when running in winकरोws x86
+     * emulator, to aव्योम stack चयनing triggering bugs.  Using the
+     * same flag here to skip screen clearing, because the winकरोws
+     * emulator seems to have problems to handle the पूर्णांक 1587 call
+     * too, and GO_MEMSET uses that.
+     */
+    u8 extra_stack = GET_BDA_EXT(flags) & BF_EXTRA_STACK;
+    MASK_BDA_EXT(flags, BF_EMULATE_TEXT, emul ? BF_EMULATE_TEXT : 0);
+    अगर (!(flags & MF_NOCLEARMEM)) अणु
+        अगर (GET_GLOBAL(CBmodeinfo.memmodel) == MM_TEXT) अणु
+            स_रखो16_far(SEG_CTEXT, (व्योम*)0, 0x0720, 80*25*2);
+            वापस 0;
+        पूर्ण
+        अगर (extra_stack || flags & MF_LEGACY) अणु
+            काष्ठा gfx_op op;
+            init_gfx_op(&op, &CBmodeinfo);
+            op.x = op.y = 0;
+            op.xlen = GET_GLOBAL(CBmodeinfo.width);
+            op.ylen = GET_GLOBAL(CBmodeinfo.height);
+            op.op = GO_MEMSET;
+            handle_gfx_op(&op);
+        पूर्ण
+    पूर्ण
+    वापस 0;
+पूर्ण
+
+पूर्णांक
+cbvga_get_linesize(काष्ठा vgamode_s *vmode_g)
+अणु
+    /* Can't change mode, always report active pitch. */
+    वापस GET_GLOBAL(CBlinelength);
+पूर्ण
+
+#घोषणा CB_TAG_FRAMEBUFFER      0x0012
+काष्ठा cb_framebuffer अणु
+    u32 tag;
+    u32 size;
+
+    u64 physical_address;
+    u32 x_resolution;
+    u32 y_resolution;
+    u32 bytes_per_line;
+    u8 bits_per_pixel;
+    u8 red_mask_pos;
+    u8 red_mask_size;
+    u8 green_mask_pos;
+    u8 green_mask_size;
+    u8 blue_mask_pos;
+    u8 blue_mask_size;
+    u8 reserved_mask_pos;
+    u8 reserved_mask_size;
+पूर्ण;
+
+व्योम
+cbvga_setup_modes(u64 addr, u8 bpp, u32 xlines, u32 ylines, u32 linelength)
+अणु
+    पूर्णांक i;
+
+    SET_VGA(CBmode, 0x140);
+    SET_VGA(VBE_framebuffer, addr);
+    SET_VGA(VBE_total_memory, linelength * ylines);
+    SET_VGA(CBlinelength, linelength);
+    SET_VGA(CBmodeinfo.memmodel, MM_सूचीECT);
+    SET_VGA(CBmodeinfo.width, xlines);
+    SET_VGA(CBmodeinfo.height, ylines);
+    SET_VGA(CBmodeinfo.depth, bpp);
+    SET_VGA(CBmodeinfo.cwidth, 8);
+    SET_VGA(CBmodeinfo.cheight, 16);
+    स_नकल_far(get_global_seg(), &CBemulinfo
+               , get_global_seg(), &CBmodeinfo, माप(CBemulinfo));
+
+    // Validate modes
+    क्रम (i = 0; i < GET_GLOBAL(svga_mcount); i++) अणु
+        काष्ठा generic_svga_mode *cbmode_g = &svga_modes[i];
+        /* Skip VBE modes that करोesn't fit into coreboot's framebuffer */
+        अगर ((GET_GLOBAL(cbmode_g->info.memmodel) != MM_सूचीECT)
+            || (GET_GLOBAL(cbmode_g->info.height) > ylines)
+            || (GET_GLOBAL(cbmode_g->info.width) > xlines)
+            || (GET_GLOBAL(cbmode_g->info.depth) != bpp)) अणु
+            dम_लिखो(3, "Removing mode %x\n", GET_GLOBAL(cbmode_g->mode));
+            SET_VGA(cbmode_g->mode, 0xffff);
+        पूर्ण
+        अगर ((GET_GLOBAL(cbmode_g->info.height) == ylines)
+            && (GET_GLOBAL(cbmode_g->info.width) == xlines)
+            && (GET_GLOBAL(cbmode_g->info.depth) == bpp)) अणु
+            SET_VGA(CBmode, GET_GLOBAL(cbmode_g->mode));
+        पूर्ण
+    पूर्ण
+पूर्ण
+
+पूर्णांक
+cbvga_setup(व्योम)
+अणु
+    dम_लिखो(1, "coreboot vga init\n");
+
+    अगर (GET_GLOBAL(HaveRunInit))
+        वापस 0;
+
+    काष्ठा cb_header *cbh = find_cb_table();
+    अगर (!cbh) अणु
+        dम_लिखो(1, "Unable to find coreboot table\n");
+        वापस -1;
+    पूर्ण
+    काष्ठा cb_framebuffer *cbfb = find_cb_subtable(cbh, CB_TAG_FRAMEBUFFER);
+    अगर (!cbfb) अणु
+        // Assume there is an EGA text framebuffer.
+        dम_लिखो(1, "Did not find coreboot framebuffer - assuming EGA text\n");
+        SET_VGA(CBmode, 0x03);
+        SET_VGA(CBlinelength, 80*2);
+        SET_VGA(CBmodeinfo.memmodel, MM_TEXT);
+        SET_VGA(CBmodeinfo.width, 80);
+        SET_VGA(CBmodeinfo.height, 25);
+        SET_VGA(CBmodeinfo.depth, 4);
+        SET_VGA(CBmodeinfo.cwidth, 9);
+        SET_VGA(CBmodeinfo.cheight, 16);
+        SET_VGA(CBmodeinfo.sstart, SEG_CTEXT);
+        वापस 0;
+    पूर्ण
+
+    u64 addr = GET_FARVAR(0, cbfb->physical_address);
+    u8 bpp = GET_FARVAR(0, cbfb->blue_mask_size)
+             + GET_FARVAR(0, cbfb->green_mask_size)
+             + GET_FARVAR(0, cbfb->red_mask_size)
+             + GET_FARVAR(0, cbfb->reserved_mask_size);
+    u32 xlines = GET_FARVAR(0, cbfb->x_resolution);
+    u32 ylines = GET_FARVAR(0, cbfb->y_resolution);
+    u32 linelength = GET_FARVAR(0, cbfb->bytes_per_line);
+    //fall back to coreboot reported bpp अगर calculated value invalid
+    अगर (bpp != 15 && bpp != 16 && bpp != 24 && bpp != 32)
+        bpp = GET_FARVAR(0, cbfb->bits_per_pixel);
+
+    dम_लिखो(1, "Found FB @ %llx %dx%d with %d bpp (%d stride)\n"
+            , addr, xlines, ylines, bpp, linelength);
+
+    अगर (!addr || addr > 0xffffffff
+        || (bpp != 15 && bpp != 16 && bpp != 24 && bpp != 32)) अणु
+        dम_लिखो(1, "Unable to use FB\n");
+        वापस -1;
+    पूर्ण
+
+    cbvga_setup_modes(addr, bpp, xlines, ylines, linelength);
+    वापस 0;
+पूर्ण

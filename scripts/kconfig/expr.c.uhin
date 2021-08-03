@@ -1,0 +1,1169 @@
+<शैली गुरु>
+/*
+ * Copyright (C) 2002 Roman Zippel <zippel@linux-m68k.org>
+ * Released under the terms of the GNU GPL v2.0.
+ */
+
+#समावेश <मानकपन.स>
+#समावेश <मानककोष.स>
+#समावेश <माला.स>
+
+#समावेश "lkc.h"
+
+#घोषणा DEBUG_EXPR	0
+
+काष्ठा expr *expr_alloc_symbol(काष्ठा symbol *sym)
+अणु
+	काष्ठा expr *e = xसुस्मृति(1, माप(*e));
+	e->type = E_SYMBOL;
+	e->left.sym = sym;
+	वापस e;
+पूर्ण
+
+काष्ठा expr *expr_alloc_one(क्रमागत expr_type type, काष्ठा expr *ce)
+अणु
+	काष्ठा expr *e = xसुस्मृति(1, माप(*e));
+	e->type = type;
+	e->left.expr = ce;
+	वापस e;
+पूर्ण
+
+काष्ठा expr *expr_alloc_two(क्रमागत expr_type type, काष्ठा expr *e1, काष्ठा expr *e2)
+अणु
+	काष्ठा expr *e = xसुस्मृति(1, माप(*e));
+	e->type = type;
+	e->left.expr = e1;
+	e->right.expr = e2;
+	वापस e;
+पूर्ण
+
+काष्ठा expr *expr_alloc_comp(क्रमागत expr_type type, काष्ठा symbol *s1, काष्ठा symbol *s2)
+अणु
+	काष्ठा expr *e = xसुस्मृति(1, माप(*e));
+	e->type = type;
+	e->left.sym = s1;
+	e->right.sym = s2;
+	वापस e;
+पूर्ण
+
+काष्ठा expr *expr_alloc_and(काष्ठा expr *e1, काष्ठा expr *e2)
+अणु
+	अगर (!e1)
+		वापस e2;
+	वापस e2 ? expr_alloc_two(E_AND, e1, e2) : e1;
+पूर्ण
+
+काष्ठा expr *expr_alloc_or(काष्ठा expr *e1, काष्ठा expr *e2)
+अणु
+	अगर (!e1)
+		वापस e2;
+	वापस e2 ? expr_alloc_two(E_OR, e1, e2) : e1;
+पूर्ण
+
+काष्ठा expr *expr_copy(स्थिर काष्ठा expr *org)
+अणु
+	काष्ठा expr *e;
+
+	अगर (!org)
+		वापस शून्य;
+
+	e = xदो_स्मृति(माप(*org));
+	स_नकल(e, org, माप(*org));
+	चयन (org->type) अणु
+	हाल E_SYMBOL:
+		e->left = org->left;
+		अवरोध;
+	हाल E_NOT:
+		e->left.expr = expr_copy(org->left.expr);
+		अवरोध;
+	हाल E_EQUAL:
+	हाल E_UNEQUAL:
+		e->left.sym = org->left.sym;
+		e->right.sym = org->right.sym;
+		अवरोध;
+	हाल E_AND:
+	हाल E_OR:
+	हाल E_LIST:
+		e->left.expr = expr_copy(org->left.expr);
+		e->right.expr = expr_copy(org->right.expr);
+		अवरोध;
+	शेष:
+		म_लिखो("can't copy type %d\n", e->type);
+		मुक्त(e);
+		e = शून्य;
+		अवरोध;
+	पूर्ण
+
+	वापस e;
+पूर्ण
+
+व्योम expr_मुक्त(काष्ठा expr *e)
+अणु
+	अगर (!e)
+		वापस;
+
+	चयन (e->type) अणु
+	हाल E_SYMBOL:
+		अवरोध;
+	हाल E_NOT:
+		expr_मुक्त(e->left.expr);
+		वापस;
+	हाल E_EQUAL:
+	हाल E_UNEQUAL:
+		अवरोध;
+	हाल E_OR:
+	हाल E_AND:
+		expr_मुक्त(e->left.expr);
+		expr_मुक्त(e->right.expr);
+		अवरोध;
+	शेष:
+		म_लिखो("how to free type %d?\n", e->type);
+		अवरोध;
+	पूर्ण
+	मुक्त(e);
+पूर्ण
+
+अटल पूर्णांक trans_count;
+
+#घोषणा e1 (*ep1)
+#घोषणा e2 (*ep2)
+
+अटल व्योम __expr_eliminate_eq(क्रमागत expr_type type, काष्ठा expr **ep1, काष्ठा expr **ep2)
+अणु
+	अगर (e1->type == type) अणु
+		__expr_eliminate_eq(type, &e1->left.expr, &e2);
+		__expr_eliminate_eq(type, &e1->right.expr, &e2);
+		वापस;
+	पूर्ण
+	अगर (e2->type == type) अणु
+		__expr_eliminate_eq(type, &e1, &e2->left.expr);
+		__expr_eliminate_eq(type, &e1, &e2->right.expr);
+		वापस;
+	पूर्ण
+	अगर (e1->type == E_SYMBOL && e2->type == E_SYMBOL &&
+	    e1->left.sym == e2->left.sym &&
+	    (e1->left.sym == &symbol_yes || e1->left.sym == &symbol_no))
+		वापस;
+	अगर (!expr_eq(e1, e2))
+		वापस;
+	trans_count++;
+	expr_मुक्त(e1); expr_मुक्त(e2);
+	चयन (type) अणु
+	हाल E_OR:
+		e1 = expr_alloc_symbol(&symbol_no);
+		e2 = expr_alloc_symbol(&symbol_no);
+		अवरोध;
+	हाल E_AND:
+		e1 = expr_alloc_symbol(&symbol_yes);
+		e2 = expr_alloc_symbol(&symbol_yes);
+		अवरोध;
+	शेष:
+		;
+	पूर्ण
+पूर्ण
+
+व्योम expr_eliminate_eq(काष्ठा expr **ep1, काष्ठा expr **ep2)
+अणु
+	अगर (!e1 || !e2)
+		वापस;
+	चयन (e1->type) अणु
+	हाल E_OR:
+	हाल E_AND:
+		__expr_eliminate_eq(e1->type, ep1, ep2);
+	शेष:
+		;
+	पूर्ण
+	अगर (e1->type != e2->type) चयन (e2->type) अणु
+	हाल E_OR:
+	हाल E_AND:
+		__expr_eliminate_eq(e2->type, ep1, ep2);
+	शेष:
+		;
+	पूर्ण
+	e1 = expr_eliminate_yn(e1);
+	e2 = expr_eliminate_yn(e2);
+पूर्ण
+
+#अघोषित e1
+#अघोषित e2
+
+पूर्णांक expr_eq(काष्ठा expr *e1, काष्ठा expr *e2)
+अणु
+	पूर्णांक res, old_count;
+
+	अगर (e1->type != e2->type)
+		वापस 0;
+	चयन (e1->type) अणु
+	हाल E_EQUAL:
+	हाल E_UNEQUAL:
+		वापस e1->left.sym == e2->left.sym && e1->right.sym == e2->right.sym;
+	हाल E_SYMBOL:
+		वापस e1->left.sym == e2->left.sym;
+	हाल E_NOT:
+		वापस expr_eq(e1->left.expr, e2->left.expr);
+	हाल E_AND:
+	हाल E_OR:
+		e1 = expr_copy(e1);
+		e2 = expr_copy(e2);
+		old_count = trans_count;
+		expr_eliminate_eq(&e1, &e2);
+		res = (e1->type == E_SYMBOL && e2->type == E_SYMBOL &&
+		       e1->left.sym == e2->left.sym);
+		expr_मुक्त(e1);
+		expr_मुक्त(e2);
+		trans_count = old_count;
+		वापस res;
+	हाल E_LIST:
+	हाल E_RANGE:
+	हाल E_NONE:
+		/* panic */;
+	पूर्ण
+
+	अगर (DEBUG_EXPR) अणु
+		expr_fprपूर्णांक(e1, मानक_निकास);
+		म_लिखो(" = ");
+		expr_fprपूर्णांक(e2, मानक_निकास);
+		म_लिखो(" ?\n");
+	पूर्ण
+
+	वापस 0;
+पूर्ण
+
+काष्ठा expr *expr_eliminate_yn(काष्ठा expr *e)
+अणु
+	काष्ठा expr *पंचांगp;
+
+	अगर (e) चयन (e->type) अणु
+	हाल E_AND:
+		e->left.expr = expr_eliminate_yn(e->left.expr);
+		e->right.expr = expr_eliminate_yn(e->right.expr);
+		अगर (e->left.expr->type == E_SYMBOL) अणु
+			अगर (e->left.expr->left.sym == &symbol_no) अणु
+				expr_मुक्त(e->left.expr);
+				expr_मुक्त(e->right.expr);
+				e->type = E_SYMBOL;
+				e->left.sym = &symbol_no;
+				e->right.expr = शून्य;
+				वापस e;
+			पूर्ण अन्यथा अगर (e->left.expr->left.sym == &symbol_yes) अणु
+				मुक्त(e->left.expr);
+				पंचांगp = e->right.expr;
+				*e = *(e->right.expr);
+				मुक्त(पंचांगp);
+				वापस e;
+			पूर्ण
+		पूर्ण
+		अगर (e->right.expr->type == E_SYMBOL) अणु
+			अगर (e->right.expr->left.sym == &symbol_no) अणु
+				expr_मुक्त(e->left.expr);
+				expr_मुक्त(e->right.expr);
+				e->type = E_SYMBOL;
+				e->left.sym = &symbol_no;
+				e->right.expr = शून्य;
+				वापस e;
+			पूर्ण अन्यथा अगर (e->right.expr->left.sym == &symbol_yes) अणु
+				मुक्त(e->right.expr);
+				पंचांगp = e->left.expr;
+				*e = *(e->left.expr);
+				मुक्त(पंचांगp);
+				वापस e;
+			पूर्ण
+		पूर्ण
+		अवरोध;
+	हाल E_OR:
+		e->left.expr = expr_eliminate_yn(e->left.expr);
+		e->right.expr = expr_eliminate_yn(e->right.expr);
+		अगर (e->left.expr->type == E_SYMBOL) अणु
+			अगर (e->left.expr->left.sym == &symbol_no) अणु
+				मुक्त(e->left.expr);
+				पंचांगp = e->right.expr;
+				*e = *(e->right.expr);
+				मुक्त(पंचांगp);
+				वापस e;
+			पूर्ण अन्यथा अगर (e->left.expr->left.sym == &symbol_yes) अणु
+				expr_मुक्त(e->left.expr);
+				expr_मुक्त(e->right.expr);
+				e->type = E_SYMBOL;
+				e->left.sym = &symbol_yes;
+				e->right.expr = शून्य;
+				वापस e;
+			पूर्ण
+		पूर्ण
+		अगर (e->right.expr->type == E_SYMBOL) अणु
+			अगर (e->right.expr->left.sym == &symbol_no) अणु
+				मुक्त(e->right.expr);
+				पंचांगp = e->left.expr;
+				*e = *(e->left.expr);
+				मुक्त(पंचांगp);
+				वापस e;
+			पूर्ण अन्यथा अगर (e->right.expr->left.sym == &symbol_yes) अणु
+				expr_मुक्त(e->left.expr);
+				expr_मुक्त(e->right.expr);
+				e->type = E_SYMBOL;
+				e->left.sym = &symbol_yes;
+				e->right.expr = शून्य;
+				वापस e;
+			पूर्ण
+		पूर्ण
+		अवरोध;
+	शेष:
+		;
+	पूर्ण
+	वापस e;
+पूर्ण
+
+/*
+ * bool FOO!=n => FOO
+ */
+काष्ठा expr *expr_trans_bool(काष्ठा expr *e)
+अणु
+	अगर (!e)
+		वापस शून्य;
+	चयन (e->type) अणु
+	हाल E_AND:
+	हाल E_OR:
+	हाल E_NOT:
+		e->left.expr = expr_trans_bool(e->left.expr);
+		e->right.expr = expr_trans_bool(e->right.expr);
+		अवरोध;
+	हाल E_UNEQUAL:
+		// FOO!=n -> FOO
+		अगर (e->left.sym->type == S_TRISTATE) अणु
+			अगर (e->right.sym == &symbol_no) अणु
+				e->type = E_SYMBOL;
+				e->right.sym = शून्य;
+			पूर्ण
+		पूर्ण
+		अवरोध;
+	शेष:
+		;
+	पूर्ण
+	वापस e;
+पूर्ण
+
+/*
+ * e1 || e2 -> ?
+ */
+अटल काष्ठा expr *expr_join_or(काष्ठा expr *e1, काष्ठा expr *e2)
+अणु
+	काष्ठा expr *पंचांगp;
+	काष्ठा symbol *sym1, *sym2;
+
+	अगर (expr_eq(e1, e2))
+		वापस expr_copy(e1);
+	अगर (e1->type != E_EQUAL && e1->type != E_UNEQUAL && e1->type != E_SYMBOL && e1->type != E_NOT)
+		वापस शून्य;
+	अगर (e2->type != E_EQUAL && e2->type != E_UNEQUAL && e2->type != E_SYMBOL && e2->type != E_NOT)
+		वापस शून्य;
+	अगर (e1->type == E_NOT) अणु
+		पंचांगp = e1->left.expr;
+		अगर (पंचांगp->type != E_EQUAL && पंचांगp->type != E_UNEQUAL && पंचांगp->type != E_SYMBOL)
+			वापस शून्य;
+		sym1 = पंचांगp->left.sym;
+	पूर्ण अन्यथा
+		sym1 = e1->left.sym;
+	अगर (e2->type == E_NOT) अणु
+		अगर (e2->left.expr->type != E_SYMBOL)
+			वापस शून्य;
+		sym2 = e2->left.expr->left.sym;
+	पूर्ण अन्यथा
+		sym2 = e2->left.sym;
+	अगर (sym1 != sym2)
+		वापस शून्य;
+	अगर (sym1->type != S_BOOLEAN && sym1->type != S_TRISTATE)
+		वापस शून्य;
+	अगर (sym1->type == S_TRISTATE) अणु
+		अगर (e1->type == E_EQUAL && e2->type == E_EQUAL &&
+		    ((e1->right.sym == &symbol_yes && e2->right.sym == &symbol_mod) ||
+		     (e1->right.sym == &symbol_mod && e2->right.sym == &symbol_yes))) अणु
+			// (a='y') || (a='m') -> (a!='n')
+			वापस expr_alloc_comp(E_UNEQUAL, sym1, &symbol_no);
+		पूर्ण
+		अगर (e1->type == E_EQUAL && e2->type == E_EQUAL &&
+		    ((e1->right.sym == &symbol_yes && e2->right.sym == &symbol_no) ||
+		     (e1->right.sym == &symbol_no && e2->right.sym == &symbol_yes))) अणु
+			// (a='y') || (a='n') -> (a!='m')
+			वापस expr_alloc_comp(E_UNEQUAL, sym1, &symbol_mod);
+		पूर्ण
+		अगर (e1->type == E_EQUAL && e2->type == E_EQUAL &&
+		    ((e1->right.sym == &symbol_mod && e2->right.sym == &symbol_no) ||
+		     (e1->right.sym == &symbol_no && e2->right.sym == &symbol_mod))) अणु
+			// (a='m') || (a='n') -> (a!='y')
+			वापस expr_alloc_comp(E_UNEQUAL, sym1, &symbol_yes);
+		पूर्ण
+	पूर्ण
+	अगर (sym1->type == S_BOOLEAN && sym1 == sym2) अणु
+		अगर ((e1->type == E_NOT && e1->left.expr->type == E_SYMBOL && e2->type == E_SYMBOL) ||
+		    (e2->type == E_NOT && e2->left.expr->type == E_SYMBOL && e1->type == E_SYMBOL))
+			वापस expr_alloc_symbol(&symbol_yes);
+	पूर्ण
+
+	अगर (DEBUG_EXPR) अणु
+		म_लिखो("optimize (");
+		expr_fprपूर्णांक(e1, मानक_निकास);
+		म_लिखो(") || (");
+		expr_fprपूर्णांक(e2, मानक_निकास);
+		म_लिखो(")?\n");
+	पूर्ण
+	वापस शून्य;
+पूर्ण
+
+अटल काष्ठा expr *expr_join_and(काष्ठा expr *e1, काष्ठा expr *e2)
+अणु
+	काष्ठा expr *पंचांगp;
+	काष्ठा symbol *sym1, *sym2;
+
+	अगर (expr_eq(e1, e2))
+		वापस expr_copy(e1);
+	अगर (e1->type != E_EQUAL && e1->type != E_UNEQUAL && e1->type != E_SYMBOL && e1->type != E_NOT)
+		वापस शून्य;
+	अगर (e2->type != E_EQUAL && e2->type != E_UNEQUAL && e2->type != E_SYMBOL && e2->type != E_NOT)
+		वापस शून्य;
+	अगर (e1->type == E_NOT) अणु
+		पंचांगp = e1->left.expr;
+		अगर (पंचांगp->type != E_EQUAL && पंचांगp->type != E_UNEQUAL && पंचांगp->type != E_SYMBOL)
+			वापस शून्य;
+		sym1 = पंचांगp->left.sym;
+	पूर्ण अन्यथा
+		sym1 = e1->left.sym;
+	अगर (e2->type == E_NOT) अणु
+		अगर (e2->left.expr->type != E_SYMBOL)
+			वापस शून्य;
+		sym2 = e2->left.expr->left.sym;
+	पूर्ण अन्यथा
+		sym2 = e2->left.sym;
+	अगर (sym1 != sym2)
+		वापस शून्य;
+	अगर (sym1->type != S_BOOLEAN && sym1->type != S_TRISTATE)
+		वापस शून्य;
+
+	अगर ((e1->type == E_SYMBOL && e2->type == E_EQUAL && e2->right.sym == &symbol_yes) ||
+	    (e2->type == E_SYMBOL && e1->type == E_EQUAL && e1->right.sym == &symbol_yes))
+		// (a) && (a='y') -> (a='y')
+		वापस expr_alloc_comp(E_EQUAL, sym1, &symbol_yes);
+
+	अगर ((e1->type == E_SYMBOL && e2->type == E_UNEQUAL && e2->right.sym == &symbol_no) ||
+	    (e2->type == E_SYMBOL && e1->type == E_UNEQUAL && e1->right.sym == &symbol_no))
+		// (a) && (a!='n') -> (a)
+		वापस expr_alloc_symbol(sym1);
+
+	अगर ((e1->type == E_SYMBOL && e2->type == E_UNEQUAL && e2->right.sym == &symbol_mod) ||
+	    (e2->type == E_SYMBOL && e1->type == E_UNEQUAL && e1->right.sym == &symbol_mod))
+		// (a) && (a!='m') -> (a='y')
+		वापस expr_alloc_comp(E_EQUAL, sym1, &symbol_yes);
+
+	अगर (sym1->type == S_TRISTATE) अणु
+		अगर (e1->type == E_EQUAL && e2->type == E_UNEQUAL) अणु
+			// (a='b') && (a!='c') -> 'b'='c' ? 'n' : a='b'
+			sym2 = e1->right.sym;
+			अगर ((e2->right.sym->flags & SYMBOL_CONST) && (sym2->flags & SYMBOL_CONST))
+				वापस sym2 != e2->right.sym ? expr_alloc_comp(E_EQUAL, sym1, sym2)
+							     : expr_alloc_symbol(&symbol_no);
+		पूर्ण
+		अगर (e1->type == E_UNEQUAL && e2->type == E_EQUAL) अणु
+			// (a='b') && (a!='c') -> 'b'='c' ? 'n' : a='b'
+			sym2 = e2->right.sym;
+			अगर ((e1->right.sym->flags & SYMBOL_CONST) && (sym2->flags & SYMBOL_CONST))
+				वापस sym2 != e1->right.sym ? expr_alloc_comp(E_EQUAL, sym1, sym2)
+							     : expr_alloc_symbol(&symbol_no);
+		पूर्ण
+		अगर (e1->type == E_UNEQUAL && e2->type == E_UNEQUAL &&
+			   ((e1->right.sym == &symbol_yes && e2->right.sym == &symbol_no) ||
+			    (e1->right.sym == &symbol_no && e2->right.sym == &symbol_yes)))
+			// (a!='y') && (a!='n') -> (a='m')
+			वापस expr_alloc_comp(E_EQUAL, sym1, &symbol_mod);
+
+		अगर (e1->type == E_UNEQUAL && e2->type == E_UNEQUAL &&
+			   ((e1->right.sym == &symbol_yes && e2->right.sym == &symbol_mod) ||
+			    (e1->right.sym == &symbol_mod && e2->right.sym == &symbol_yes)))
+			// (a!='y') && (a!='m') -> (a='n')
+			वापस expr_alloc_comp(E_EQUAL, sym1, &symbol_no);
+
+		अगर (e1->type == E_UNEQUAL && e2->type == E_UNEQUAL &&
+			   ((e1->right.sym == &symbol_mod && e2->right.sym == &symbol_no) ||
+			    (e1->right.sym == &symbol_no && e2->right.sym == &symbol_mod)))
+			// (a!='m') && (a!='n') -> (a='m')
+			वापस expr_alloc_comp(E_EQUAL, sym1, &symbol_yes);
+
+		अगर ((e1->type == E_SYMBOL && e2->type == E_EQUAL && e2->right.sym == &symbol_mod) ||
+		    (e2->type == E_SYMBOL && e1->type == E_EQUAL && e1->right.sym == &symbol_mod) ||
+		    (e1->type == E_SYMBOL && e2->type == E_UNEQUAL && e2->right.sym == &symbol_yes) ||
+		    (e2->type == E_SYMBOL && e1->type == E_UNEQUAL && e1->right.sym == &symbol_yes))
+			वापस शून्य;
+	पूर्ण
+
+	अगर (DEBUG_EXPR) अणु
+		म_लिखो("optimize (");
+		expr_fprपूर्णांक(e1, मानक_निकास);
+		म_लिखो(") && (");
+		expr_fprपूर्णांक(e2, मानक_निकास);
+		म_लिखो(")?\n");
+	पूर्ण
+	वापस शून्य;
+पूर्ण
+
+अटल व्योम expr_eliminate_dups1(क्रमागत expr_type type, काष्ठा expr **ep1, काष्ठा expr **ep2)
+अणु
+#घोषणा e1 (*ep1)
+#घोषणा e2 (*ep2)
+	काष्ठा expr *पंचांगp;
+
+	अगर (e1->type == type) अणु
+		expr_eliminate_dups1(type, &e1->left.expr, &e2);
+		expr_eliminate_dups1(type, &e1->right.expr, &e2);
+		वापस;
+	पूर्ण
+	अगर (e2->type == type) अणु
+		expr_eliminate_dups1(type, &e1, &e2->left.expr);
+		expr_eliminate_dups1(type, &e1, &e2->right.expr);
+		वापस;
+	पूर्ण
+	अगर (e1 == e2)
+		वापस;
+
+	चयन (e1->type) अणु
+	हाल E_OR: हाल E_AND:
+		expr_eliminate_dups1(e1->type, &e1, &e1);
+	शेष:
+		;
+	पूर्ण
+
+	चयन (type) अणु
+	हाल E_OR:
+		पंचांगp = expr_join_or(e1, e2);
+		अगर (पंचांगp) अणु
+			expr_मुक्त(e1); expr_मुक्त(e2);
+			e1 = expr_alloc_symbol(&symbol_no);
+			e2 = पंचांगp;
+			trans_count++;
+		पूर्ण
+		अवरोध;
+	हाल E_AND:
+		पंचांगp = expr_join_and(e1, e2);
+		अगर (पंचांगp) अणु
+			expr_मुक्त(e1); expr_मुक्त(e2);
+			e1 = expr_alloc_symbol(&symbol_yes);
+			e2 = पंचांगp;
+			trans_count++;
+		पूर्ण
+		अवरोध;
+	शेष:
+		;
+	पूर्ण
+#अघोषित e1
+#अघोषित e2
+पूर्ण
+
+अटल व्योम expr_eliminate_dups2(क्रमागत expr_type type, काष्ठा expr **ep1, काष्ठा expr **ep2)
+अणु
+#घोषणा e1 (*ep1)
+#घोषणा e2 (*ep2)
+	काष्ठा expr *पंचांगp, *पंचांगp1, *पंचांगp2;
+
+	अगर (e1->type == type) अणु
+		expr_eliminate_dups2(type, &e1->left.expr, &e2);
+		expr_eliminate_dups2(type, &e1->right.expr, &e2);
+		वापस;
+	पूर्ण
+	अगर (e2->type == type) अणु
+		expr_eliminate_dups2(type, &e1, &e2->left.expr);
+		expr_eliminate_dups2(type, &e1, &e2->right.expr);
+	पूर्ण
+	अगर (e1 == e2)
+		वापस;
+
+	चयन (e1->type) अणु
+	हाल E_OR:
+		expr_eliminate_dups2(e1->type, &e1, &e1);
+		// (FOO || BAR) && (!FOO && !BAR) -> n
+		पंचांगp1 = expr_transक्रमm(expr_alloc_one(E_NOT, expr_copy(e1)));
+		पंचांगp2 = expr_copy(e2);
+		पंचांगp = expr_extract_eq_and(&पंचांगp1, &पंचांगp2);
+		अगर (expr_is_yes(पंचांगp1)) अणु
+			expr_मुक्त(e1);
+			e1 = expr_alloc_symbol(&symbol_no);
+			trans_count++;
+		पूर्ण
+		expr_मुक्त(पंचांगp2);
+		expr_मुक्त(पंचांगp1);
+		expr_मुक्त(पंचांगp);
+		अवरोध;
+	हाल E_AND:
+		expr_eliminate_dups2(e1->type, &e1, &e1);
+		// (FOO && BAR) || (!FOO || !BAR) -> y
+		पंचांगp1 = expr_transक्रमm(expr_alloc_one(E_NOT, expr_copy(e1)));
+		पंचांगp2 = expr_copy(e2);
+		पंचांगp = expr_extract_eq_or(&पंचांगp1, &पंचांगp2);
+		अगर (expr_is_no(पंचांगp1)) अणु
+			expr_मुक्त(e1);
+			e1 = expr_alloc_symbol(&symbol_yes);
+			trans_count++;
+		पूर्ण
+		expr_मुक्त(पंचांगp2);
+		expr_मुक्त(पंचांगp1);
+		expr_मुक्त(पंचांगp);
+		अवरोध;
+	शेष:
+		;
+	पूर्ण
+#अघोषित e1
+#अघोषित e2
+पूर्ण
+
+काष्ठा expr *expr_eliminate_dups(काष्ठा expr *e)
+अणु
+	पूर्णांक oldcount;
+	अगर (!e)
+		वापस e;
+
+	oldcount = trans_count;
+	जबतक (1) अणु
+		trans_count = 0;
+		चयन (e->type) अणु
+		हाल E_OR: हाल E_AND:
+			expr_eliminate_dups1(e->type, &e, &e);
+			expr_eliminate_dups2(e->type, &e, &e);
+		शेष:
+			;
+		पूर्ण
+		अगर (!trans_count)
+			अवरोध;
+		e = expr_eliminate_yn(e);
+	पूर्ण
+	trans_count = oldcount;
+	वापस e;
+पूर्ण
+
+काष्ठा expr *expr_transक्रमm(काष्ठा expr *e)
+अणु
+	काष्ठा expr *पंचांगp;
+
+	अगर (!e)
+		वापस शून्य;
+	चयन (e->type) अणु
+	हाल E_EQUAL:
+	हाल E_UNEQUAL:
+	हाल E_SYMBOL:
+	हाल E_LIST:
+		अवरोध;
+	शेष:
+		e->left.expr = expr_transक्रमm(e->left.expr);
+		e->right.expr = expr_transक्रमm(e->right.expr);
+	पूर्ण
+
+	चयन (e->type) अणु
+	हाल E_EQUAL:
+		अगर (e->left.sym->type != S_BOOLEAN)
+			अवरोध;
+		अगर (e->right.sym == &symbol_no) अणु
+			e->type = E_NOT;
+			e->left.expr = expr_alloc_symbol(e->left.sym);
+			e->right.sym = शून्य;
+			अवरोध;
+		पूर्ण
+		अगर (e->right.sym == &symbol_mod) अणु
+			म_लिखो("boolean symbol %s tested for 'm'? test forced to 'n'\n", e->left.sym->name);
+			e->type = E_SYMBOL;
+			e->left.sym = &symbol_no;
+			e->right.sym = शून्य;
+			अवरोध;
+		पूर्ण
+		अगर (e->right.sym == &symbol_yes) अणु
+			e->type = E_SYMBOL;
+			e->right.sym = शून्य;
+			अवरोध;
+		पूर्ण
+		अवरोध;
+	हाल E_UNEQUAL:
+		अगर (e->left.sym->type != S_BOOLEAN)
+			अवरोध;
+		अगर (e->right.sym == &symbol_no) अणु
+			e->type = E_SYMBOL;
+			e->right.sym = शून्य;
+			अवरोध;
+		पूर्ण
+		अगर (e->right.sym == &symbol_mod) अणु
+			म_लिखो("boolean symbol %s tested for 'm'? test forced to 'y'\n", e->left.sym->name);
+			e->type = E_SYMBOL;
+			e->left.sym = &symbol_yes;
+			e->right.sym = शून्य;
+			अवरोध;
+		पूर्ण
+		अगर (e->right.sym == &symbol_yes) अणु
+			e->type = E_NOT;
+			e->left.expr = expr_alloc_symbol(e->left.sym);
+			e->right.sym = शून्य;
+			अवरोध;
+		पूर्ण
+		अवरोध;
+	हाल E_NOT:
+		चयन (e->left.expr->type) अणु
+		हाल E_NOT:
+			// !!a -> a
+			पंचांगp = e->left.expr->left.expr;
+			मुक्त(e->left.expr);
+			मुक्त(e);
+			e = पंचांगp;
+			e = expr_transक्रमm(e);
+			अवरोध;
+		हाल E_EQUAL:
+		हाल E_UNEQUAL:
+			// !a='x' -> a!='x'
+			पंचांगp = e->left.expr;
+			मुक्त(e);
+			e = पंचांगp;
+			e->type = e->type == E_EQUAL ? E_UNEQUAL : E_EQUAL;
+			अवरोध;
+		हाल E_OR:
+			// !(a || b) -> !a && !b
+			पंचांगp = e->left.expr;
+			e->type = E_AND;
+			e->right.expr = expr_alloc_one(E_NOT, पंचांगp->right.expr);
+			पंचांगp->type = E_NOT;
+			पंचांगp->right.expr = शून्य;
+			e = expr_transक्रमm(e);
+			अवरोध;
+		हाल E_AND:
+			// !(a && b) -> !a || !b
+			पंचांगp = e->left.expr;
+			e->type = E_OR;
+			e->right.expr = expr_alloc_one(E_NOT, पंचांगp->right.expr);
+			पंचांगp->type = E_NOT;
+			पंचांगp->right.expr = शून्य;
+			e = expr_transक्रमm(e);
+			अवरोध;
+		हाल E_SYMBOL:
+			अगर (e->left.expr->left.sym == &symbol_yes) अणु
+				// !'y' -> 'n'
+				पंचांगp = e->left.expr;
+				मुक्त(e);
+				e = पंचांगp;
+				e->type = E_SYMBOL;
+				e->left.sym = &symbol_no;
+				अवरोध;
+			पूर्ण
+			अगर (e->left.expr->left.sym == &symbol_mod) अणु
+				// !'m' -> 'm'
+				पंचांगp = e->left.expr;
+				मुक्त(e);
+				e = पंचांगp;
+				e->type = E_SYMBOL;
+				e->left.sym = &symbol_mod;
+				अवरोध;
+			पूर्ण
+			अगर (e->left.expr->left.sym == &symbol_no) अणु
+				// !'n' -> 'y'
+				पंचांगp = e->left.expr;
+				मुक्त(e);
+				e = पंचांगp;
+				e->type = E_SYMBOL;
+				e->left.sym = &symbol_yes;
+				अवरोध;
+			पूर्ण
+			अवरोध;
+		शेष:
+			;
+		पूर्ण
+		अवरोध;
+	शेष:
+		;
+	पूर्ण
+	वापस e;
+पूर्ण
+
+पूर्णांक expr_contains_symbol(काष्ठा expr *dep, काष्ठा symbol *sym)
+अणु
+	अगर (!dep)
+		वापस 0;
+
+	चयन (dep->type) अणु
+	हाल E_AND:
+	हाल E_OR:
+		वापस expr_contains_symbol(dep->left.expr, sym) ||
+		       expr_contains_symbol(dep->right.expr, sym);
+	हाल E_SYMBOL:
+		वापस dep->left.sym == sym;
+	हाल E_EQUAL:
+	हाल E_UNEQUAL:
+		वापस dep->left.sym == sym ||
+		       dep->right.sym == sym;
+	हाल E_NOT:
+		वापस expr_contains_symbol(dep->left.expr, sym);
+	शेष:
+		;
+	पूर्ण
+	वापस 0;
+पूर्ण
+
+bool expr_depends_symbol(काष्ठा expr *dep, काष्ठा symbol *sym)
+अणु
+	अगर (!dep)
+		वापस false;
+
+	चयन (dep->type) अणु
+	हाल E_AND:
+		वापस expr_depends_symbol(dep->left.expr, sym) ||
+		       expr_depends_symbol(dep->right.expr, sym);
+	हाल E_SYMBOL:
+		वापस dep->left.sym == sym;
+	हाल E_EQUAL:
+		अगर (dep->left.sym == sym) अणु
+			अगर (dep->right.sym == &symbol_yes || dep->right.sym == &symbol_mod)
+				वापस true;
+		पूर्ण
+		अवरोध;
+	हाल E_UNEQUAL:
+		अगर (dep->left.sym == sym) अणु
+			अगर (dep->right.sym == &symbol_no)
+				वापस true;
+		पूर्ण
+		अवरोध;
+	शेष:
+		;
+	पूर्ण
+ 	वापस false;
+पूर्ण
+
+काष्ठा expr *expr_extract_eq_and(काष्ठा expr **ep1, काष्ठा expr **ep2)
+अणु
+	काष्ठा expr *पंचांगp = शून्य;
+	expr_extract_eq(E_AND, &पंचांगp, ep1, ep2);
+	अगर (पंचांगp) अणु
+		*ep1 = expr_eliminate_yn(*ep1);
+		*ep2 = expr_eliminate_yn(*ep2);
+	पूर्ण
+	वापस पंचांगp;
+पूर्ण
+
+काष्ठा expr *expr_extract_eq_or(काष्ठा expr **ep1, काष्ठा expr **ep2)
+अणु
+	काष्ठा expr *पंचांगp = शून्य;
+	expr_extract_eq(E_OR, &पंचांगp, ep1, ep2);
+	अगर (पंचांगp) अणु
+		*ep1 = expr_eliminate_yn(*ep1);
+		*ep2 = expr_eliminate_yn(*ep2);
+	पूर्ण
+	वापस पंचांगp;
+पूर्ण
+
+व्योम expr_extract_eq(क्रमागत expr_type type, काष्ठा expr **ep, काष्ठा expr **ep1, काष्ठा expr **ep2)
+अणु
+#घोषणा e1 (*ep1)
+#घोषणा e2 (*ep2)
+	अगर (e1->type == type) अणु
+		expr_extract_eq(type, ep, &e1->left.expr, &e2);
+		expr_extract_eq(type, ep, &e1->right.expr, &e2);
+		वापस;
+	पूर्ण
+	अगर (e2->type == type) अणु
+		expr_extract_eq(type, ep, ep1, &e2->left.expr);
+		expr_extract_eq(type, ep, ep1, &e2->right.expr);
+		वापस;
+	पूर्ण
+	अगर (expr_eq(e1, e2)) अणु
+		*ep = *ep ? expr_alloc_two(type, *ep, e1) : e1;
+		expr_मुक्त(e2);
+		अगर (type == E_AND) अणु
+			e1 = expr_alloc_symbol(&symbol_yes);
+			e2 = expr_alloc_symbol(&symbol_yes);
+		पूर्ण अन्यथा अगर (type == E_OR) अणु
+			e1 = expr_alloc_symbol(&symbol_no);
+			e2 = expr_alloc_symbol(&symbol_no);
+		पूर्ण
+	पूर्ण
+#अघोषित e1
+#अघोषित e2
+पूर्ण
+
+काष्ठा expr *expr_trans_compare(काष्ठा expr *e, क्रमागत expr_type type, काष्ठा symbol *sym)
+अणु
+	काष्ठा expr *e1, *e2;
+
+	अगर (!e) अणु
+		e = expr_alloc_symbol(sym);
+		अगर (type == E_UNEQUAL)
+			e = expr_alloc_one(E_NOT, e);
+		वापस e;
+	पूर्ण
+	चयन (e->type) अणु
+	हाल E_AND:
+		e1 = expr_trans_compare(e->left.expr, E_EQUAL, sym);
+		e2 = expr_trans_compare(e->right.expr, E_EQUAL, sym);
+		अगर (sym == &symbol_yes)
+			e = expr_alloc_two(E_AND, e1, e2);
+		अगर (sym == &symbol_no)
+			e = expr_alloc_two(E_OR, e1, e2);
+		अगर (type == E_UNEQUAL)
+			e = expr_alloc_one(E_NOT, e);
+		वापस e;
+	हाल E_OR:
+		e1 = expr_trans_compare(e->left.expr, E_EQUAL, sym);
+		e2 = expr_trans_compare(e->right.expr, E_EQUAL, sym);
+		अगर (sym == &symbol_yes)
+			e = expr_alloc_two(E_OR, e1, e2);
+		अगर (sym == &symbol_no)
+			e = expr_alloc_two(E_AND, e1, e2);
+		अगर (type == E_UNEQUAL)
+			e = expr_alloc_one(E_NOT, e);
+		वापस e;
+	हाल E_NOT:
+		वापस expr_trans_compare(e->left.expr, type == E_EQUAL ? E_UNEQUAL : E_EQUAL, sym);
+	हाल E_UNEQUAL:
+	हाल E_EQUAL:
+		अगर (type == E_EQUAL) अणु
+			अगर (sym == &symbol_yes)
+				वापस expr_copy(e);
+			अगर (sym == &symbol_mod)
+				वापस expr_alloc_symbol(&symbol_no);
+			अगर (sym == &symbol_no)
+				वापस expr_alloc_one(E_NOT, expr_copy(e));
+		पूर्ण अन्यथा अणु
+			अगर (sym == &symbol_yes)
+				वापस expr_alloc_one(E_NOT, expr_copy(e));
+			अगर (sym == &symbol_mod)
+				वापस expr_alloc_symbol(&symbol_yes);
+			अगर (sym == &symbol_no)
+				वापस expr_copy(e);
+		पूर्ण
+		अवरोध;
+	हाल E_SYMBOL:
+		वापस expr_alloc_comp(type, e->left.sym, sym);
+	हाल E_LIST:
+	हाल E_RANGE:
+	हाल E_NONE:
+		/* panic */;
+	पूर्ण
+	वापस शून्य;
+पूर्ण
+
+tristate expr_calc_value(काष्ठा expr *e)
+अणु
+	tristate val1, val2;
+	स्थिर अक्षर *str1, *str2;
+
+	अगर (!e)
+		वापस yes;
+
+	चयन (e->type) अणु
+	हाल E_SYMBOL:
+		sym_calc_value(e->left.sym);
+		वापस e->left.sym->curr.tri;
+	हाल E_AND:
+		val1 = expr_calc_value(e->left.expr);
+		val2 = expr_calc_value(e->right.expr);
+		वापस EXPR_AND(val1, val2);
+	हाल E_OR:
+		val1 = expr_calc_value(e->left.expr);
+		val2 = expr_calc_value(e->right.expr);
+		वापस EXPR_OR(val1, val2);
+	हाल E_NOT:
+		val1 = expr_calc_value(e->left.expr);
+		वापस EXPR_NOT(val1);
+	हाल E_EQUAL:
+		sym_calc_value(e->left.sym);
+		sym_calc_value(e->right.sym);
+		str1 = sym_get_string_value(e->left.sym);
+		str2 = sym_get_string_value(e->right.sym);
+		वापस !म_भेद(str1, str2) ? yes : no;
+	हाल E_UNEQUAL:
+		sym_calc_value(e->left.sym);
+		sym_calc_value(e->right.sym);
+		str1 = sym_get_string_value(e->left.sym);
+		str2 = sym_get_string_value(e->right.sym);
+		वापस !म_भेद(str1, str2) ? no : yes;
+	शेष:
+		म_लिखो("expr_calc_value: %d?\n", e->type);
+		वापस no;
+	पूर्ण
+पूर्ण
+
+पूर्णांक expr_compare_type(क्रमागत expr_type t1, क्रमागत expr_type t2)
+अणु
+#अगर 0
+	वापस 1;
+#अन्यथा
+	अगर (t1 == t2)
+		वापस 0;
+	चयन (t1) अणु
+	हाल E_EQUAL:
+	हाल E_UNEQUAL:
+		अगर (t2 == E_NOT)
+			वापस 1;
+	हाल E_NOT:
+		अगर (t2 == E_AND)
+			वापस 1;
+	हाल E_AND:
+		अगर (t2 == E_OR)
+			वापस 1;
+	हाल E_OR:
+		अगर (t2 == E_LIST)
+			वापस 1;
+	हाल E_LIST:
+		अगर (t2 == 0)
+			वापस 1;
+	शेष:
+		वापस -1;
+	पूर्ण
+	म_लिखो("[%dgt%d?]", t1, t2);
+	वापस 0;
+#पूर्ण_अगर
+पूर्ण
+
+अटल अंतरभूत काष्ठा expr *
+expr_get_lefपंचांगost_symbol(स्थिर काष्ठा expr *e)
+अणु
+
+	अगर (e == शून्य)
+		वापस शून्य;
+
+	जबतक (e->type != E_SYMBOL)
+		e = e->left.expr;
+
+	वापस expr_copy(e);
+पूर्ण
+
+/*
+ * Given expression `e1' and `e2', वापसs the leaf of the दीर्घest
+ * sub-expression of `e1' not containing 'e2.
+ */
+काष्ठा expr *expr_simplअगरy_unmet_dep(काष्ठा expr *e1, काष्ठा expr *e2)
+अणु
+	काष्ठा expr *ret;
+
+	चयन (e1->type) अणु
+	हाल E_OR:
+		वापस expr_alloc_and(
+		    expr_simplअगरy_unmet_dep(e1->left.expr, e2),
+		    expr_simplअगरy_unmet_dep(e1->right.expr, e2));
+	हाल E_AND: अणु
+		काष्ठा expr *e;
+		e = expr_alloc_and(expr_copy(e1), expr_copy(e2));
+		e = expr_eliminate_dups(e);
+		ret = (!expr_eq(e, e1)) ? e1 : शून्य;
+		expr_मुक्त(e);
+		अवरोध;
+		पूर्ण
+	शेष:
+		ret = e1;
+		अवरोध;
+	पूर्ण
+
+	वापस expr_get_lefपंचांगost_symbol(ret);
+पूर्ण
+
+व्योम expr_prपूर्णांक(काष्ठा expr *e, व्योम (*fn)(व्योम *, काष्ठा symbol *, स्थिर अक्षर *), व्योम *data, पूर्णांक prevtoken)
+अणु
+	अगर (!e) अणु
+		fn(data, शून्य, "y");
+		वापस;
+	पूर्ण
+
+	अगर (expr_compare_type(prevtoken, e->type) > 0)
+		fn(data, शून्य, "(");
+	चयन (e->type) अणु
+	हाल E_SYMBOL:
+		अगर (e->left.sym->name)
+			fn(data, e->left.sym, e->left.sym->name);
+		अन्यथा
+			fn(data, शून्य, "<choice>");
+		अवरोध;
+	हाल E_NOT:
+		fn(data, शून्य, "!");
+		expr_prपूर्णांक(e->left.expr, fn, data, E_NOT);
+		अवरोध;
+	हाल E_EQUAL:
+		अगर (e->left.sym->name)
+			fn(data, e->left.sym, e->left.sym->name);
+		अन्यथा
+			fn(data, शून्य, "<choice>");
+		fn(data, शून्य, "=");
+		fn(data, e->right.sym, e->right.sym->name);
+		अवरोध;
+	हाल E_UNEQUAL:
+		अगर (e->left.sym->name)
+			fn(data, e->left.sym, e->left.sym->name);
+		अन्यथा
+			fn(data, शून्य, "<choice>");
+		fn(data, शून्य, "!=");
+		fn(data, e->right.sym, e->right.sym->name);
+		अवरोध;
+	हाल E_OR:
+		expr_prपूर्णांक(e->left.expr, fn, data, E_OR);
+		fn(data, शून्य, " || ");
+		expr_prपूर्णांक(e->right.expr, fn, data, E_OR);
+		अवरोध;
+	हाल E_AND:
+		expr_prपूर्णांक(e->left.expr, fn, data, E_AND);
+		fn(data, शून्य, " && ");
+		expr_prपूर्णांक(e->right.expr, fn, data, E_AND);
+		अवरोध;
+	हाल E_LIST:
+		fn(data, e->right.sym, e->right.sym->name);
+		अगर (e->left.expr) अणु
+			fn(data, शून्य, " ^ ");
+			expr_prपूर्णांक(e->left.expr, fn, data, E_LIST);
+		पूर्ण
+		अवरोध;
+	हाल E_RANGE:
+		fn(data, शून्य, "[");
+		fn(data, e->left.sym, e->left.sym->name);
+		fn(data, शून्य, " ");
+		fn(data, e->right.sym, e->right.sym->name);
+		fn(data, शून्य, "]");
+		अवरोध;
+	शेष:
+	  अणु
+		अक्षर buf[32];
+		प्र_लिखो(buf, "<unknown type %d>", e->type);
+		fn(data, शून्य, buf);
+		अवरोध;
+	  पूर्ण
+	पूर्ण
+	अगर (expr_compare_type(prevtoken, e->type) > 0)
+		fn(data, शून्य, ")");
+पूर्ण
+
+अटल व्योम expr_prपूर्णांक_file_helper(व्योम *data, काष्ठा symbol *sym, स्थिर अक्षर *str)
+अणु
+	xख_डालो(str, म_माप(str), 1, data);
+पूर्ण
+
+व्योम expr_fprपूर्णांक(काष्ठा expr *e, खाता *out)
+अणु
+	expr_prपूर्णांक(e, expr_prपूर्णांक_file_helper, out, E_NONE);
+पूर्ण
+
+अटल व्योम expr_prपूर्णांक_gstr_helper(व्योम *data, काष्ठा symbol *sym, स्थिर अक्षर *str)
+अणु
+	काष्ठा gstr *gs = (काष्ठा gstr*)data;
+	स्थिर अक्षर *sym_str = शून्य;
+
+	अगर (sym)
+		sym_str = sym_get_string_value(sym);
+
+	अगर (gs->max_width) अणु
+		अचिन्हित extra_length = म_माप(str);
+		स्थिर अक्षर *last_cr = म_खोजप(gs->s, '\n');
+		अचिन्हित last_line_length;
+
+		अगर (sym_str)
+			extra_length += 4 + म_माप(sym_str);
+
+		अगर (!last_cr)
+			last_cr = gs->s;
+
+		last_line_length = म_माप(gs->s) - (last_cr - gs->s);
+
+		अगर ((last_line_length + extra_length) > gs->max_width)
+			str_append(gs, "\\\n");
+	पूर्ण
+
+	str_append(gs, str);
+	अगर (sym && sym->type != S_UNKNOWN)
+		str_म_लिखो(gs, " [=%s]", sym_str);
+पूर्ण
+
+व्योम expr_gstr_prपूर्णांक(काष्ठा expr *e, काष्ठा gstr *gs)
+अणु
+	expr_prपूर्णांक(e, expr_prपूर्णांक_gstr_helper, gs, E_NONE);
+पूर्ण

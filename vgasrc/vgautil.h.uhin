@@ -1,0 +1,111 @@
+<शैली गुरु>
+// Misc function and variable declarations.
+#अगर_अघोषित __VGAUTIL_H
+#घोषणा __VGAUTIL_H
+
+#समावेश "types.h" // u8
+
+// cbvga.c
+काष्ठा vgamode_s *cbvga_find_mode(पूर्णांक mode);
+व्योम cbvga_list_modes(u16 seg, u16 *dest, u16 *last);
+पूर्णांक cbvga_get_winकरोw(काष्ठा vgamode_s *vmode_g, पूर्णांक winकरोw);
+पूर्णांक cbvga_set_winकरोw(काष्ठा vgamode_s *vmode_g, पूर्णांक winकरोw, पूर्णांक val);
+पूर्णांक cbvga_get_linelength(काष्ठा vgamode_s *vmode_g);
+पूर्णांक cbvga_set_linelength(काष्ठा vgamode_s *vmode_g, पूर्णांक val);
+पूर्णांक cbvga_get_displaystart(काष्ठा vgamode_s *vmode_g);
+पूर्णांक cbvga_set_displaystart(काष्ठा vgamode_s *vmode_g, पूर्णांक val);
+पूर्णांक cbvga_get_dacक्रमmat(काष्ठा vgamode_s *vmode_g);
+पूर्णांक cbvga_set_dacक्रमmat(काष्ठा vgamode_s *vmode_g, पूर्णांक val);
+पूर्णांक cbvga_save_restore(पूर्णांक cmd, u16 seg, व्योम *data);
+पूर्णांक cbvga_set_mode(काष्ठा vgamode_s *vmode_g, पूर्णांक flags);
+पूर्णांक cbvga_get_linesize(काष्ठा vgamode_s *vmode_g);
+व्योम cbvga_setup_modes(u64 addr, u8 bpp, u32 xlines, u32 ylines, u32 linelength);
+पूर्णांक cbvga_setup(व्योम);
+
+// bochsdisplay.c
+पूर्णांक bochs_display_setup(व्योम);
+
+// ramfb.c
+पूर्णांक ramfb_setup(व्योम);
+
+// clext.c
+काष्ठा vgamode_s *clext_find_mode(पूर्णांक mode);
+व्योम clext_list_modes(u16 seg, u16 *dest, u16 *last);
+पूर्णांक clext_get_winकरोw(काष्ठा vgamode_s *vmode_g, पूर्णांक winकरोw);
+पूर्णांक clext_set_winकरोw(काष्ठा vgamode_s *vmode_g, पूर्णांक winकरोw, पूर्णांक val);
+पूर्णांक clext_get_linelength(काष्ठा vgamode_s *vmode_g);
+पूर्णांक clext_set_linelength(काष्ठा vgamode_s *vmode_g, पूर्णांक val);
+पूर्णांक clext_get_displaystart(काष्ठा vgamode_s *vmode_g);
+पूर्णांक clext_set_displaystart(काष्ठा vgamode_s *vmode_g, पूर्णांक val);
+पूर्णांक clext_save_restore(पूर्णांक cmd, u16 seg, व्योम *data);
+पूर्णांक clext_set_mode(काष्ठा vgamode_s *vmode_g, पूर्णांक flags);
+काष्ठा bregs;
+व्योम clext_1012(काष्ठा bregs *regs);
+पूर्णांक clext_setup(व्योम);
+
+// atiext.c
+काष्ठा vgamode_s *ati_find_mode(पूर्णांक mode);
+व्योम ati_list_modes(u16 seg, u16 *dest, u16 *last);
+पूर्णांक ati_set_mode(काष्ठा vgamode_s *vmode_g, पूर्णांक flags);
+पूर्णांक ati_setup(व्योम);
+
+// stdvgaio.c
+u8 stdvga_pelmask_पढ़ो(व्योम);
+व्योम stdvga_pelmask_ग_लिखो(u8 val);
+u8 stdvga_misc_पढ़ो(व्योम);
+व्योम stdvga_misc_ग_लिखो(u8 value);
+व्योम stdvga_misc_mask(u8 off, u8 on);
+u8 stdvga_sequ_पढ़ो(u8 index);
+व्योम stdvga_sequ_ग_लिखो(u8 index, u8 value);
+व्योम stdvga_sequ_mask(u8 index, u8 off, u8 on);
+u8 stdvga_grdc_पढ़ो(u8 index);
+व्योम stdvga_grdc_ग_लिखो(u8 index, u8 value);
+व्योम stdvga_grdc_mask(u8 index, u8 off, u8 on);
+u8 stdvga_crtc_पढ़ो(u16 crtc_addr, u8 index);
+व्योम stdvga_crtc_ग_लिखो(u16 crtc_addr, u8 index, u8 value);
+व्योम stdvga_crtc_mask(u16 crtc_addr, u8 index, u8 off, u8 on);
+u8 stdvga_attr_पढ़ो(u8 index);
+व्योम stdvga_attr_ग_लिखो(u8 index, u8 value);
+व्योम stdvga_attr_mask(u8 index, u8 off, u8 on);
+u8 stdvga_attrindex_पढ़ो(व्योम);
+व्योम stdvga_attrindex_ग_लिखो(u8 value);
+व्योम stdvga_dac_पढ़ो(u16 seg, u8 *data_far, u8 start, पूर्णांक count);
+व्योम stdvga_dac_ग_लिखो(u16 seg, u8 *data_far, u8 start, पूर्णांक count);
+
+// stdvgamodes.c
+काष्ठा vgamode_s *stdvga_find_mode(पूर्णांक mode);
+व्योम stdvga_list_modes(u16 seg, u16 *dest, u16 *last);
+व्योम stdvga_build_video_param(व्योम);
+व्योम stdvga_override_crtc(पूर्णांक mode, u8 *crtc);
+पूर्णांक stdvga_set_mode(काष्ठा vgamode_s *vmode_g, पूर्णांक flags);
+पूर्णांक stdvga_get_linesize(काष्ठा vgamode_s *vmode_g);
+व्योम stdvga_set_packed_palette(व्योम);
+
+// swcursor.c
+व्योम swcursor_pre_handle10(काष्ठा bregs *regs);
+व्योम swcursor_check_event(व्योम);
+
+// vbe.c
+बाह्य u32 VBE_total_memory;
+बाह्य u32 VBE_capabilities;
+बाह्य u32 VBE_framebuffer;
+बाह्य u16 VBE_win_granularity;
+बाह्य u8 VBE_edid[256];
+व्योम handle_104f(काष्ठा bregs *regs);
+
+// vgafonts.c
+बाह्य u8 vgafont8[];
+बाह्य u8 vgafont14[];
+बाह्य u8 vgafont16[];
+बाह्य u8 vgafont14alt[];
+बाह्य u8 vgafont16alt[];
+
+// vgainit.c
+बाह्य पूर्णांक VgaBDF;
+बाह्य पूर्णांक HaveRunInit;
+u32 allocate_pmm(u32 size, पूर्णांक highmem, पूर्णांक aligned);
+
+// vgaversion.c
+बाह्य स्थिर अक्षर VERSION[], BUILDINFO[];
+
+#पूर्ण_अगर // vgautil.h

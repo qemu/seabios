@@ -1,0 +1,22 @@
+<शैली गुरु>
+#अगर_अघोषित __ROMखाता_H
+#घोषणा __ROMखाता_H
+
+#समावेश "types.h" // u32
+
+// romfile.c
+काष्ठा romfile_s अणु
+    काष्ठा romfile_s *next;
+    अक्षर name[128];
+    u32 size;
+    पूर्णांक (*copy)(काष्ठा romfile_s *file, व्योम *dest, u32 maxlen);
+पूर्ण;
+व्योम romfile_add(काष्ठा romfile_s *file);
+काष्ठा romfile_s *romfile_findprefix(स्थिर अक्षर *prefix, काष्ठा romfile_s *prev);
+काष्ठा romfile_s *romfile_find(स्थिर अक्षर *name);
+व्योम *romfile_loadfile(स्थिर अक्षर *name, पूर्णांक *psize);
+u64 romfile_loadपूर्णांक(स्थिर अक्षर *name, u64 defval);
+
+व्योम स्थिर_romfile_add_पूर्णांक(अक्षर *name, u32 value);
+
+#पूर्ण_अगर // romfile.h

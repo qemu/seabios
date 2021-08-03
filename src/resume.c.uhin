@@ -1,0 +1,158 @@
+<शैली गुरु>
+// Code क्रम handling calls to "post" that are resume related.
+//
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "config.h" // CONFIG_*
+#समावेश "farptr.h" // FLATPTR_TO_SEGOFF
+#समावेश "hw/pci.h" // pci_reboot
+#समावेश "hw/pic.h" // pic_eoi2
+#समावेश "hw/ps2port.h" // i8042_reboot
+#समावेश "hw/rtc.h" // rtc_पढ़ो
+#समावेश "output.h" // dम_लिखो
+#समावेश "stacks.h" // farcall16big
+#समावेश "std/bda.h" // काष्ठा bios_data_area_s
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // dma_setup
+#समावेश "tcgbios.h" // tpm_s3_resume
+#समावेश "fw/romfile_loader.h" // romfile_fw_cfg_resume
+
+// Handler क्रम post calls that look like a resume.
+व्योम VISIBLE16
+handle_resume(व्योम)
+अणु
+    ASSERT16();
+    पूर्णांक status = rtc_पढ़ो(CMOS_RESET_CODE);
+    rtc_ग_लिखो(CMOS_RESET_CODE, 0);
+    dम_लिखो(1, "In resume (status=%d)\n", status);
+
+    dma_setup();
+
+    चयन (status) अणु
+    हाल 0x01 ... 0x04:
+    हाल 0x06 ... 0x09:
+        panic("Unimplemented shutdown status: %02x\n", status);
+
+    हाल 0x05:
+        // flush keyboard (issue EOI) and jump via 40h:0067h
+        pic_eoi2();
+        // NO BREAK
+    हाल 0x0a:
+#घोषणा BDA_JUMP (((काष्ठा bios_data_area_s *)0)->jump)
+        // resume execution by jump via 40h:0067h
+        यंत्र अस्थिर(
+            "movw %w1, %%ds\n"
+            "ljmpw *%0\n"
+            : : "m"(BDA_JUMP), "r"(SEG_BDA)
+            );
+        अवरोध;
+
+    हाल 0x0b:
+        // resume execution via IRET via 40h:0067h
+        यंत्र अस्थिर(
+            "movw %w1, %%ds\n"
+            "lssw %0, %%sp\n"
+            "iretw\n"
+            : : "m"(BDA_JUMP), "r"(SEG_BDA)
+            );
+        अवरोध;
+
+    हाल 0x0c:
+        // resume execution via RETF via 40h:0067h
+        यंत्र अस्थिर(
+            "movw %w1, %%ds\n"
+            "lssw %0, %%sp\n"
+            "lretw\n"
+            : : "m"(BDA_JUMP), "r"(SEG_BDA)
+            );
+        अवरोध;
+
+    शेष:
+        अवरोध;
+    पूर्ण
+
+    // Not a 16bit resume - करो reमुख्यing checks in 32bit mode
+    यंत्र अस्थिर(
+        "movw %w1, %%ss\n"
+        "movl %0, %%esp\n"
+        "movl $_cfunc32flat_handle_resume32, %%edx\n"
+        "jmp transition32\n"
+        : : "i"(BUILD_S3RESUME_STACK_ADDR), "r"(0), "a"(status)
+        );
+पूर्ण
+
+// Handle an S3 resume event
+अटल व्योम
+s3_resume(व्योम)
+अणु
+    अगर (!CONFIG_S3_RESUME)
+        वापस;
+
+    u32 s3_resume_vector = find_resume_vector();
+    अगर (!s3_resume_vector) अणु
+        dम_लिखो(1, "No resume vector set!\n");
+        वापस;
+    पूर्ण
+
+    pic_setup();
+    smm_setup();
+    smp_resume();
+
+    pci_resume();
+
+    /* resume TPM beक्रमe we may measure option roms */
+    tpm_s3_resume();
+    s3_resume_vga();
+
+    /* Replay any fw_cfg entries that go back to the host */
+    romfile_fw_cfg_resume();
+
+    make_bios_पढ़ोonly();
+
+    // Invoke the resume vector.
+    काष्ठा bregs br;
+    स_रखो(&br, 0, माप(br));
+    dम_लिखो(1, "Jump to resume vector (%x)\n", s3_resume_vector);
+    br.code = FLATPTR_TO_SEGOFF((व्योम*)s3_resume_vector);
+    farcall16big(&br);
+पूर्ण
+
+// Attempt to invoke a hard-reboot.
+अटल व्योम
+tryReboot(व्योम)
+अणु
+    dम_लिखो(1, "Attempting a hard reboot\n");
+
+    // Use a QEMU specअगरic reboot on QEMU
+    qemu_reboot();
+
+    // Reboot using ACPI RESET_REG
+    acpi_reboot();
+
+    // Try keyboard controller reboot.
+    i8042_reboot();
+
+    // Try PCI 0xcf9 reboot
+    pci_reboot();
+
+    // Try triple fault
+    यंत्र अस्थिर("int3");
+
+    panic("Could not reboot");
+पूर्ण
+
+व्योम VISIBLE32FLAT
+handle_resume32(पूर्णांक status)
+अणु
+    ASSERT32FLAT();
+    dम_लिखो(1, "In 32bit resume\n");
+
+    अगर (status == 0xfe)
+        s3_resume();
+
+    // Must be a soft reboot - invoke a hard reboot.
+    tryReboot();
+पूर्ण

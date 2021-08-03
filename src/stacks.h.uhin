@@ -1,0 +1,69 @@
+<शैली गुरु>
+// Misc function and variable declarations.
+#अगर_अघोषित __STACKS_H
+#घोषणा __STACKS_H
+
+#समावेश "types.h" // u32
+
+#घोषणा CALL32SMM_CMDID    0xb5
+#घोषणा CALL32SMM_ENTERID  0x1234
+#घोषणा CALL32SMM_RETURNID 0x5678
+
+// stacks.c
+बाह्य पूर्णांक HaveSmmCall32;
+u32 __call32(व्योम *func, u32 eax, u32 errret);
+#घोषणा call32(func, eax, errret) (अणु                            \
+        बाह्य व्योम _cfunc32flat_ ##func (व्योम);                \
+        __call32( _cfunc32flat_ ##func , (u32)(eax), (errret)); \
+    पूर्ण)
+बाह्य u8 ExtraStack[], *StackPos;
+u32 __stack_hop(u32 eax, u32 edx, व्योम *func);
+#घोषणा stack_hop(func, eax, edx)               \
+    __stack_hop((u32)(eax), (u32)(edx), (func))
+u32 __stack_hop_back(u32 eax, u32 edx, व्योम *func);
+#घोषणा stack_hop_back(func, eax, edx) (अणु                               \
+        बाह्य व्योम _cfunc16_ ##func (व्योम);                            \
+        __stack_hop_back((u32)(eax), (u32)(edx), _cfunc16_ ##func );    \
+    पूर्ण)
+पूर्णांक on_extra_stack(व्योम);
+काष्ठा bregs;
+व्योम farcall16(काष्ठा bregs *callregs);
+व्योम farcall16big(काष्ठा bregs *callregs);
+व्योम __call16_पूर्णांक(काष्ठा bregs *callregs, u16 offset);
+#घोषणा call16_पूर्णांक(nr, callregs) करो अणु                           \
+        बाह्य व्योम irq_trampoline_ ##nr (व्योम);                \
+        __call16_पूर्णांक((callregs), (u32)&irq_trampoline_ ##nr );  \
+    पूर्ण जबतक (0)
+व्योम reset(व्योम);
+बाह्य काष्ठा thपढ़ो_info MainThपढ़ो;
+काष्ठा thपढ़ो_info *getCurThपढ़ो(व्योम);
+व्योम yield(व्योम);
+व्योम yield_toirq(व्योम);
+व्योम thपढ़ो_setup(व्योम);
+पूर्णांक thपढ़ोs_during_optionroms(व्योम);
+व्योम run_thपढ़ो(व्योम (*func)(व्योम*), व्योम *data);
+व्योम रुको_thपढ़ोs(व्योम);
+काष्ठा mutex_s अणु u32 isLocked; पूर्ण;
+व्योम mutex_lock(काष्ठा mutex_s *mutex);
+व्योम mutex_unlock(काष्ठा mutex_s *mutex);
+व्योम start_preempt(व्योम);
+व्योम finish_preempt(व्योम);
+पूर्णांक रुको_preempt(व्योम);
+व्योम check_preempt(व्योम);
+u32 __call32_params(व्योम *func, u32 eax, u32 edx, u32 ecx, u32 errret);
+#घोषणा call32_params(func, eax, edx, ecx, errret) (अणु                   \
+        बाह्य व्योम _cfunc32flat_ ##func (व्योम);                        \
+        __call32_params( _cfunc32flat_ ##func , (u32)(eax), (u32)(edx)  \
+                        , (u32)(ecx), (errret));                        \
+    पूर्ण)
+
+// Inline functions
+
+// Check अगर a call to stack_hop_back is needed.
+अटल अंतरभूत पूर्णांक
+need_hop_back(व्योम)
+अणु
+    वापस !MODESEGMENT || on_extra_stack();
+पूर्ण
+
+#पूर्ण_अगर // stacks.h

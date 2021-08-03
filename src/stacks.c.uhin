@@ -1,0 +1,777 @@
+<शैली गुरु>
+// Code क्रम manipulating stack locations.
+//
+// Copyright (C) 2009-2015  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_GLOBAL
+#समावेश "bregs.h" // CR0_PE
+#समावेश "fw/paravirt.h" // PORT_SMI_CMD
+#समावेश "hw/rtc.h" // rtc_use
+#समावेश "list.h" // hlist_node
+#समावेश "malloc.h" // मुक्त
+#समावेश "output.h" // dम_लिखो
+#समावेश "romfile.h" // romfile_loadपूर्णांक
+#समावेश "stacks.h" // काष्ठा mutex_s
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // useRTC
+
+#घोषणा MAIN_STACK_MAX (1024*1024)
+
+
+/****************************************************************
+ * 16bit / 32bit calling
+ ****************************************************************/
+
+काष्ठा अणु
+    u8 method;
+    u8 cmosindex;
+    u8 a20;
+    u16 ss, fs, gs;
+    u32 cr0;
+    काष्ठा descloc_s gdt;
+पूर्ण Call16Data VARLOW;
+
+#घोषणा C16_BIG 1
+#घोषणा C16_SMM 2
+
+पूर्णांक HaveSmmCall32 VARFSEG;
+
+// Backup state in preparation क्रम call32
+अटल पूर्णांक
+call32_prep(u8 method)
+अणु
+    अगर (!CONFIG_CALL32_SMM || method != C16_SMM) अणु
+        // Backup cr0
+        u32 cr0 = cr0_पढ़ो();
+        अगर (cr0 & CR0_PE)
+            // Called in 16bit रक्षित mode?!
+            वापस -1;
+        SET_LOW(Call16Data.cr0, cr0);
+
+        // Backup fs/gs and gdt
+        SET_LOW(Call16Data.fs, GET_SEG(FS));
+        SET_LOW(Call16Data.gs, GET_SEG(GS));
+        काष्ठा descloc_s gdt;
+        sgdt(&gdt);
+        SET_LOW(Call16Data.gdt.length, gdt.length);
+        SET_LOW(Call16Data.gdt.addr, gdt.addr);
+
+        // Enable a20 and backup its previous state
+        SET_LOW(Call16Data.a20, set_a20(1));
+    पूर्ण
+
+    // Backup ss
+    SET_LOW(Call16Data.ss, GET_SEG(SS));
+
+    // Backup cmos index रेजिस्टर and disable nmi
+    u8 cmosindex = inb(PORT_CMOS_INDEX);
+    अगर (!(cmosindex & NMI_DISABLE_BIT)) अणु
+        outb(cmosindex | NMI_DISABLE_BIT, PORT_CMOS_INDEX);
+        inb(PORT_CMOS_DATA);
+    पूर्ण
+    SET_LOW(Call16Data.cmosindex, cmosindex);
+
+    SET_LOW(Call16Data.method, method);
+    वापस 0;
+पूर्ण
+
+// Restore state backed up during call32
+अटल u8
+call32_post(व्योम)
+अणु
+    u8 method = GET_LOW(Call16Data.method);
+    SET_LOW(Call16Data.method, 0);
+    SET_LOW(Call16Data.ss, 0);
+
+    अगर (!CONFIG_CALL32_SMM || method != C16_SMM) अणु
+        // Restore a20
+        u8 a20 = GET_LOW(Call16Data.a20);
+        अगर (!a20)
+            set_a20(0);
+
+        // Restore gdt and fs/gs
+        काष्ठा descloc_s gdt;
+        gdt.length = GET_LOW(Call16Data.gdt.length);
+        gdt.addr = GET_LOW(Call16Data.gdt.addr);
+        lgdt(&gdt);
+        SET_SEG(FS, GET_LOW(Call16Data.fs));
+        SET_SEG(GS, GET_LOW(Call16Data.gs));
+
+        // Restore cr0
+        u32 cr0_caching = GET_LOW(Call16Data.cr0) & (CR0_CD|CR0_NW);
+        अगर (cr0_caching)
+            cr0_mask(CR0_CD|CR0_NW, cr0_caching);
+    पूर्ण
+
+    // Restore cmos index रेजिस्टर
+    u8 cmosindex = GET_LOW(Call16Data.cmosindex);
+    अगर (!(cmosindex & NMI_DISABLE_BIT)) अणु
+        outb(cmosindex, PORT_CMOS_INDEX);
+        inb(PORT_CMOS_DATA);
+    पूर्ण
+    वापस method;
+पूर्ण
+
+// Force next call16() to restore to a pristine cpu environment state
+अटल व्योम
+call16_override(पूर्णांक big)
+अणु
+    ASSERT32FLAT();
+    अगर (getesp() > BUILD_STACK_ADDR)
+        panic("call16_override with invalid stack\n");
+    स_रखो(&Call16Data, 0, माप(Call16Data));
+    अगर (big) अणु
+        Call16Data.method = C16_BIG;
+        Call16Data.a20 = 1;
+    पूर्ण अन्यथा अणु
+        Call16Data.a20 = !CONFIG_DISABLE_A20;
+    पूर्ण
+पूर्ण
+
+// 16bit handler code called from call16() / call16_smm()
+u32 VISIBLE16
+call16_helper(u32 eax, u32 edx, u32 (*func)(u32 eax, u32 edx))
+अणु
+    u8 method = call32_post();
+    u32 ret = func(eax, edx);
+    call32_prep(method);
+    वापस ret;
+पूर्ण
+
+#घोषणा ASM32_SWITCH16 "  .pushsection .text.32fseg." UNIQSEC "\n  .code16\n"
+#घोषणा ASM32_BACK32   "  .popsection\n  .code32\n"
+#घोषणा ASM16_SWITCH32 "  .code32\n"
+#घोषणा ASM16_BACK16   "  .code16gcc\n"
+
+// Call a AyeBIOS C function in 32bit mode using smm trampoline
+अटल u32
+call32_smm(व्योम *func, u32 eax)
+अणु
+    ASSERT16();
+    dम_लिखो(9, "call32_smm %p %x\n", func, eax);
+    call32_prep(C16_SMM);
+    u32 bkup_esp;
+    यंत्र अस्थिर(
+        // Backup esp / set esp to flat stack location
+        "  movl %%esp, %0\n"
+        "  movl %%ss, %%eax\n"
+        "  shll $4, %%eax\n"
+        "  addl %%eax, %%esp\n"
+
+        // Transition to 32bit mode, call func, वापस to 16bit
+        "  movl $" __stringअगरy(CALL32SMM_CMDID) ", %%eax\n"
+        "  movl $" __stringअगरy(CALL32SMM_ENTERID) ", %%ecx\n"
+        "  movl $(" __stringअगरy(BUILD_BIOS_ADDR) " + 1f), %%ebx\n"
+        "  outb %%al, $" __stringअगरy(PORT_SMI_CMD) "\n"
+        "  rep; nop\n"
+        "  hlt\n"
+
+        ASM16_SWITCH32
+        "1:movl %1, %%eax\n"
+        "  calll *%2\n"
+        "  movl %%eax, %1\n"
+
+        "  movl $" __stringअगरy(CALL32SMM_CMDID) ", %%eax\n"
+        "  movl $" __stringअगरy(CALL32SMM_RETURNID) ", %%ecx\n"
+        "  movl $2f, %%ebx\n"
+        "  outb %%al, $" __stringअगरy(PORT_SMI_CMD) "\n"
+        "  rep; nop\n"
+        "  hlt\n"
+
+        // Restore esp
+        ASM16_BACK16
+        "2:movl %0, %%esp\n"
+        : "=&r" (bkup_esp), "+r" (eax)
+        : "r" (func)
+        : "eax", "ecx", "edx", "ebx", "cc", "memory");
+    call32_post();
+
+    dम_लिखो(9, "call32_smm done %p %x\n", func, eax);
+    वापस eax;
+पूर्ण
+
+अटल u32
+call16_smm(u32 eax, u32 edx, व्योम *func)
+अणु
+    ASSERT32FLAT();
+    अगर (!CONFIG_CALL32_SMM)
+        वापस eax;
+    func -= BUILD_BIOS_ADDR;
+    dम_लिखो(9, "call16_smm %p %x %x\n", func, eax, edx);
+    u32 stackoffset = Call16Data.ss << 4;
+    यंत्र अस्थिर(
+        // Restore esp
+        "  subl %0, %%esp\n"
+
+        // Transition to 16bit mode, call func, वापस to 32bit
+        "  movl $" __stringअगरy(CALL32SMM_CMDID) ", %%eax\n"
+        "  movl $" __stringअगरy(CALL32SMM_RETURNID) ", %%ecx\n"
+        "  movl $(1f - " __stringअगरy(BUILD_BIOS_ADDR) "), %%ebx\n"
+        "  outb %%al, $" __stringअगरy(PORT_SMI_CMD) "\n"
+        "  rep; nop\n"
+        "  hlt\n"
+
+        ASM32_SWITCH16
+        "1:movl %1, %%eax\n"
+        "  movl %3, %%ecx\n"
+        "  calll _cfunc16_call16_helper\n"
+        "  movl %%eax, %1\n"
+
+        "  movl $" __stringअगरy(CALL32SMM_CMDID) ", %%eax\n"
+        "  movl $" __stringअगरy(CALL32SMM_ENTERID) ", %%ecx\n"
+        "  movl $2f, %%ebx\n"
+        "  outb %%al, $" __stringअगरy(PORT_SMI_CMD) "\n"
+        "  rep; nop\n"
+        "  hlt\n"
+
+        // Set esp to flat stack location
+        ASM32_BACK32
+        "2:addl %0, %%esp\n"
+        : "+r" (stackoffset), "+r" (eax), "+d" (edx)
+        : "r" (func)
+        : "eax", "ecx", "ebx", "cc", "memory");
+    वापस eax;
+पूर्ण
+
+// Call a 32bit AyeBIOS function from a 16bit AyeBIOS function.
+u32 VISIBLE16
+__call32(व्योम *func, u32 eax, u32 errret)
+अणु
+    ASSERT16();
+    अगर (CONFIG_CALL32_SMM && GET_GLOBAL(HaveSmmCall32))
+        वापस call32_smm(func, eax);
+    // Jump direclty to 32bit mode - this clobbers the 16bit segment
+    // selector रेजिस्टरs.
+    पूर्णांक ret = call32_prep(C16_BIG);
+    अगर (ret)
+        वापस errret;
+    u32 bkup_ss, bkup_esp;
+    यंत्र अस्थिर(
+        // Backup ss/esp / set esp to flat stack location
+        "  movl %%ss, %0\n"
+        "  movl %%esp, %1\n"
+        "  shll $4, %0\n"
+        "  addl %0, %%esp\n"
+        "  shrl $4, %0\n"
+
+        // Transition to 32bit mode, call func, वापस to 16bit
+        "  movl $(" __stringअगरy(BUILD_BIOS_ADDR) " + 1f), %%edx\n"
+        "  jmp transition32_nmi_off\n"
+        ASM16_SWITCH32
+        "1:calll *%3\n"
+        "  movl $2f, %%edx\n"
+        "  jmp transition16big\n"
+
+        // Restore ds/ss/esp
+        ASM16_BACK16
+        "2:movl %0, %%ds\n"
+        "  movl %0, %%ss\n"
+        "  movl %1, %%esp\n"
+        : "=&r" (bkup_ss), "=&r" (bkup_esp), "+a" (eax)
+        : "r" (func)
+        : "ecx", "edx", "cc", "memory");
+    call32_post();
+    वापस eax;
+पूर्ण
+
+// Call a 16bit AyeBIOS function, restoring the mode from last call32().
+अटल u32
+call16(u32 eax, u32 edx, व्योम *func)
+अणु
+    ASSERT32FLAT();
+    अगर (getesp() > MAIN_STACK_MAX)
+        panic("call16 with invalid stack\n");
+    अगर (CONFIG_CALL32_SMM && Call16Data.method == C16_SMM)
+        वापस call16_smm(eax, edx, func);
+
+    बाह्य व्योम transition16big(व्योम);
+    बाह्य व्योम transition16(व्योम);
+    व्योम *thunk = transition16;
+    अगर (Call16Data.method == C16_BIG || in_post())
+        thunk = transition16big;
+    func -= BUILD_BIOS_ADDR;
+    u32 stackseg = Call16Data.ss;
+    यंत्र अस्थिर(
+        // Transition to 16bit mode
+        "  movl $(1f - " __stringअगरy(BUILD_BIOS_ADDR) "), %%edx\n"
+        "  jmp *%%ecx\n"
+        // Setup ss/esp and call func
+        ASM32_SWITCH16
+        "1:movl %2, %%ecx\n"
+        "  shll $4, %2\n"
+        "  movw %%cx, %%ss\n"
+        "  subl %2, %%esp\n"
+        "  movw %%cx, %%ds\n"
+        "  movl %4, %%edx\n"
+        "  movl %3, %%ecx\n"
+        "  calll _cfunc16_call16_helper\n"
+        // Return to 32bit and restore esp
+        "  movl $2f, %%edx\n"
+        "  jmp transition32_nmi_off\n"
+        ASM32_BACK32
+        "2:addl %2, %%esp\n"
+        : "+a" (eax), "+c"(thunk), "+r"(stackseg)
+        : "r" (func), "r" (edx)
+        : "edx", "cc", "memory");
+    वापस eax;
+पूर्ण
+
+
+/****************************************************************
+ * Extra 16bit stack
+ ****************************************************************/
+
+// Space क्रम a stack क्रम 16bit code.
+u8 ExtraStack[BUILD_EXTRA_STACK_SIZE+1] VARLOW __aligned(8);
+u8 *StackPos VARLOW;
+
+// Test अगर currently on the extra stack
+पूर्णांक
+on_extra_stack(व्योम)
+अणु
+    वापस MODE16 && GET_SEG(SS) == SEG_LOW && getesp() > (u32)ExtraStack;
+पूर्ण
+
+// Switch to the extra stack and call a function.
+u32
+__stack_hop(u32 eax, u32 edx, व्योम *func)
+अणु
+    अगर (on_extra_stack())
+        वापस ((u32 (*)(u32, u32))func)(eax, edx);
+    ASSERT16();
+    u16 stack_seg = SEG_LOW;
+    u32 bkup_ss, bkup_esp;
+    यंत्र अस्थिर(
+        // Backup current %ss/%esp values.
+        "movw %%ss, %w3\n"
+        "movl %%esp, %4\n"
+        // Copy stack seg to %ds/%ss and set %esp
+        "movw %w6, %%ds\n"
+        "movw %w6, %%ss\n"
+        "movl %5, %%esp\n"
+        "pushl %3\n"
+        "pushl %4\n"
+        // Call func
+        "calll *%2\n"
+        "popl %4\n"
+        "popl %3\n"
+        // Restore segments and stack
+        "movw %w3, %%ds\n"
+        "movw %w3, %%ss\n"
+        "movl %4, %%esp"
+        : "+a" (eax), "+d" (edx), "+c" (func), "=&r" (bkup_ss), "=&r" (bkup_esp)
+        : "m" (StackPos), "r" (stack_seg)
+        : "cc", "memory");
+    वापस eax;
+पूर्ण
+
+// Switch back to original caller's stack and call a function.
+u32
+__stack_hop_back(u32 eax, u32 edx, व्योम *func)
+अणु
+    अगर (!MODESEGMENT)
+        वापस call16(eax, edx, func);
+    अगर (!MODE16 || !on_extra_stack())
+        वापस ((u32 (*)(u32, u32))func)(eax, edx);
+    ASSERT16();
+    u16 bkup_ss;
+    u32 bkup_stack_pos, temp;
+    यंत्र अस्थिर(
+        // Backup stack_pos and current %ss/%esp
+        "movl %6, %4\n"
+        "movw %%ss, %w3\n"
+        "movl %%esp, %6\n"
+        // Restore original callers' %ss/%esp
+        "movl -4(%4), %5\n"
+        "movl %5, %%ss\n"
+        "movw %%ds:-8(%4), %%sp\n"
+        "movl %5, %%ds\n"
+        // Call func
+        "calll *%2\n"
+        // Restore %ss/%esp and stack_pos
+        "movw %w3, %%ds\n"
+        "movw %w3, %%ss\n"
+        "movl %6, %%esp\n"
+        "movl %4, %6"
+        : "+a" (eax), "+d" (edx), "+c" (func), "=&r" (bkup_ss)
+          , "=&r" (bkup_stack_pos), "=&r" (temp), "+m" (StackPos)
+        :
+        : "cc", "memory");
+    वापस eax;
+पूर्ण
+
+
+/****************************************************************
+ * External 16bit पूर्णांकerface calling
+ ****************************************************************/
+
+// Far call 16bit code with a specअगरied रेजिस्टर state.
+व्योम VISIBLE16
+_farcall16(काष्ठा bregs *callregs, u16 callregseg)
+अणु
+    अगर (need_hop_back()) अणु
+        stack_hop_back(_farcall16, callregs, callregseg);
+        वापस;
+    पूर्ण
+    ASSERT16();
+    यंत्र अस्थिर(
+        "calll __farcall16\n"
+        : "+a" (callregs), "+m" (*callregs), "+d" (callregseg)
+        :
+        : "ebx", "ecx", "esi", "edi", "cc", "memory");
+पूर्ण
+
+// Invoke बाह्यal 16bit code.
+व्योम
+farcall16(काष्ठा bregs *callregs)
+अणु
+    call16_override(0);
+    _farcall16(callregs, 0);
+पूर्ण
+
+// Invoke बाह्यal 16bit code in "big real" mode.
+व्योम
+farcall16big(काष्ठा bregs *callregs)
+अणु
+    call16_override(1);
+    _farcall16(callregs, 0);
+पूर्ण
+
+// Invoke a 16bit software पूर्णांकerrupt.
+व्योम
+__call16_पूर्णांक(काष्ठा bregs *callregs, u16 offset)
+अणु
+    callregs->code.offset = offset;
+    अगर (!MODESEGMENT) अणु
+        callregs->code.seg = SEG_BIOS;
+        _farcall16((व्योम*)callregs - Call16Data.ss * 16, Call16Data.ss);
+        वापस;
+    पूर्ण
+    callregs->code.seg = GET_SEG(CS);
+    _farcall16(callregs, GET_SEG(SS));
+पूर्ण
+
+// Reset the machine
+व्योम
+reset(व्योम)
+अणु
+    बाह्य व्योम reset_vector(व्योम) __noवापस;
+    अगर (!MODE16)
+        call16(0, 0, reset_vector);
+    reset_vector();
+पूर्ण
+
+
+/****************************************************************
+ * Thपढ़ोs
+ ****************************************************************/
+
+// Thपढ़ो info - stored at bottom of each thपढ़ो stack - करोn't change
+// without also updating the अंतरभूत assembler below.
+काष्ठा thपढ़ो_info अणु
+    व्योम *stackpos;
+    काष्ठा hlist_node node;
+पूर्ण;
+काष्ठा thपढ़ो_info MainThपढ़ो VARFSEG = अणु
+    शून्य, अणु &MainThपढ़ो.node, &MainThपढ़ो.node.next पूर्ण
+पूर्ण;
+#घोषणा THREADSTACKSIZE 4096
+
+// Check अगर any thपढ़ोs are running.
+अटल पूर्णांक
+have_thपढ़ोs(व्योम)
+अणु
+    वापस (CONFIG_THREADS
+            && GET_FLATPTR(MainThपढ़ो.node.next) != &MainThपढ़ो.node);
+पूर्ण
+
+// Return the 'struct thread_info' क्रम the currently running thपढ़ो.
+काष्ठा thपढ़ो_info *
+getCurThपढ़ो(व्योम)
+अणु
+    u32 esp = getesp();
+    अगर (esp <= MAIN_STACK_MAX)
+        वापस &MainThपढ़ो;
+    वापस (व्योम*)ALIGN_DOWN(esp, THREADSTACKSIZE);
+पूर्ण
+
+अटल u8 CanInterrupt, Thपढ़ोControl;
+
+// Initialize the support क्रम पूर्णांकernal thपढ़ोs.
+व्योम
+thपढ़ो_setup(व्योम)
+अणु
+    CanInterrupt = 1;
+    call16_override(1);
+    अगर (! CONFIG_THREADS)
+        वापस;
+    Thपढ़ोControl = romfile_loadपूर्णांक("etc/threads", 1);
+पूर्ण
+
+// Should hardware initialization thपढ़ोs run during optionrom execution.
+पूर्णांक
+thपढ़ोs_during_optionroms(व्योम)
+अणु
+    वापस CONFIG_THREADS && CONFIG_RTC_TIMER && Thपढ़ोControl == 2 && in_post();
+पूर्ण
+
+// Switch to next thपढ़ो stack.
+अटल व्योम
+चयन_next(काष्ठा thपढ़ो_info *cur)
+अणु
+    काष्ठा thपढ़ो_info *next = container_of(
+        cur->node.next, काष्ठा thपढ़ो_info, node);
+    अगर (cur == next)
+        // Nothing to करो.
+        वापस;
+    यंत्र अस्थिर(
+        "  pushl $1f\n"                 // store वापस pc
+        "  pushl %%ebp\n"               // backup %ebp
+        "  movl %%esp, (%%eax)\n"       // cur->stackpos = %esp
+        "  movl (%%ecx), %%esp\n"       // %esp = next->stackpos
+        "  popl %%ebp\n"                // restore %ebp
+        "  retl\n"                      // restore pc
+        "1:\n"
+        : "+a"(cur), "+c"(next)
+        :
+        : "ebx", "edx", "esi", "edi", "cc", "memory");
+पूर्ण
+
+// Last thing called from a thपढ़ो (called on MainThपढ़ो stack).
+अटल व्योम
+__end_thपढ़ो(काष्ठा thपढ़ो_info *old)
+अणु
+    hlist_del(&old->node);
+    dम_लिखो(DEBUG_thपढ़ो, "\\%08x/ End thread\n", (u32)old);
+    मुक्त(old);
+    अगर (!have_thपढ़ोs())
+        dम_लिखो(1, "All threads complete.\n");
+पूर्ण
+
+व्योम VISIBLE16 check_irqs(व्योम);
+
+// Create a new thपढ़ो and start executing 'func' in it.
+व्योम
+run_thपढ़ो(व्योम (*func)(व्योम*), व्योम *data)
+अणु
+    ASSERT32FLAT();
+    अगर (! CONFIG_THREADS || ! Thपढ़ोControl)
+        जाओ fail;
+    काष्ठा thपढ़ो_info *thपढ़ो;
+    thपढ़ो = memalign_पंचांगphigh(THREADSTACKSIZE, THREADSTACKSIZE);
+    अगर (!thपढ़ो)
+        जाओ fail;
+
+    dम_लिखो(DEBUG_thपढ़ो, "/%08x\\ Start thread\n", (u32)thपढ़ो);
+    thपढ़ो->stackpos = (व्योम*)thपढ़ो + THREADSTACKSIZE;
+    काष्ठा thपढ़ो_info *cur = getCurThपढ़ो();
+    काष्ठा thपढ़ो_info *edx = cur;
+    hlist_add_after(&thपढ़ो->node, &cur->node);
+    यंत्र अस्थिर(
+        // Start thपढ़ो
+        "  pushl $1f\n"                 // store वापस pc
+        "  pushl %%ebp\n"               // backup %ebp
+        "  movl %%esp, (%%edx)\n"       // cur->stackpos = %esp
+        "  movl (%%ebx), %%esp\n"       // %esp = thपढ़ो->stackpos
+        "  calll *%%ecx\n"              // Call func
+
+        // End thपढ़ो
+        "  movl %%ebx, %%eax\n"         // %eax = thपढ़ो
+        "  movl 4(%%ebx), %%ebx\n"      // %ebx = thपढ़ो->node.next
+        "  movl (%5), %%esp\n"          // %esp = MainThपढ़ो.stackpos
+        "  calll %4\n"                  // call __end_thपढ़ो(thपढ़ो)
+        "  movl -4(%%ebx), %%esp\n"     // %esp = next->stackpos
+        "  popl %%ebp\n"                // restore %ebp
+        "  retl\n"                      // restore pc
+        "1:\n"
+        : "+a"(data), "+c"(func), "+b"(thपढ़ो), "+d"(edx)
+        : "m"(*(u8*)__end_thपढ़ो), "m"(MainThपढ़ो)
+        : "esi", "edi", "cc", "memory");
+    अगर (cur == &MainThपढ़ो)
+        // Permit irqs to fire
+        check_irqs();
+    वापस;
+
+fail:
+    func(data);
+पूर्ण
+
+
+/****************************************************************
+ * Thपढ़ो helpers
+ ****************************************************************/
+
+// Low-level irq enable.
+व्योम VISIBLE16
+check_irqs(व्योम)
+अणु
+    अगर (!MODESEGMENT && !CanInterrupt) अणु
+        // Can't enable पूर्णांकerrupts (PIC and/or IVT not yet setup)
+        cpu_relax();
+        वापस;
+    पूर्ण
+    अगर (need_hop_back()) अणु
+        stack_hop_back(check_irqs, 0, 0);
+        वापस;
+    पूर्ण
+    अगर (MODE16)
+        घड़ी_poll_irq();
+    यंत्र अस्थिर("sti ; nop ; rep ; nop ; cli ; cld" : : :"memory");
+पूर्ण
+
+// Briefly permit irqs to occur.
+व्योम
+yield(व्योम)
+अणु
+    अगर (MODESEGMENT || !CONFIG_THREADS) अणु
+        check_irqs();
+        वापस;
+    पूर्ण
+    काष्ठा thपढ़ो_info *cur = getCurThपढ़ो();
+    // Switch to the next thपढ़ो
+    चयन_next(cur);
+    अगर (cur == &MainThपढ़ो)
+        // Permit irqs to fire
+        check_irqs();
+पूर्ण
+
+व्योम VISIBLE16
+रुको_irq(व्योम)
+अणु
+    अगर (need_hop_back()) अणु
+        stack_hop_back(रुको_irq, 0, 0);
+        वापस;
+    पूर्ण
+    यंत्र अस्थिर("sti ; hlt ; cli ; cld": : :"memory");
+पूर्ण
+
+// Wait क्रम next irq to occur.
+व्योम
+yield_toirq(व्योम)
+अणु
+    अगर (!CONFIG_HARDWARE_IRQ
+        || (!MODESEGMENT && (have_thपढ़ोs() || !CanInterrupt))) अणु
+        // Thपढ़ोs still active or irqs not available - करो a yield instead.
+        yield();
+        वापस;
+    पूर्ण
+    रुको_irq();
+पूर्ण
+
+// Wait क्रम all thपढ़ोs (other than the मुख्य thपढ़ो) to complete.
+व्योम
+रुको_thपढ़ोs(व्योम)
+अणु
+    ASSERT32FLAT();
+    जबतक (have_thपढ़ोs())
+        yield();
+पूर्ण
+
+व्योम
+mutex_lock(काष्ठा mutex_s *mutex)
+अणु
+    ASSERT32FLAT();
+    अगर (! CONFIG_THREADS)
+        वापस;
+    जबतक (mutex->isLocked)
+        yield();
+    mutex->isLocked = 1;
+पूर्ण
+
+व्योम
+mutex_unlock(काष्ठा mutex_s *mutex)
+अणु
+    ASSERT32FLAT();
+    अगर (! CONFIG_THREADS)
+        वापस;
+    mutex->isLocked = 0;
+पूर्ण
+
+
+/****************************************************************
+ * Thपढ़ो preemption
+ ****************************************************************/
+
+पूर्णांक CanPreempt VARFSEG;
+अटल u32 PreemptCount;
+
+// Turn on RTC irqs and arrange क्रम them to check the 32bit thपढ़ोs.
+व्योम
+start_preempt(व्योम)
+अणु
+    अगर (! thपढ़ोs_during_optionroms())
+        वापस;
+    CanPreempt = 1;
+    PreemptCount = 0;
+    rtc_use();
+पूर्ण
+
+// Turn off RTC irqs / stop checking क्रम thपढ़ो execution.
+व्योम
+finish_preempt(व्योम)
+अणु
+    अगर (! thपढ़ोs_during_optionroms()) अणु
+        yield();
+        वापस;
+    पूर्ण
+    CanPreempt = 0;
+    rtc_release();
+    dम_लिखो(9, "Done preempt - %d checks\n", PreemptCount);
+    yield();
+पूर्ण
+
+// Check अगर preemption is on, and रुको क्रम it to complete अगर so.
+पूर्णांक
+रुको_preempt(व्योम)
+अणु
+    अगर (MODESEGMENT || !CONFIG_THREADS || !CanPreempt
+        || getesp() < MAIN_STACK_MAX)
+        वापस 0;
+    जबतक (CanPreempt)
+        yield();
+    वापस 1;
+पूर्ण
+
+// Try to execute 32bit thपढ़ोs.
+व्योम VISIBLE32INIT
+yield_preempt(व्योम)
+अणु
+    PreemptCount++;
+    चयन_next(&MainThपढ़ो);
+पूर्ण
+
+// 16bit code that checks अगर thपढ़ोs are pending and executes them अगर so.
+व्योम
+check_preempt(व्योम)
+अणु
+    अगर (CONFIG_THREADS && GET_GLOBAL(CanPreempt) && have_thपढ़ोs())
+        call32(yield_preempt, 0, 0);
+पूर्ण
+
+
+/****************************************************************
+ * call32 helper
+ ****************************************************************/
+
+काष्ठा call32_params_s अणु
+    व्योम *func;
+    u32 eax, edx, ecx;
+पूर्ण;
+
+u32 VISIBLE32FLAT
+call32_params_helper(काष्ठा call32_params_s *params)
+अणु
+    वापस ((u32 (*)(u32, u32, u32))params->func)(
+        params->eax, params->edx, params->ecx);
+पूर्ण
+
+u32
+__call32_params(व्योम *func, u32 eax, u32 edx, u32 ecx, u32 errret)
+अणु
+    ASSERT16();
+    काष्ठा call32_params_s params = अणुfunc, eax, edx, ecxपूर्ण;
+    वापस call32(call32_params_helper, MAKE_FLATPTR(GET_SEG(SS), &params)
+                  , errret);
+पूर्ण

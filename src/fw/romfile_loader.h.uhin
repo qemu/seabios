@@ -1,0 +1,92 @@
+<शैली गुरु>
+#अगर_अघोषित __ROMखाता_LOADER_H
+#घोषणा __ROMखाता_LOADER_H
+
+#समावेश "types.h" // u8
+#समावेश "util.h" // romfile_s
+
+#घोषणा ROMखाता_LOADER_खाताSZ 56
+
+/* ROM file linker/loader पूर्णांकerface. Linker uses little endian क्रमmat */
+काष्ठा romfile_loader_entry_s अणु
+    u32 command;
+    जोड़ अणु
+        /*
+         * COMMAND_ALLOCATE - allocate a table from @alloc.file
+         * subject to @alloc.align alignment (must be घातer of 2)
+         * and @alloc.zone (can be HIGH or FSEG) requirements.
+         *
+         * Must appear exactly once क्रम each file, and beक्रमe
+         * this file is referenced by any other command.
+         */
+        काष्ठा अणु
+            अक्षर file[ROMखाता_LOADER_खाताSZ];
+            u32 align;
+            u8 zone;
+        पूर्ण alloc;
+
+        /*
+         * COMMAND_ADD_POINTER - patch the table (originating from
+         * @dest_file) at @poपूर्णांकer.offset, by adding a poपूर्णांकer to the table
+         * originating from @src_file. 1,2,4 or 8 byte अचिन्हित
+         * addition is used depending on @poपूर्णांकer.size.
+         */
+        काष्ठा अणु
+            अक्षर dest_file[ROMखाता_LOADER_खाताSZ];
+            अक्षर src_file[ROMखाता_LOADER_खाताSZ];
+            u32 offset;
+            u8 size;
+        पूर्ण poपूर्णांकer;
+
+        /*
+         * COMMAND_ADD_CHECKSUM - calculate checksum of the range specअगरied by
+         * @cksum.start and @cksum.length fields,
+         * and then add the value at @cksum_offset.
+         * Checksum simply sums -X क्रम each byte X in the range
+         * using 8-bit math.
+         */
+        काष्ठा अणु
+            अक्षर file[ROMखाता_LOADER_खाताSZ];
+            u32 offset;
+            u32 start;
+            u32 length;
+        पूर्ण cksum;
+
+        /*
+         * COMMAND_WRITE_POINTER - Write back to a host file via DMA,
+         * @wr_poपूर्णांकer.dest_file at offset @wr_poपूर्णांकer.dst_offset, a poपूर्णांकer
+         * to the table originating from @wr_poपूर्णांकer.src_file at offset
+         * @wr_poपूर्णांकer.src_offset.
+         * 1,2,4 or 8 byte अचिन्हित addition is used depending on
+         * @wr_poपूर्णांकer.size.
+         */
+        काष्ठा अणु
+            अक्षर dest_file[ROMखाता_LOADER_खाताSZ];
+            अक्षर src_file[ROMखाता_LOADER_खाताSZ];
+            u32 dst_offset;
+            u32 src_offset;
+            u8 size;
+        पूर्ण wr_poपूर्णांकer;
+
+        /* padding */
+        अक्षर pad[124];
+    पूर्ण;
+पूर्ण;
+
+क्रमागत अणु
+    ROMखाता_LOADER_COMMAND_ALLOCATE      = 0x1,
+    ROMखाता_LOADER_COMMAND_ADD_POINTER   = 0x2,
+    ROMखाता_LOADER_COMMAND_ADD_CHECKSUM  = 0x3,
+    ROMखाता_LOADER_COMMAND_WRITE_POINTER = 0x4,
+पूर्ण;
+
+क्रमागत अणु
+    ROMखाता_LOADER_ALLOC_ZONE_HIGH = 0x1,
+    ROMखाता_LOADER_ALLOC_ZONE_FSEG = 0x2,
+पूर्ण;
+
+पूर्णांक romfile_loader_execute(स्थिर अक्षर *name);
+
+व्योम romfile_fw_cfg_resume(व्योम);
+
+#पूर्ण_अगर

@@ -1,0 +1,53 @@
+<शैली गुरु>
+#अगर_अघोषित _PCI_CAP_H
+#घोषणा _PCI_CAP_H
+
+#समावेश "types.h"
+
+/*
+ *
+ * QEMU-specअगरic venकरोr(Red Hat)-specअगरic capability.
+ * It's पूर्णांकended to provide some hपूर्णांकs क्रम firmware to init PCI devices.
+ *
+ * Its काष्ठाure is shown below:
+ *
+ * Header:
+ *
+ * u8 id;       Standard PCI Capability Header field
+ * u8 next;     Standard PCI Capability Header field
+ * u8 len;      Standard PCI Capability Header field
+ * u8 type;     Red Hat venकरोr-specअगरic capability type
+ * Data:
+ *
+ * u32 bus_res;     minimum bus number to reserve;
+ *                  this is necessary क्रम PCI Express Root Ports
+ *                  to support PCI bridges hotplug
+ * u64 io;          IO space to reserve
+ * u32 mem;         non-prefetchable memory to reserve
+ *
+ * At most of the following two fields may be set to a value
+ * dअगरferent from 0xFF...F:
+ * u32 prefetchable_mem_32;     prefetchable memory to reserve (32-bit MMIO)
+ * u64 prefetchable_mem_64;     prefetchable memory to reserve (64-bit MMIO)
+ *
+ * If any field value in Data section is 0xFF...F,
+ * it means that such kind of reservation is not needed and must be ignored.
+ *
+*/
+
+/* Offset of venकरोr-specअगरic capability type field */
+#घोषणा PCI_CAP_REDHAT_TYPE_OFFSET  3
+
+/* List of valid Red Hat venकरोr-specअगरic capability types */
+#घोषणा REDHAT_CAP_RESOURCE_RESERVE 1
+
+
+/* Offsets of RESOURCE_RESERVE capability fields */
+#घोषणा RES_RESERVE_BUS_RES        4
+#घोषणा RES_RESERVE_IO             8
+#घोषणा RES_RESERVE_MEM            16
+#घोषणा RES_RESERVE_PREF_MEM_32    20
+#घोषणा RES_RESERVE_PREF_MEM_64    24
+#घोषणा RES_RESERVE_CAP_SIZE       32
+
+#पूर्ण_अगर /* _PCI_CAP_H */

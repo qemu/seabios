@@ -1,0 +1,213 @@
+<शैली गुरु>
+// NVMe dataकाष्ठाures and स्थिरants
+//
+// Copyright 2017 Amazon.com, Inc. or its affiliates.
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#अगर_अघोषित __NVME_INT_H
+#घोषणा __NVME_INT_H
+
+#समावेश "types.h" // u32
+#समावेश "pcidevice.h" // काष्ठा pci_device
+
+#घोषणा NVME_MAX_PRPL_ENTRIES 15 /* Allows requests up to 64kb */
+
+/* Data काष्ठाures */
+
+/* The रेजिस्टर file of a NVMe host controller. This काष्ठा follows the naming
+   scheme in the NVMe specअगरication. */
+काष्ठा nvme_reg अणु
+    u64 cap;                    /* controller capabilities */
+    u32 vs;                     /* version */
+    u32 पूर्णांकms;                  /* पूर्णांकerrupt mask set */
+    u32 पूर्णांकmc;                  /* पूर्णांकerrupt mask clear */
+    u32 cc;                     /* controller configuration */
+    u32 _res0;
+    u32 csts;                   /* controller status */
+    u32 _res1;
+    u32 aqa;                    /* admin queue attributes */
+    u64 asq;                    /* admin submission queue base address */
+    u64 acq;                    /* admin completion queue base address */
+पूर्ण;
+
+/* Submission queue entry */
+काष्ठा nvme_sqe अणु
+    जोड़ अणु
+        u32 dword[16];
+        काष्ठा अणु
+            u32 cdw0;           /* Command DWORD 0 */
+            u32 nsid;           /* Namespace ID */
+            u64 _res0;
+            u64 mptr;           /* metadata ptr */
+
+            u64 dptr_prp1;
+            u64 dptr_prp2;
+        पूर्ण;
+    पूर्ण;
+पूर्ण;
+
+/* Completion queue entry */
+काष्ठा nvme_cqe अणु
+    जोड़ अणु
+        u32 dword[4];
+        काष्ठा अणु
+            u32 cdw0;
+            u32 _res0;
+            u16 sq_head;
+            u16 sq_id;
+            u16 cid;
+            u16 status;
+        पूर्ण;
+    पूर्ण;
+पूर्ण;
+
+/* The common part of every submission or completion queue. */
+काष्ठा nvme_queue अणु
+    u32 *dbl;                   /* करोorbell */
+    u16 mask;                   /* length - 1 */
+पूर्ण;
+
+काष्ठा nvme_cq अणु
+    काष्ठा nvme_queue common;
+    काष्ठा nvme_cqe *cqe;
+
+    /* We have पढ़ो upto (but not including) this entry in the queue. */
+    u16 head;
+
+    /* The current phase bit the controller uses to indicate that it has written
+       a new entry. This is inverted after each wrap. */
+    अचिन्हित phase : 1;
+पूर्ण;
+
+काष्ठा nvme_sq अणु
+    काष्ठा nvme_queue common;
+    काष्ठा nvme_sqe *sqe;
+
+    /* Corresponding completion queue. We only support a single SQ per CQ. */
+    काष्ठा nvme_cq *cq;
+
+    /* The last entry the controller has fetched. */
+    u16 head;
+
+    /* The last value we have written to the tail करोorbell. */
+    u16 tail;
+पूर्ण;
+
+काष्ठा nvme_ctrl अणु
+    काष्ठा pci_device *pci;
+    काष्ठा nvme_reg अस्थिर *reg;
+
+    u32 करोorbell_stride;        /* in bytes */
+
+    काष्ठा nvme_sq admin_sq;
+    काष्ठा nvme_cq admin_cq;
+
+    u32 ns_count;
+
+    काष्ठा nvme_sq io_sq;
+    काष्ठा nvme_cq io_cq;
+पूर्ण;
+
+काष्ठा nvme_namespace अणु
+    काष्ठा drive_s drive;
+    काष्ठा nvme_ctrl *ctrl;
+
+    u32 ns_id;
+
+    u64 lba_count;              /* The total amount of sectors. */
+
+    u32 block_size;
+    u32 metadata_size;
+    u32 max_req_size;
+
+    /* Page aligned buffer of size NVME_PAGE_SIZE. */
+    अक्षर *dma_buffer;
+
+    /* Page List */
+    u32 prpl_len;
+    व्योम *prp1;
+    u64 prpl[NVME_MAX_PRPL_ENTRIES];
+पूर्ण;
+
+/* Data काष्ठाures क्रम NVMe admin identअगरy commands */
+
+काष्ठा nvme_identअगरy_ctrl अणु
+    u16 vid;
+    u16 ssvid;
+    अक्षर sn[20];
+    अक्षर mn[40];
+    अक्षर fr[8];
+
+    u8 rab;
+    u8 ieee[3];
+    u8 cmic;
+    u8 mdts;
+
+    अक्षर _boring[516 - 78];
+
+    u32 nn;                     /* number of namespaces */
+पूर्ण;
+
+काष्ठा nvme_identअगरy_ns_list अणु
+    u32 ns_id[1024];
+पूर्ण;
+
+काष्ठा nvme_lba_क्रमmat अणु
+    u16 ms;
+    u8  lbads;
+    u8  rp;
+    u8  res;
+पूर्ण;
+
+काष्ठा nvme_identअगरy_ns अणु
+    u64 nsze;
+    u64 ncap;
+    u64 nuse;
+    u8  nsfeat;
+    u8  nlbaf;
+    u8  flbas;
+
+    अक्षर _boring[128 - 27];
+
+    काष्ठा nvme_lba_क्रमmat lbaf[16];
+पूर्ण;
+
+जोड़ nvme_identअगरy अणु
+    काष्ठा nvme_identअगरy_ns      ns;
+    काष्ठा nvme_identअगरy_ctrl    ctrl;
+    काष्ठा nvme_identअगरy_ns_list ns_list;
+पूर्ण;
+
+/* NVMe स्थिरants */
+
+#घोषणा NVME_CAP_CSS_NVME (1ULL << 37)
+
+#घोषणा NVME_CSTS_FATAL   (1U <<  1)
+#घोषणा NVME_CSTS_RDY     (1U <<  0)
+
+#घोषणा NVME_CC_EN        (1U <<  0)
+
+#घोषणा NVME_SQE_OPC_ADMIN_CREATE_IO_SQ 1U
+#घोषणा NVME_SQE_OPC_ADMIN_CREATE_IO_CQ 5U
+#घोषणा NVME_SQE_OPC_ADMIN_IDENTIFY     6U
+
+#घोषणा NVME_SQE_OPC_IO_WRITE 1U
+#घोषणा NVME_SQE_OPC_IO_READ  2U
+
+#घोषणा NVME_ADMIN_IDENTIFY_CNS_ID_NS       0U
+#घोषणा NVME_ADMIN_IDENTIFY_CNS_ID_CTRL     1U
+#घोषणा NVME_ADMIN_IDENTIFY_CNS_GET_NS_LIST 2U
+
+#घोषणा NVME_CQE_DW3_P (1U << 16)
+
+#घोषणा NVME_PAGE_SIZE 4096
+#घोषणा NVME_PAGE_MASK ~(NVME_PAGE_SIZE - 1)
+
+/* Length क्रम the queue entries. */
+#घोषणा NVME_SQE_SIZE_LOG 6
+#घोषणा NVME_CQE_SIZE_LOG 4
+
+#पूर्ण_अगर
+
+/* खातापूर्ण */

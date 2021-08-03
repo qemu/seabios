@@ -1,0 +1,11 @@
+<शैली गुरु>
+#अगर_अघोषित __USB_MSC_H
+#घोषणा __USB_MSC_H
+
+// usb-msc.c
+काष्ठा disk_op_s;
+पूर्णांक usb_process_op(काष्ठा disk_op_s *op);
+काष्ठा usbdevice_s;
+पूर्णांक usb_msc_setup(काष्ठा usbdevice_s *usbdev);
+
+#पूर्ण_अगर // ush-msc.h

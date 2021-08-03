@@ -1,0 +1,486 @@
+<शैली गुरु>
+// Standard VGA driver code
+//
+// Copyright (C) 2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2001-2008 the LGPL VGABios developers Team
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_GLOBAL
+#समावेश "farptr.h" // SET_FARVAR
+#समावेश "stdvga.h" // stdvga_setup
+#समावेश "string.h" // स_रखो_far
+#समावेश "vgabios.h" // काष्ठा vgamode_s
+#समावेश "vgautil.h" // stdvga_attr_ग_लिखो
+#समावेश "x86.h" // outb
+
+
+/****************************************************************
+ * Attribute control
+ ****************************************************************/
+
+व्योम
+stdvga_set_border_color(u8 color)
+अणु
+    u8 v1 = color & 0x0f;
+    अगर (v1 & 0x08)
+        v1 += 0x08;
+    stdvga_attr_ग_लिखो(0x00, v1);
+
+    पूर्णांक i;
+    क्रम (i = 1; i < 4; i++)
+        stdvga_attr_mask(i, 0x10, color & 0x10);
+पूर्ण
+
+व्योम
+stdvga_set_overscan_border_color(u8 color)
+अणु
+    stdvga_attr_ग_लिखो(0x11, color);
+पूर्ण
+
+u8
+stdvga_get_overscan_border_color(व्योम)
+अणु
+    वापस stdvga_attr_पढ़ो(0x11);
+पूर्ण
+
+व्योम
+stdvga_set_palette(u8 palid)
+अणु
+    पूर्णांक i;
+    क्रम (i = 1; i < 4; i++)
+        stdvga_attr_mask(i, 0x01, palid & 0x01);
+पूर्ण
+
+व्योम
+stdvga_set_all_palette_reg(u16 seg, u8 *data_far)
+अणु
+    पूर्णांक i;
+    क्रम (i = 0; i < 0x10; i++) अणु
+        stdvga_attr_ग_लिखो(i, GET_FARVAR(seg, *data_far));
+        data_far++;
+    पूर्ण
+    stdvga_attr_ग_लिखो(0x11, GET_FARVAR(seg, *data_far));
+पूर्ण
+
+व्योम
+stdvga_get_all_palette_reg(u16 seg, u8 *data_far)
+अणु
+    पूर्णांक i;
+    क्रम (i = 0; i < 0x10; i++) अणु
+        SET_FARVAR(seg, *data_far, stdvga_attr_पढ़ो(i));
+        data_far++;
+    पूर्ण
+    SET_FARVAR(seg, *data_far, stdvga_attr_पढ़ो(0x11));
+पूर्ण
+
+व्योम
+stdvga_toggle_पूर्णांकensity(u8 flag)
+अणु
+    stdvga_attr_mask(0x10, 0x08, (flag & 0x01) << 3);
+पूर्ण
+
+व्योम
+stdvga_select_video_dac_color_page(u8 flag, u8 data)
+अणु
+    अगर (!(flag & 0x01)) अणु
+        // select paging mode
+        stdvga_attr_mask(0x10, 0x80, data << 7);
+        वापस;
+    पूर्ण
+    // select page
+    u8 val = stdvga_attr_पढ़ो(0x10);
+    अगर (!(val & 0x80))
+        data <<= 2;
+    data &= 0x0f;
+    stdvga_attr_ग_लिखो(0x14, data);
+पूर्ण
+
+व्योम
+stdvga_पढ़ो_video_dac_state(u8 *pmode, u8 *curpage)
+अणु
+    u8 val1 = stdvga_attr_पढ़ो(0x10) >> 7;
+    u8 val2 = stdvga_attr_पढ़ो(0x14) & 0x0f;
+    अगर (!(val1 & 0x01))
+        val2 >>= 2;
+    *pmode = val1;
+    *curpage = val2;
+पूर्ण
+
+
+/****************************************************************
+ * DAC control
+ ****************************************************************/
+
+व्योम
+stdvga_perक्रमm_gray_scale_summing(u16 start, u16 count)
+अणु
+    stdvga_attrindex_ग_लिखो(0x00);
+    पूर्णांक i;
+    क्रम (i = start; i < start+count; i++) अणु
+        u8 rgb[3];
+        stdvga_dac_पढ़ो(GET_SEG(SS), rgb, i, 1);
+
+        // पूर्णांकensity = ( 0.3 * Red ) + ( 0.59 * Green ) + ( 0.11 * Blue )
+        u16 पूर्णांकensity = ((77 * rgb[0] + 151 * rgb[1] + 28 * rgb[2]) + 0x80) >> 8;
+        अगर (पूर्णांकensity > 0x3f)
+            पूर्णांकensity = 0x3f;
+        rgb[0] = rgb[1] = rgb[2] = पूर्णांकensity;
+
+        stdvga_dac_ग_लिखो(GET_SEG(SS), rgb, i, 1);
+    पूर्ण
+    stdvga_attrindex_ग_लिखो(0x20);
+पूर्ण
+
+
+/****************************************************************
+ * Memory control
+ ****************************************************************/
+
+व्योम
+stdvga_set_text_block_specअगरier(u8 spec)
+अणु
+    stdvga_sequ_ग_लिखो(0x03, spec);
+पूर्ण
+
+// Enable पढ़ोs and ग_लिखोs to the given "plane" when in planar4 mode.
+व्योम
+stdvga_planar4_plane(पूर्णांक plane)
+अणु
+    अगर (plane < 0) अणु
+        // Return to शेष mode (पढ़ो plane0, ग_लिखो all planes)
+        stdvga_sequ_ग_लिखो(0x02, 0x0f);
+        stdvga_grdc_ग_लिखो(0x04, 0);
+    पूर्ण अन्यथा अणु
+        stdvga_sequ_ग_लिखो(0x02, 1<<plane);
+        stdvga_grdc_ग_लिखो(0x04, plane);
+    पूर्ण
+पूर्ण
+
+
+/****************************************************************
+ * Font loading
+ ****************************************************************/
+
+अटल व्योम
+get_font_access(व्योम)
+अणु
+    stdvga_sequ_ग_लिखो(0x00, 0x01);
+    stdvga_sequ_ग_लिखो(0x02, 0x04);
+    stdvga_sequ_ग_लिखो(0x04, 0x07);
+    stdvga_sequ_ग_लिखो(0x00, 0x03);
+    stdvga_grdc_ग_लिखो(0x04, 0x02);
+    stdvga_grdc_ग_लिखो(0x05, 0x00);
+    stdvga_grdc_ग_लिखो(0x06, 0x04);
+पूर्ण
+
+अटल व्योम
+release_font_access(व्योम)
+अणु
+    stdvga_sequ_ग_लिखो(0x00, 0x01);
+    stdvga_sequ_ग_लिखो(0x02, 0x03);
+    stdvga_sequ_ग_लिखो(0x04, 0x03);
+    stdvga_sequ_ग_लिखो(0x00, 0x03);
+    u16 v = (stdvga_misc_पढ़ो() & 0x01) ? 0x0e : 0x0a;
+    stdvga_grdc_ग_लिखो(0x06, v);
+    stdvga_grdc_ग_लिखो(0x04, 0x00);
+    stdvga_grdc_ग_लिखो(0x05, 0x10);
+पूर्ण
+
+व्योम
+stdvga_load_font(u16 seg, व्योम *src_far, u16 count
+                 , u16 start, u8 destflags, u8 fontsize)
+अणु
+    get_font_access();
+    u16 blockaddr = ((destflags & 0x03) << 14) + ((destflags & 0x04) << 11);
+    व्योम *dest_far = (व्योम*)(blockaddr + start*32);
+    u16 i;
+    क्रम (i = 0; i < count; i++)
+        स_नकल_far(SEG_GRAPH, dest_far + i*32
+                   , seg, src_far + i*fontsize, fontsize);
+    release_font_access();
+पूर्ण
+
+
+/****************************************************************
+ * CRTC रेजिस्टरs
+ ****************************************************************/
+
+u16
+stdvga_get_crtc(व्योम)
+अणु
+    अगर (stdvga_misc_पढ़ो() & 1)
+        वापस VGAREG_VGA_CRTC_ADDRESS;
+    वापस VGAREG_MDA_CRTC_ADDRESS;
+पूर्ण
+
+// Ratio between प्रणाली visible framebuffer ram and the actual videoram used.
+पूर्णांक
+stdvga_vram_ratio(काष्ठा vgamode_s *vmode_g)
+अणु
+    चयन (GET_GLOBAL(vmode_g->memmodel)) अणु
+    हाल MM_TEXT:
+        वापस 2;
+    हाल MM_CGA:
+        वापस 4 / GET_GLOBAL(vmode_g->depth);
+    हाल MM_PLANAR:
+        वापस 4;
+    शेष:
+        वापस 1;
+    पूर्ण
+पूर्ण
+
+व्योम
+stdvga_set_cursor_shape(u16 cursor_type)
+अणु
+    u16 crtc_addr = stdvga_get_crtc();
+    stdvga_crtc_ग_लिखो(crtc_addr, 0x0a, cursor_type >> 8);
+    stdvga_crtc_ग_लिखो(crtc_addr, 0x0b, cursor_type);
+पूर्ण
+
+व्योम
+stdvga_set_cursor_pos(पूर्णांक address)
+अणु
+    u16 crtc_addr = stdvga_get_crtc();
+    address /= 2;  // Assume we're in text mode.
+    stdvga_crtc_ग_लिखो(crtc_addr, 0x0e, address >> 8);
+    stdvga_crtc_ग_लिखो(crtc_addr, 0x0f, address);
+पूर्ण
+
+व्योम
+stdvga_set_scan_lines(u8 lines)
+अणु
+    stdvga_crtc_mask(stdvga_get_crtc(), 0x09, 0x1f, lines - 1);
+पूर्ण
+
+// Get vertical display end
+u16
+stdvga_get_vde(व्योम)
+अणु
+    u16 crtc_addr = stdvga_get_crtc();
+    u16 vde = stdvga_crtc_पढ़ो(crtc_addr, 0x12);
+    u8 ovl = stdvga_crtc_पढ़ो(crtc_addr, 0x07);
+    vde += (((ovl & 0x02) << 7) + ((ovl & 0x40) << 3) + 1);
+    वापस vde;
+पूर्ण
+
+पूर्णांक
+stdvga_get_winकरोw(काष्ठा vgamode_s *vmode_g, पूर्णांक winकरोw)
+अणु
+    वापस -1;
+पूर्ण
+
+पूर्णांक
+stdvga_set_winकरोw(काष्ठा vgamode_s *vmode_g, पूर्णांक winकरोw, पूर्णांक val)
+अणु
+    वापस -1;
+पूर्ण
+
+पूर्णांक
+stdvga_get_linelength(काष्ठा vgamode_s *vmode_g)
+अणु
+    u8 val = stdvga_crtc_पढ़ो(stdvga_get_crtc(), 0x13);
+    वापस val * 8 / stdvga_vram_ratio(vmode_g);
+पूर्ण
+
+पूर्णांक
+stdvga_set_linelength(काष्ठा vgamode_s *vmode_g, पूर्णांक val)
+अणु
+    val = DIV_ROUND_UP(val * stdvga_vram_ratio(vmode_g), 8);
+    stdvga_crtc_ग_लिखो(stdvga_get_crtc(), 0x13, val);
+    वापस 0;
+पूर्ण
+
+पूर्णांक
+stdvga_get_displaystart(काष्ठा vgamode_s *vmode_g)
+अणु
+    u16 crtc_addr = stdvga_get_crtc();
+    पूर्णांक addr = (stdvga_crtc_पढ़ो(crtc_addr, 0x0c) << 8
+                | stdvga_crtc_पढ़ो(crtc_addr, 0x0d));
+    वापस addr * 4 / stdvga_vram_ratio(vmode_g);
+पूर्ण
+
+पूर्णांक
+stdvga_set_displaystart(काष्ठा vgamode_s *vmode_g, पूर्णांक val)
+अणु
+    u16 crtc_addr = stdvga_get_crtc();
+    val = val * stdvga_vram_ratio(vmode_g) / 4;
+    stdvga_crtc_ग_लिखो(crtc_addr, 0x0c, val >> 8);
+    stdvga_crtc_ग_लिखो(crtc_addr, 0x0d, val);
+    वापस 0;
+पूर्ण
+
+पूर्णांक
+stdvga_get_dacक्रमmat(काष्ठा vgamode_s *vmode_g)
+अणु
+    वापस -1;
+पूर्ण
+
+पूर्णांक
+stdvga_set_dacक्रमmat(काष्ठा vgamode_s *vmode_g, पूर्णांक val)
+अणु
+    वापस -1;
+पूर्ण
+
+पूर्णांक
+stdvga_get_linesize(काष्ठा vgamode_s *vmode_g)
+अणु
+    वापस DIV_ROUND_UP(GET_GLOBAL(vmode_g->width) * vga_bpp(vmode_g), 8);
+पूर्ण
+
+/****************************************************************
+ * Save/Restore state
+ ****************************************************************/
+
+काष्ठा saveVideoHardware अणु
+    u8 sequ_index;
+    u8 crtc_index;
+    u8 grdc_index;
+    u8 actl_index;
+    u8 feature;
+    u8 sequ_regs[4];
+    u8 sequ0;
+    u8 crtc_regs[25];
+    u8 actl_regs[20];
+    u8 grdc_regs[9];
+    u16 crtc_addr;
+    u8 plane_latch[4];
+पूर्ण PACKED;
+
+अटल व्योम
+stdvga_save_hw_state(u16 seg, काष्ठा saveVideoHardware *info)
+अणु
+    u16 crtc_addr = stdvga_get_crtc();
+    SET_FARVAR(seg, info->sequ_index, inb(VGAREG_SEQU_ADDRESS));
+    SET_FARVAR(seg, info->crtc_index, inb(crtc_addr));
+    SET_FARVAR(seg, info->grdc_index, inb(VGAREG_GRDC_ADDRESS));
+    SET_FARVAR(seg, info->actl_index, stdvga_attrindex_पढ़ो());
+    SET_FARVAR(seg, info->feature, inb(VGAREG_READ_FEATURE_CTL));
+
+    पूर्णांक i;
+    क्रम (i=0; i<4; i++)
+        SET_FARVAR(seg, info->sequ_regs[i], stdvga_sequ_पढ़ो(i+1));
+    SET_FARVAR(seg, info->sequ0, stdvga_sequ_पढ़ो(0));
+
+    क्रम (i=0; i<25; i++)
+        SET_FARVAR(seg, info->crtc_regs[i], stdvga_crtc_पढ़ो(crtc_addr, i));
+
+    क्रम (i=0; i<20; i++)
+        SET_FARVAR(seg, info->actl_regs[i], stdvga_attr_पढ़ो(i));
+
+    क्रम (i=0; i<9; i++)
+        SET_FARVAR(seg, info->grdc_regs[i], stdvga_grdc_पढ़ो(i));
+
+    SET_FARVAR(seg, info->crtc_addr, crtc_addr);
+
+    /* XXX: पढ़ो plane latches */
+    क्रम (i=0; i<4; i++)
+        SET_FARVAR(seg, info->plane_latch[i], 0);
+पूर्ण
+
+अटल व्योम
+stdvga_restore_hw_state(u16 seg, काष्ठा saveVideoHardware *info)
+अणु
+    पूर्णांक i;
+    क्रम (i=0; i<4; i++)
+        stdvga_sequ_ग_लिखो(i+1, GET_FARVAR(seg, info->sequ_regs[i]));
+    stdvga_sequ_ग_लिखो(0x00, GET_FARVAR(seg, info->sequ0));
+
+    // Disable CRTC ग_लिखो protection
+    u16 crtc_addr = GET_FARVAR(seg, info->crtc_addr);
+    stdvga_crtc_ग_लिखो(crtc_addr, 0x11, 0x00);
+    // Set CRTC regs
+    क्रम (i=0; i<25; i++)
+        अगर (i != 0x11)
+            stdvga_crtc_ग_लिखो(crtc_addr, i, GET_FARVAR(seg, info->crtc_regs[i]));
+    // select crtc base address
+    stdvga_misc_mask(0x01, crtc_addr == VGAREG_VGA_CRTC_ADDRESS ? 0x01 : 0x00);
+
+    // enable ग_लिखो protection अगर needed
+    stdvga_crtc_ग_लिखो(crtc_addr, 0x11, GET_FARVAR(seg, info->crtc_regs[0x11]));
+
+    // Set Attribute Ctl
+    क्रम (i=0; i<20; i++)
+        stdvga_attr_ग_लिखो(i, GET_FARVAR(seg, info->actl_regs[i]));
+    stdvga_attrindex_ग_लिखो(GET_FARVAR(seg, info->actl_index));
+
+    क्रम (i=0; i<9; i++)
+        stdvga_grdc_ग_लिखो(i, GET_FARVAR(seg, info->grdc_regs[i]));
+
+    outb(GET_FARVAR(seg, info->sequ_index), VGAREG_SEQU_ADDRESS);
+    outb(GET_FARVAR(seg, info->crtc_index), crtc_addr);
+    outb(GET_FARVAR(seg, info->grdc_index), VGAREG_GRDC_ADDRESS);
+    outb(GET_FARVAR(seg, info->feature), crtc_addr - 0x4 + 0xa);
+पूर्ण
+
+काष्ठा saveDACcolors अणु
+    u8 rwmode;
+    u8 peladdr;
+    u8 pelmask;
+    u8 dac[768];
+    u8 color_select;
+पूर्ण PACKED;
+
+अटल व्योम
+stdvga_save_dac_state(u16 seg, काष्ठा saveDACcolors *info)
+अणु
+    /* XXX: check this */
+    SET_FARVAR(seg, info->rwmode, inb(VGAREG_DAC_STATE));
+    SET_FARVAR(seg, info->peladdr, inb(VGAREG_DAC_WRITE_ADDRESS));
+    SET_FARVAR(seg, info->pelmask, stdvga_pelmask_पढ़ो());
+    stdvga_dac_पढ़ो(seg, info->dac, 0, 256);
+    SET_FARVAR(seg, info->color_select, 0);
+पूर्ण
+
+अटल व्योम
+stdvga_restore_dac_state(u16 seg, काष्ठा saveDACcolors *info)
+अणु
+    stdvga_pelmask_ग_लिखो(GET_FARVAR(seg, info->pelmask));
+    stdvga_dac_ग_लिखो(seg, info->dac, 0, 256);
+    outb(GET_FARVAR(seg, info->peladdr), VGAREG_DAC_WRITE_ADDRESS);
+पूर्ण
+
+पूर्णांक
+stdvga_save_restore(पूर्णांक cmd, u16 seg, व्योम *data)
+अणु
+    व्योम *pos = data;
+    अगर (cmd & SR_HARDWARE) अणु
+        अगर (cmd & SR_SAVE)
+            stdvga_save_hw_state(seg, pos);
+        अगर (cmd & SR_RESTORE)
+            stdvga_restore_hw_state(seg, pos);
+        pos += माप(काष्ठा saveVideoHardware);
+    पूर्ण
+    pos += bda_save_restore(cmd, seg, pos);
+    अगर (cmd & SR_DAC) अणु
+        अगर (cmd & SR_SAVE)
+            stdvga_save_dac_state(seg, pos);
+        अगर (cmd & SR_RESTORE)
+            stdvga_restore_dac_state(seg, pos);
+        pos += माप(काष्ठा saveDACcolors);
+    पूर्ण
+    वापस pos - data;
+पूर्ण
+
+
+/****************************************************************
+ * Misc
+ ****************************************************************/
+
+व्योम
+stdvga_enable_video_addressing(u8 disable)
+अणु
+    u8 v = (disable & 1) ? 0x00 : 0x02;
+    stdvga_misc_mask(0x02, v);
+पूर्ण
+
+पूर्णांक
+stdvga_setup(व्योम)
+अणु
+    // चयन to color mode and enable CPU access 480 lines
+    stdvga_misc_ग_लिखो(0xc3);
+    // more than 64k 3C4/04
+    stdvga_sequ_ग_लिखो(0x04, 0x02);
+
+    वापस 0;
+पूर्ण

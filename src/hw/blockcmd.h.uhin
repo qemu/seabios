@@ -1,0 +1,115 @@
+<शैली गुरु>
+// Definitions क्रम SCSI style command data blocks.
+#अगर_अघोषित __BLOCKCMD_H
+#घोषणा __BLOCKCMD_H
+
+#समावेश "types.h" // u8
+
+#घोषणा CDB_CMD_READ_10 0x28
+#घोषणा CDB_CMD_VERIFY_10 0x2f
+#घोषणा CDB_CMD_WRITE_10 0x2a
+
+काष्ठा cdb_rwdata_10 अणु
+    u8 command;
+    u8 flags;
+    u32 lba;
+    u8 resreved_06;
+    u16 count;
+    u8 reserved_09;
+    u8 pad[6];
+पूर्ण PACKED;
+
+#घोषणा CDB_CMD_READ_CAPACITY 0x25
+
+काष्ठा cdb_पढ़ो_capacity अणु
+    u8 command;
+    u8 flags;
+    u8 resreved_02[8];
+    u8 pad[6];
+पूर्ण PACKED;
+
+काष्ठा cdbres_पढ़ो_capacity अणु
+    u32 sectors;
+    u32 blksize;
+पूर्ण PACKED;
+
+#घोषणा CDB_CMD_TEST_UNIT_READY  0x00
+#घोषणा CDB_CMD_INQUIRY          0x12
+#घोषणा CDB_CMD_REQUEST_SENSE    0x03
+
+काष्ठा cdb_request_sense अणु
+    u8 command;
+    u8 flags;
+    u16 reserved_02;
+    u8 length;
+    u8 reserved_05;
+    u8 pad[10];
+पूर्ण PACKED;
+
+काष्ठा cdbres_request_sense अणु
+    u8 errcode;
+    u8 segment;
+    u8 flags;
+    u32 info;
+    u8 additional;
+    u32 specअगरic;
+    u8 asc;
+    u8 ascq;
+    u32 reserved_0e;
+पूर्ण PACKED;
+
+#घोषणा SCSI_TYPE_DISK  0x00
+#घोषणा SCSI_TYPE_CDROM 0x05
+
+काष्ठा cdbres_inquiry अणु
+    u8 pdt;
+    u8 removable;
+    u8 reserved_02[2];
+    u8 additional;
+    u8 reserved_05[3];
+    अक्षर venकरोr[8];
+    अक्षर product[16];
+    अक्षर rev[4];
+पूर्ण PACKED;
+
+#घोषणा CDB_CMD_MODE_SENSE    0x5A
+#घोषणा MODE_PAGE_HD_GEOMETRY 0x04
+
+काष्ठा cdb_mode_sense अणु
+    u8 command;
+    u8 flags;
+    u8 page;
+    u32 reserved_03;
+    u16 count;
+    u8 reserved_09;
+    u8 pad[6];
+पूर्ण PACKED;
+
+काष्ठा cdbres_mode_sense_geom अणु
+    u8 unused_00[3];
+    u8 पढ़ो_only;
+    u32 unused_04;
+    u8 page;
+    u8 length;
+    u8 cyl[3];
+    u8 heads;
+    u8 precomp[3];
+    u8 reduced[3];
+    u16 step_rate;
+    u8 landing[3];
+    u16 rpm;
+पूर्ण PACKED;
+
+// blockcmd.c
+काष्ठा disk_op_s;
+पूर्णांक scsi_fill_cmd(काष्ठा disk_op_s *op, व्योम *cdbcmd, पूर्णांक maxcdb);
+पूर्णांक scsi_is_पढ़ो(काष्ठा disk_op_s *op);
+पूर्णांक scsi_is_पढ़ोy(काष्ठा disk_op_s *op);
+काष्ठा drive_s;
+पूर्णांक scsi_drive_setup(काष्ठा drive_s *drive, स्थिर अक्षर *s, पूर्णांक prio);
+प्रकार पूर्णांक (*scsi_add_lun)(u32 lun, काष्ठा drive_s *पंचांगpl_drv);
+पूर्णांक scsi_rep_luns_scan(काष्ठा drive_s *पंचांगp_drive, scsi_add_lun add_lun);
+पूर्णांक scsi_sequential_scan(काष्ठा drive_s *पंचांगp_drive, u32 maxluns,
+                         scsi_add_lun add_lun);
+
+#पूर्ण_अगर // blockcmd.h

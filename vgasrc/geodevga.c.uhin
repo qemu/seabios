@@ -1,0 +1,435 @@
+<शैली गुरु>
+// Geode GX2/LX VGA functions
+//
+// Copyright (C) 2009 Chris Kindt
+//
+// Written क्रम Google Summer of Code 2009 क्रम the coreboot project
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_BDA
+#समावेश "farptr.h" // SET_FARVAR
+#समावेश "geodevga.h" // geodevga_setup
+#समावेश "hw/pci.h" // pci_config_पढ़ोl
+#समावेश "hw/pci_regs.h" // PCI_BASE_ADDRESS_0
+#समावेश "output.h" // dम_लिखो
+#समावेश "stdvga.h" // stdvga_crtc_ग_लिखो
+#समावेश "vgabios.h" // SET_VGA
+#समावेश "vgautil.h" // VBE_total_memory
+
+
+/****************************************************************
+* MSR and High Mem access through VSA Virtual Register
+****************************************************************/
+
+अटल u64 geode_msr_पढ़ो(u32 msrAddr)
+अणु
+    जोड़ u64_u32_u val;
+    यंत्र __अस्थिर__ (
+        "movw   $0x0AC1C, %%dx          \n"
+        "movl   $0xFC530007, %%eax      \n"
+        "outl   %%eax, %%dx             \n"
+        "addb   $2, %%dl                \n"
+        "inw    %%dx, %%ax              \n"
+        : "=a" (val.lo), "=d"(val.hi)
+        : "c"(msrAddr)
+        : "cc"
+    );
+
+    dम_लिखो(4, "%s(0x%08x) = 0x%08x-0x%08x\n"
+            , __func__, msrAddr, val.hi, val.lo);
+    वापस val.val;
+पूर्ण
+
+अटल व्योम geode_msr_mask(u32 msrAddr, u64 off, u64 on)
+अणु
+    जोड़ u64_u32_u uand, uor;
+    uand.val = ~off;
+    uor.val = on;
+
+    dम_लिखो(4, "%s(0x%08x, 0x%016llx, 0x%016llx)\n"
+            , __func__, msrAddr, off, on);
+
+    यंत्र __अस्थिर__ (
+        "push   %%eax                   \n"
+        "movw   $0x0AC1C, %%dx          \n"
+        "movl   $0xFC530007, %%eax      \n"
+        "outl   %%eax, %%dx             \n"
+        "addb   $2, %%dl                \n"
+        "pop    %%eax                   \n"
+        "outw   %%ax, %%dx              \n"
+        :
+        : "c"(msrAddr), "S" (uand.hi), "D" (uand.lo), "b" (uor.hi), "a" (uor.lo)
+        : "%edx","cc"
+    );
+पूर्ण
+
+अटल u32 geode_mem_पढ़ो(u32 addr)
+अणु
+    u32 val;
+    यंत्र __अस्थिर__ (
+        "movw   $0x0AC1C, %%dx          \n"
+        "movl   $0xFC530001, %%eax      \n"
+        "outl   %%eax, %%dx             \n"
+        "addb   $2, %%dl                \n"
+        "inw    %%dx, %%ax              \n"
+        : "=a" (val)
+        : "b"(addr)
+        : "cc"
+    );
+
+    वापस val;
+पूर्ण
+
+अटल व्योम geode_mem_mask(u32 addr, u32 off, u32 or)
+अणु
+    यंत्र __अस्थिर__ (
+        "movw   $0x0AC1C, %%dx          \n"
+        "movl   $0xFC530001, %%eax      \n"
+        "outl   %%eax, %%dx             \n"
+        "addb   $2, %%dl                \n"
+        "outw   %%ax, %%dx              \n"
+        :
+        : "b"(addr), "S" (~off), "D" (or)
+        : "%eax","cc"
+    );
+पूर्ण
+
+#घोषणा VP_FP_START     0x400
+
+अटल u32 GeodeFB VAR16;
+अटल u32 GeodeDC VAR16;
+अटल u32 GeodeVP VAR16;
+
+अटल u32 geode_dc_पढ़ो(पूर्णांक reg)
+अणु
+    u32 val = geode_mem_पढ़ो(GET_GLOBAL(GeodeDC) + reg);
+    dम_लिखो(4, "%s(0x%08x) = 0x%08x\n"
+            , __func__, GET_GLOBAL(GeodeDC) + reg, val);
+    वापस val;
+पूर्ण
+
+अटल व्योम geode_dc_ग_लिखो(पूर्णांक reg, u32 val)
+अणु
+    dम_लिखो(4, "%s(0x%08x, 0x%08x)\n"
+            , __func__, GET_GLOBAL(GeodeDC) + reg, val);
+    geode_mem_mask(GET_GLOBAL(GeodeDC) + reg, ~0, val);
+पूर्ण
+
+अटल व्योम geode_dc_mask(पूर्णांक reg, u32 off, u32 on)
+अणु
+    dम_लिखो(4, "%s(0x%08x, 0x%08x, 0x%08x)\n"
+            , __func__, GET_GLOBAL(GeodeDC) + reg, off, on);
+    geode_mem_mask(GET_GLOBAL(GeodeDC) + reg, off, on);
+पूर्ण
+
+अटल u32 geode_vp_पढ़ो(पूर्णांक reg)
+अणु
+    u32 val = geode_mem_पढ़ो(GET_GLOBAL(GeodeVP) + reg);
+    dम_लिखो(4, "%s(0x%08x) = 0x%08x\n"
+            , __func__, GET_GLOBAL(GeodeVP) + reg, val);
+    वापस val;
+पूर्ण
+
+अटल व्योम geode_vp_ग_लिखो(पूर्णांक reg, u32 val)
+अणु
+    dम_लिखो(4, "%s(0x%08x, 0x%08x)\n"
+            , __func__, GET_GLOBAL(GeodeVP) + reg, val);
+    geode_mem_mask(GET_GLOBAL(GeodeVP) + reg, ~0, val);
+पूर्ण
+
+अटल व्योम geode_vp_mask(पूर्णांक reg, u32 off, u32 on)
+अणु
+    dम_लिखो(4, "%s(0x%08x, 0x%08x, 0x%08x)\n"
+            , __func__, GET_GLOBAL(GeodeVP) + reg, off, on);
+    geode_mem_mask(GET_GLOBAL(GeodeVP) + reg, off, on);
+पूर्ण
+
+अटल u32 geode_fp_पढ़ो(पूर्णांक reg)
+अणु
+    u32 val = geode_mem_पढ़ो(GET_GLOBAL(GeodeVP) + VP_FP_START + reg);
+    dम_लिखो(4, "%s(0x%08x) = 0x%08x\n"
+            , __func__, GET_GLOBAL(GeodeVP) + VP_FP_START + reg, val);
+    वापस val;
+पूर्ण
+
+अटल व्योम geode_fp_ग_लिखो(पूर्णांक reg, u32 val)
+अणु
+    dम_लिखो(4, "%s(0x%08x, 0x%08x)\n"
+            , __func__, GET_GLOBAL(GeodeVP) + VP_FP_START + reg, val);
+    geode_mem_mask(GET_GLOBAL(GeodeVP) + VP_FP_START + reg, ~0, val);
+पूर्ण
+
+/****************************************************************
+ * Helper functions
+ ****************************************************************/
+
+अटल पूर्णांक legacyio_check(व्योम)
+अणु
+    पूर्णांक ret=0;
+    u64 val;
+
+    अगर (CONFIG_VGA_GEODEGX2)
+        val = geode_msr_पढ़ो(GLIU0_P2D_BM_4);
+    अन्यथा
+        val = geode_msr_पढ़ो(MSR_GLIU0_BASE4);
+    अगर ((val & 0xffffffff) != 0x0A0fffe0)
+        ret|=1;
+
+    val = geode_msr_पढ़ो(GLIU0_IOD_BM_0);
+    अगर ((val & 0xffffffff) != 0x3c0ffff0)
+        ret|=2;
+
+    val = geode_msr_पढ़ो(GLIU0_IOD_BM_1);
+    अगर ((val & 0xffffffff) != 0x3d0ffff0)
+        ret|=4;
+
+    वापस ret;
+पूर्ण
+
+अटल u32 framebuffer_size(व्योम)
+अणु
+    /* We use the P2D_R0 msr to पढ़ो out the number of pages.
+     * One page has a size of 4k
+     *
+     * Bit      Name    Description
+     * 39:20    PMAX    Physical Memory Address Max
+     * 19:0     PMIX    Physical Memory Address Min
+     *
+     */
+    u64 msr = geode_msr_पढ़ो(GLIU0_P2D_RO);
+
+    u32 pmax = (msr >> 20) & 0x000fffff;
+    u32 pmin = msr & 0x000fffff;
+
+    u32 val = pmax - pmin;
+    val += 1;
+
+    /* The page size is 4k */
+    वापस (val << 12);
+पूर्ण
+
+/****************************************************************
+* Init Functions
+****************************************************************/
+
+अटल व्योम geodevga_set_output_mode(व्योम)
+अणु
+    u64 msr_addr;
+    u64 msr;
+
+    /* set output to crt and RGB/YUV */
+    अगर (CONFIG_VGA_GEODEGX2)
+        msr_addr = VP_MSR_CONFIG_GX2;
+    अन्यथा
+        msr_addr = VP_MSR_CONFIG_LX;
+
+    /* set output mode (RGB/YUV) */
+    msr = geode_msr_पढ़ो(msr_addr);
+    msr &= ~VP_MSR_CONFIG_FMT;         // mask out FMT (bits 5:3)
+
+    अगर (CONFIG_VGA_OUTPUT_PANEL || CONFIG_VGA_OUTPUT_CRT_PANEL) अणु
+        msr |= VP_MSR_CONFIG_FMT_FP;   // flat panel
+
+        अगर (CONFIG_VGA_OUTPUT_CRT_PANEL) अणु
+            msr |= VP_MSR_CONFIG_FPC;  // simultaneous Flat Panel and CRT
+            dम_लिखो(1, "output: simultaneous Flat Panel and CRT\n");
+        पूर्ण अन्यथा अणु
+            msr &= ~VP_MSR_CONFIG_FPC; // no simultaneous Flat Panel and CRT
+            dम_लिखो(1, "ouput: flat panel\n");
+        पूर्ण
+    पूर्ण अन्यथा अणु
+        msr |= VP_MSR_CONFIG_FMT_CRT;  // CRT only
+       dम_लिखो(1, "output: CRT\n");
+    पूर्ण
+    geode_msr_mask(msr_addr, ~msr, msr);
+पूर्ण
+
+/* Set up the dc (display controller) portion of the geodelx
+*  The dc provides hardware support क्रम VGA graphics.
+*/
+अटल व्योम dc_setup(व्योम)
+अणु
+    dम_लिखो(2, "DC_SETUP\n");
+
+    geode_dc_ग_लिखो(DC_UNLOCK, DC_LOCK_UNLOCK);
+
+    /* zero memory config */
+    geode_dc_ग_लिखो(DC_FB_ST_OFFSET, 0x0);
+    geode_dc_ग_लिखो(DC_CB_ST_OFFSET, 0x0);
+    geode_dc_ग_लिखो(DC_CURS_ST_OFFSET, 0x0);
+
+    geode_dc_mask(DC_DISPLAY_CFG, ~DC_CFG_MSK, DC_DISPLAY_CFG_GDEN|DC_DISPLAY_CFG_TRUP);
+    geode_dc_ग_लिखो(DC_GENERAL_CFG, DC_GENERAL_CFG_VGAE);
+
+    geode_dc_ग_लिखो(DC_UNLOCK, DC_LOCK_LOCK);
+पूर्ण
+
+/* Setup the vp (video processor) portion of the geodelx
+*  Under VGA modes the vp was handled by softvg from inside VSA2.
+*  Without a softvg module, access is only available through a pci bar.
+*  The High Mem Access भव रेजिस्टर is used to  configure the
+*   pci mmio bar from 16bit मित्रly io space.
+*/
+अटल व्योम vp_setup(व्योम)
+अणु
+    dम_लिखो(2,"VP_SETUP\n");
+
+    geodevga_set_output_mode();
+
+    /* Set mmio रेजिस्टरs
+    * there may be some timing issues here, the पढ़ोs seem
+    * to slow things करोwn enough work reliably
+    */
+
+    u32 reg = geode_vp_पढ़ो(VP_MISC);
+    dम_लिखो(1,"VP_SETUP VP_MISC=0x%08x\n",reg);
+    geode_vp_ग_लिखो(VP_MISC, VP_DCFG_BYP_BOTH);
+    reg = geode_vp_पढ़ो(VP_MISC);
+    dम_लिखो(1,"VP_SETUP VP_MISC=0x%08x\n",reg);
+
+    reg = geode_vp_पढ़ो(VP_DCFG);
+    dम_लिखो(1,"VP_SETUP VP_DCFG=0x%08x\n",reg);
+    geode_vp_mask(VP_DCFG, 0, VP_DCFG_CRT_EN|VP_DCFG_HSYNC_EN|VP_DCFG_VSYNC_EN|VP_DCFG_DAC_BL_EN|VP_DCFG_CRT_SKEW);
+    reg = geode_vp_पढ़ो(VP_DCFG);
+    dम_लिखो(1,"VP_SETUP VP_DCFG=0x%08x\n",reg);
+
+    /* setup flat panel */
+    अगर (CONFIG_VGA_OUTPUT_PANEL || CONFIG_VGA_OUTPUT_CRT_PANEL) अणु
+        u64 msr;
+
+        dम_लिखो(1, "Setting up flat panel\n");
+        /* ग_लिखो timing रेजिस्टर */
+        geode_fp_ग_लिखो(FP_PT1, 0x0);
+        geode_fp_ग_लिखो(FP_PT2, FP_PT2_SCRC);
+
+        /* set pad select क्रम TFT/LVDS */
+        msr  = VP_MSR_PADSEL_TFT_SEL_HIGH;
+        msr  = msr << 32;
+        msr |= VP_MSR_PADSEL_TFT_SEL_LOW;
+        geode_msr_mask(VP_MSR_PADSEL, ~msr, msr);
+
+        /* turn the panel on (अगर it isn't alपढ़ोy) */
+        reg = geode_fp_पढ़ो(FP_PM);
+        reg |= FP_PM_P;
+        geode_fp_ग_लिखो(FP_PM, reg);
+    पूर्ण
+पूर्ण
+
+अटल u8 geode_crtc_01[] VAR16 = अणु
+    0x2d, 0x27, 0x28, 0x90, 0x29, 0x8e, 0xbf, 0x1f,
+    0x00, 0x4f, 0x0d, 0x0e, 0x00, 0x00, 0x00, 0x00,
+    0x9b, 0x8d, 0x8f, 0x14, 0x1f, 0x97, 0xb9, 0xa3,
+    0xff पूर्ण;
+अटल u8 geode_crtc_03[] VAR16 = अणु
+    0x5f, 0x4f, 0x50, 0x82, 0x51, 0x9e, 0xbf, 0x1f,
+    0x00, 0x4f, 0x0d, 0x0e, 0x00, 0x00, 0x00, 0x00,
+    0x9b, 0x8d, 0x8f, 0x28, 0x1f, 0x97, 0xb9, 0xa3,
+    0xff पूर्ण;
+अटल u8 geode_crtc_04[] VAR16 = अणु
+    0x2d, 0x27, 0x28, 0x90, 0x29, 0x8e, 0xbf, 0x1f,
+    0x00, 0xc1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x9b, 0x8d, 0x8f, 0x14, 0x00, 0x97, 0xb9, 0xa2,
+    0xff पूर्ण;
+अटल u8 geode_crtc_05[] VAR16 = अणु
+    0x2d, 0x27, 0x28, 0x90, 0x29, 0x8e, 0xbf, 0x1f,
+    0x00, 0xc1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x9b, 0x8e, 0x8f, 0x14, 0x00, 0x97, 0xb9, 0xa2,
+    0xff पूर्ण;
+अटल u8 geode_crtc_06[] VAR16 = अणु
+    0x5f, 0x4f, 0x50, 0x82, 0x51, 0x9e, 0xbf, 0x1f,
+    0x00, 0xc1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x9b, 0x8d, 0x8f, 0x28, 0x00, 0x97, 0xb9, 0xc2,
+    0xff पूर्ण;
+अटल u8 geode_crtc_07[] VAR16 = अणु
+    0x5f, 0x4f, 0x50, 0x82, 0x51, 0x9e, 0xbf, 0x1f,
+    0x00, 0x4f, 0x0d, 0x0e, 0x00, 0x00, 0x00, 0x00,
+    0x9b, 0x8d, 0x8f, 0x28, 0x0f, 0x97, 0xb9, 0xa3,
+    0xff पूर्ण;
+अटल u8 geode_crtc_0d[] VAR16 = अणु
+    0x2d, 0x27, 0x28, 0x90, 0x29, 0x8e, 0xbf, 0x1f,
+    0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x9b, 0x8d, 0x8f, 0x14, 0x00, 0x97, 0xb9, 0xe3,
+    0xff पूर्ण;
+अटल u8 geode_crtc_0e[] VAR16 = अणु
+    0x5f, 0x4f, 0x50, 0x82, 0x51, 0x9e, 0xbf, 0x1f,
+    0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x9b, 0x8d, 0x8f, 0x28, 0x00, 0x97, 0xb9, 0xe3,
+    0xff पूर्ण;
+अटल u8 geode_crtc_0f[] VAR16 = अणु
+    0x5f, 0x4f, 0x50, 0x82, 0x51, 0x9e, 0xbf, 0x1f,
+    0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x83, 0x85, 0x5d, 0x28, 0x0f, 0x65, 0xb9, 0xe3,
+    0xff पूर्ण;
+अटल u8 geode_crtc_11[] VAR16 = अणु
+    0x5f, 0x4f, 0x50, 0x82, 0x51, 0x9e, 0x0b, 0x3e,
+    0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0xe9, 0x8b, 0xdf, 0x28, 0x00, 0xe7, 0x04, 0xe3,
+    0xff पूर्ण;
+अटल u8 geode_crtc_13[] VAR16 = अणु
+    0x5f, 0x4f, 0x50, 0x82, 0x51, 0x9e, 0xbf, 0x1f,
+    0x00, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x9b, 0x8d, 0x8f, 0x28, 0x40, 0x98, 0xb9, 0xa3,
+    0xff पूर्ण;
+
+पूर्णांक geodevga_setup(व्योम)
+अणु
+    पूर्णांक ret = stdvga_setup();
+    अगर (ret)
+        वापस ret;
+
+    dम_लिखो(1,"GEODEVGA_SETUP\n");
+
+    अगर ((ret=legacyio_check())) अणु
+        dम_लिखो(1,"GEODEVGA_SETUP legacyio_check=0x%x\n",ret);
+    पूर्ण
+
+    // Updated timings from geode datasheets, table 6-53 in particular
+    अटल u8 *new_crtc[] VAR16 = अणु
+        geode_crtc_01, geode_crtc_01, geode_crtc_03, geode_crtc_03,
+        geode_crtc_04, geode_crtc_05, geode_crtc_06, geode_crtc_07,
+        0, 0, 0, 0, 0,
+        geode_crtc_0d, geode_crtc_0e, geode_crtc_0f, geode_crtc_0f,
+        geode_crtc_11, geode_crtc_11, geode_crtc_13 पूर्ण;
+    पूर्णांक i;
+    क्रम (i=0; i<ARRAY_SIZE(new_crtc); i++) अणु
+        u8 *crtc = GET_GLOBAL(new_crtc[i]);
+        अगर (crtc)
+            stdvga_override_crtc(i, crtc);
+    पूर्ण
+
+    अगर (GET_GLOBAL(VgaBDF) < 0)
+        // Device should be at 00:01.1
+        SET_VGA(VgaBDF, pci_to_bdf(0, 1, 1));
+
+    // setup geode काष्ठा which is used क्रम रेजिस्टर access
+    SET_VGA(GeodeFB, pci_config_पढ़ोl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_0));
+    SET_VGA(GeodeDC, pci_config_पढ़ोl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_2));
+    SET_VGA(GeodeVP, pci_config_पढ़ोl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_3));
+
+    dम_लिखो(1, "fb addr: 0x%08x\n", GET_GLOBAL(GeodeFB));
+    dम_लिखो(1, "dc addr: 0x%08x\n", GET_GLOBAL(GeodeDC));
+    dम_लिखो(1, "vp addr: 0x%08x\n", GET_GLOBAL(GeodeVP));
+
+    /* setup framebuffer */
+    geode_dc_ग_लिखो(DC_UNLOCK, DC_LOCK_UNLOCK);
+
+    /* पढ़ो fb-bar from pci, then poपूर्णांक dc to the fb base */
+    u32 fb = GET_GLOBAL(GeodeFB);
+    अगर (geode_dc_पढ़ो(DC_GLIU0_MEM_OFFSET) != fb)
+        geode_dc_ग_लिखो(DC_GLIU0_MEM_OFFSET, fb);
+
+    geode_dc_ग_लिखो(DC_UNLOCK, DC_LOCK_LOCK);
+
+    u32 fb_size = framebuffer_size(); // in byte
+    dम_लिखो(1, "%d KB of video memory at 0x%08x\n", fb_size / 1024, fb);
+
+    /* update VBE variables */
+    SET_VGA(VBE_framebuffer, fb);
+    SET_VGA(VBE_total_memory, fb_size / 1024 / 64); // number of 64K blocks
+
+    vp_setup();
+    dc_setup();
+
+    वापस 0;
+पूर्ण

@@ -1,0 +1,170 @@
+<शैली गुरु>
+// Simple framebuffer vgabios क्रम use with qemu ramfb device
+//
+// Copyright (C) 2019 Gerd Hoffmann <kraxel@redhat.com>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_BDA
+#समावेश "output.h" // dम_लिखो
+#समावेश "string.h" // स_रखो16_far
+#समावेश "vgautil.h" // VBE_total_memory
+#समावेश "std/pmm.h" // काष्ठा pmmheader
+#समावेश "byteorder.h"
+#समावेश "fw/paravirt.h"
+
+/* ---------------------------------------------------------------------- */
+/* minimal qemu fc_cfg support bits, requires dma support                 */
+
+#घोषणा QEMU_CFG_खाता_सूची               0x19
+
+काष्ठा QemuCfgFile अणु
+    u32  size;        /* file size */
+    u16  select;      /* ग_लिखो this to 0x510 to पढ़ो it */
+    u16  reserved;
+    अक्षर name[56];
+पूर्ण;
+
+अटल व्योम
+qemu_cfg_dma_transfer(व्योम *address, u32 length, u32 control)
+अणु
+    QemuCfgDmaAccess access;
+
+    अगर (length == 0) अणु
+        वापस;
+    पूर्ण
+
+    access.address = cpu_to_be64((u64)(u32)address);
+    access.length = cpu_to_be32(length);
+    access.control = cpu_to_be32(control);
+
+    barrier();
+
+    outl(cpu_to_be32((u32)&access), PORT_QEMU_CFG_DMA_ADDR_LOW);
+
+    जबतक(be32_to_cpu(access.control) & ~QEMU_CFG_DMA_CTL_ERROR)
+        /* रुको */;
+पूर्ण
+
+अटल व्योम
+qemu_cfg_पढ़ो(व्योम *buf, पूर्णांक len)
+अणु
+    qemu_cfg_dma_transfer(buf, len, QEMU_CFG_DMA_CTL_READ);
+पूर्ण
+
+अटल व्योम
+qemu_cfg_पढ़ो_entry(व्योम *buf, पूर्णांक e, पूर्णांक len)
+अणु
+    u32 control = (e << 16) | QEMU_CFG_DMA_CTL_SELECT
+        | QEMU_CFG_DMA_CTL_READ;
+    qemu_cfg_dma_transfer(buf, len, control);
+पूर्ण
+
+अटल व्योम
+qemu_cfg_ग_लिखो_entry(व्योम *buf, पूर्णांक e, पूर्णांक len)
+अणु
+    u32 control = (e << 16) | QEMU_CFG_DMA_CTL_SELECT
+        | QEMU_CFG_DMA_CTL_WRITE;
+    qemu_cfg_dma_transfer(buf, len, control);
+पूर्ण
+
+अटल पूर्णांक
+qemu_cfg_find_file(स्थिर अक्षर *filename)
+अणु
+    u32 count, e, select;
+
+    qemu_cfg_पढ़ो_entry(&count, QEMU_CFG_खाता_सूची, माप(count));
+    count = be32_to_cpu(count);
+    क्रम (select = 0, e = 0; e < count; e++) अणु
+        काष्ठा QemuCfgFile qfile;
+        qemu_cfg_पढ़ो(&qfile, माप(qfile));
+        अगर (स_भेद_far(GET_SEG(SS), qfile.name,
+                       GET_SEG(CS), filename, 10) == 0)
+            select = be16_to_cpu(qfile.select);
+    पूर्ण
+    वापस select;
+पूर्ण
+
+/* ---------------------------------------------------------------------- */
+
+#घोषणा FRAMEBUFFER_WIDTH      1024
+#घोषणा FRAMEBUFFER_HEIGHT     768
+#घोषणा FRAMEBUFFER_BPP        4
+#घोषणा FRAMEBUFFER_STRIDE     (FRAMEBUFFER_BPP * FRAMEBUFFER_WIDTH)
+#घोषणा FRAMEBUFFER_SIZE       (FRAMEBUFFER_STRIDE * FRAMEBUFFER_HEIGHT)
+
+काष्ठा QemuRAMFBCfg अणु
+    u64 addr;
+    u32 fourcc;
+    u32 flags;
+    u32 width;
+    u32 height;
+    u32 stride;
+पूर्ण;
+
+#घोषणा fourcc_code(a, b, c, d) ((u32)(a) | ((u32)(b) << 8) | \
+                                 ((u32)(c) << 16) | ((u32)(d) << 24))
+
+#घोषणा DRM_FORMAT_RGB565       fourcc_code('R', 'G', '1', '6') /* [15:0] R:G:B 5:6:5 little endian */
+#घोषणा DRM_FORMAT_RGB888       fourcc_code('R', 'G', '2', '4') /* [23:0] R:G:B little endian */
+#घोषणा DRM_FORMAT_XRGB8888     fourcc_code('X', 'R', '2', '4') /* [31:0] x:R:G:B 8:8:8:8 little endian */
+
+अटल u32
+allocate_framebuffer(व्योम)
+अणु
+    u32 res = allocate_pmm(FRAMEBUFFER_SIZE, 1, 1);
+    अगर (!res)
+        वापस 0;
+    dम_लिखो(1, "ramfb: framebuffer allocated at %x\n", res);
+    वापस res;
+पूर्ण
+
+पूर्णांक
+ramfb_setup(व्योम)
+अणु
+    dम_लिखो(1, "ramfb: init\n");
+
+    अगर (GET_GLOBAL(HaveRunInit))
+        वापस 0;
+
+    u32 select = qemu_cfg_find_file("etc/ramfb");
+    अगर (select == 0) अणु
+        dम_लिखो(1, "ramfb: fw_cfg (etc/ramfb) file not found\n");
+        वापस -1;
+    पूर्ण
+
+    dम_लिखो(1, "ramfb: fw_cfg (etc/ramfb) file at slot 0x%x\n", select);
+    u32 fb = allocate_framebuffer();
+    अगर (!fb) अणु
+        dम_लिखो(1, "ramfb: allocating framebuffer failed\n");
+        वापस -1;
+    पूर्ण
+
+    u64 addr = fb;
+    u8 bpp = FRAMEBUFFER_BPP * 8;
+    u32 xlines = FRAMEBUFFER_WIDTH;
+    u32 ylines = FRAMEBUFFER_HEIGHT;
+    u32 linelength = FRAMEBUFFER_STRIDE;
+    dम_लिखो(1, "Found FB @ %llx %dx%d with %d bpp (%d stride)\n"
+            , addr, xlines, ylines, bpp, linelength);
+
+    अगर (!addr || addr > 0xffffffff
+        || (bpp != 15 && bpp != 16 && bpp != 24 && bpp != 32)) अणु
+        dम_लिखो(1, "Unable to use FB\n");
+        वापस -1;
+    पूर्ण
+
+    cbvga_setup_modes(addr, bpp, xlines, ylines, linelength);
+
+    काष्ठा QemuRAMFBCfg cfg = अणु
+        .addr   = cpu_to_be64(fb),
+        .fourcc = cpu_to_be32(DRM_FORMAT_XRGB8888),
+        .flags  = cpu_to_be32(0),
+        .width  = cpu_to_be32(FRAMEBUFFER_WIDTH),
+        .height = cpu_to_be32(FRAMEBUFFER_HEIGHT),
+        .stride = cpu_to_be32(FRAMEBUFFER_STRIDE),
+    पूर्ण;
+    qemu_cfg_ग_लिखो_entry(&cfg, select, माप(cfg));
+
+    वापस 0;
+पूर्ण

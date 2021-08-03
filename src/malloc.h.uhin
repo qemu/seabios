@@ -1,0 +1,71 @@
+<शैली गुरु>
+#अगर_अघोषित __MALLOC_H
+#घोषणा __MALLOC_H
+
+#समावेश "types.h" // u32
+
+// दो_स्मृति.c
+बाह्य काष्ठा zone_s ZoneLow, ZoneHigh, ZoneFSeg, ZoneTmpLow, ZoneTmpHigh;
+u32 rom_get_max(व्योम);
+u32 rom_get_last(व्योम);
+काष्ठा rom_header *rom_reserve(u32 size);
+पूर्णांक rom_confirm(u32 size);
+व्योम दो_स्मृति_csm_preinit(u32 low_pmm, u32 low_pmm_size, u32 hi_pmm,
+                        u32 hi_pmm_size);
+व्योम दो_स्मृति_preinit(व्योम);
+बाह्य u32 LegacyRamSize;
+व्योम दो_स्मृति_init(व्योम);
+व्योम दो_स्मृति_prepboot(व्योम);
+u32 दो_स्मृति_palloc(काष्ठा zone_s *zone, u32 size, u32 align);
+व्योम *_दो_स्मृति(काष्ठा zone_s *zone, u32 size, u32 align);
+पूर्णांक दो_स्मृति_pमुक्त(u32 data);
+व्योम मुक्त(व्योम *data);
+u32 दो_स्मृति_माला_लोpace(काष्ठा zone_s *zone);
+व्योम दो_स्मृति_sethandle(u32 data, u32 handle);
+u32 दो_स्मृति_findhandle(u32 handle);
+
+#घोषणा MALLOC_DEFAULT_HANDLE 0xFFFFFFFF
+// Minimum alignment of दो_स्मृति'd memory
+#घोषणा MALLOC_MIN_ALIGN 16
+// Helper functions क्रम memory allocation.
+अटल अंतरभूत व्योम *दो_स्मृति_low(u32 size) अणु
+    वापस _दो_स्मृति(&ZoneLow, size, MALLOC_MIN_ALIGN);
+पूर्ण
+अटल अंतरभूत व्योम *दो_स्मृति_high(u32 size) अणु
+    वापस _दो_स्मृति(&ZoneHigh, size, MALLOC_MIN_ALIGN);
+पूर्ण
+अटल अंतरभूत व्योम *दो_स्मृति_fseg(u32 size) अणु
+    वापस _दो_स्मृति(&ZoneFSeg, size, MALLOC_MIN_ALIGN);
+पूर्ण
+अटल अंतरभूत व्योम *दो_स्मृति_पंचांगplow(u32 size) अणु
+    वापस _दो_स्मृति(&ZoneTmpLow, size, MALLOC_MIN_ALIGN);
+पूर्ण
+अटल अंतरभूत व्योम *दो_स्मृति_पंचांगphigh(u32 size) अणु
+    वापस _दो_स्मृति(&ZoneTmpHigh, size, MALLOC_MIN_ALIGN);
+पूर्ण
+अटल अंतरभूत व्योम *दो_स्मृति_पंचांगp(u32 size) अणु
+    व्योम *ret = दो_स्मृति_पंचांगphigh(size);
+    अगर (ret)
+        वापस ret;
+    वापस दो_स्मृति_पंचांगplow(size);
+पूर्ण
+अटल अंतरभूत व्योम *memalign_low(u32 align, u32 size) अणु
+    वापस _दो_स्मृति(&ZoneLow, size, align);
+पूर्ण
+अटल अंतरभूत व्योम *memalign_high(u32 align, u32 size) अणु
+    वापस _दो_स्मृति(&ZoneHigh, size, align);
+पूर्ण
+अटल अंतरभूत व्योम *memalign_पंचांगplow(u32 align, u32 size) अणु
+    वापस _दो_स्मृति(&ZoneTmpLow, size, align);
+पूर्ण
+अटल अंतरभूत व्योम *memalign_पंचांगphigh(u32 align, u32 size) अणु
+    वापस _दो_स्मृति(&ZoneTmpHigh, size, align);
+पूर्ण
+अटल अंतरभूत व्योम *memalign_पंचांगp(u32 align, u32 size) अणु
+    व्योम *ret = memalign_पंचांगphigh(align, size);
+    अगर (ret)
+        वापस ret;
+    वापस memalign_पंचांगplow(align, size);
+पूर्ण
+
+#पूर्ण_अगर // दो_स्मृति.h

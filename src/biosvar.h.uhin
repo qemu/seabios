@@ -1,0 +1,131 @@
+<शैली गुरु>
+// Memory access to BIOS variables.
+//
+// Copyright (C) 2008-2013  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+#अगर_अघोषित __BIOSVAR_H
+#घोषणा __BIOSVAR_H
+
+#समावेश "config.h" // SEG_BDA
+#समावेश "farptr.h" // GET_FARVAR
+#समावेश "memmap.h" // SYMBOL
+#समावेश "std/bda.h" // काष्ठा bios_data_area_s
+
+
+/****************************************************************
+ * Interrupt vector table
+ ****************************************************************/
+
+#घोषणा GET_IVT(vector)                                         \
+    GET_FARVAR(SEG_IVT, ((काष्ठा rmode_IVT *)0)->ivec[vector])
+#घोषणा SET_IVT(vector, segoff)                                         \
+    SET_FARVAR(SEG_IVT, ((काष्ठा rmode_IVT *)0)->ivec[vector], segoff)
+
+#घोषणा FUNC16(func) (अणु                                 \
+        ASSERT32FLAT();                                 \
+        बाह्य व्योम func (व्योम);                        \
+        SEGOFF(SEG_BIOS, (u32)func - BUILD_BIOS_ADDR);  \
+    पूर्ण)
+
+
+/****************************************************************
+ * Bios Data Area (BDA)
+ ****************************************************************/
+
+// Accessor functions
+#घोषणा GET_BDA(var) \
+    GET_FARVAR(SEG_BDA, ((काष्ठा bios_data_area_s *)0)->var)
+#घोषणा SET_BDA(var, val) \
+    SET_FARVAR(SEG_BDA, ((काष्ठा bios_data_area_s *)0)->var, (val))
+
+// Helper function to set the bits of the equipment_list_flags variable.
+अटल अंतरभूत व्योम set_equipment_flags(u16 clear, u16 set) अणु
+    u16 eqf = GET_BDA(equipment_list_flags);
+    SET_BDA(equipment_list_flags, (eqf & ~clear) | set);
+पूर्ण
+
+
+/****************************************************************
+ * Extended Bios Data Area (EBDA)
+ ****************************************************************/
+
+// The initial size and location of EBDA
+#घोषणा EBDA_SIZE_START \
+    DIV_ROUND_UP(माप(काष्ठा extended_bios_data_area_s), 1024)
+#घोषणा EBDA_SEGMENT_START \
+    FLATPTR_TO_SEG(BUILD_LOWRAM_END - EBDA_SIZE_START*1024)
+
+// Accessor functions
+अटल अंतरभूत u16 get_ebda_seg(व्योम) अणु
+    वापस GET_BDA(ebda_seg);
+पूर्ण
+अटल अंतरभूत काष्ठा extended_bios_data_area_s *
+get_ebda_ptr(व्योम)
+अणु
+    ASSERT32FLAT();
+    वापस MAKE_FLATPTR(get_ebda_seg(), 0);
+पूर्ण
+#घोषणा GET_EBDA(eseg, var)                                             \
+    GET_FARVAR(eseg, ((काष्ठा extended_bios_data_area_s *)0)->var)
+#घोषणा SET_EBDA(eseg, var, val)                                        \
+    SET_FARVAR(eseg, ((काष्ठा extended_bios_data_area_s *)0)->var, (val))
+
+
+/****************************************************************
+ * Global variables
+ ****************************************************************/
+
+#अगर MODE16 == 0 && MODESEGMENT == 1
+// In 32bit segmented mode %cs may not be पढ़ोable and the code may be
+// relocated.  The entry code sets up %gs with a पढ़ोable segment and
+// the code offset can be determined by get_global_offset().
+#घोषणा GLOBAL_SEGREG GS
+अटल अंतरभूत u32 __attribute_स्थिर get_global_offset(व्योम) अणु
+    u32 ret;
+    यंत्र("  calll 1f\n"
+        "1:popl %0\n"
+        "  subl $1b, %0"
+        : "=r"(ret));
+    वापस ret;
+पूर्ण
+#अन्यथा
+#घोषणा GLOBAL_SEGREG CS
+अटल अंतरभूत u32 __attribute_स्थिर get_global_offset(व्योम) अणु
+    वापस 0;
+पूर्ण
+#पूर्ण_अगर
+अटल अंतरभूत u16 get_global_seg(व्योम) अणु
+    वापस GET_SEG(GLOBAL_SEGREG);
+पूर्ण
+#घोषणा GET_GLOBAL(var)                                                 \
+    GET_VAR(GLOBAL_SEGREG, *(typeof(&(var)))((व्योम*)&(var)              \
+                                             + get_global_offset()))
+#अगर MODESEGMENT
+#घोषणा GLOBALFLAT2GLOBAL(var) ((typeof(var))((व्योम*)(var) - BUILD_BIOS_ADDR))
+#अन्यथा
+#घोषणा GLOBALFLAT2GLOBAL(var) (var)
+#पूर्ण_अगर
+// Access a "flat" poपूर्णांकer known to poपूर्णांक to the f-segment.
+#घोषणा GET_GLOBALFLAT(var) GET_GLOBAL(*GLOBALFLAT2GLOBAL(&(var)))
+
+
+/****************************************************************
+ * "Low" memory variables
+ ****************************************************************/
+
+#घोषणा SEG_LOW SYMBOL(_zonelow_seg)
+
+#अगर MODESEGMENT
+#घोषणा GET_LOW(var)            GET_FARVAR(SEG_LOW, (var))
+#घोषणा SET_LOW(var, val)       SET_FARVAR(SEG_LOW, (var), (val))
+#घोषणा LOWFLAT2LOW(var) ((typeof(var))((व्योम*)(var) - SYMBOL(zonelow_base)))
+#अन्यथा
+#घोषणा GET_LOW(var)            (var)
+#घोषणा SET_LOW(var, val)       करो अणु (var) = (val); पूर्ण जबतक (0)
+#घोषणा LOWFLAT2LOW(var) (var)
+#पूर्ण_अगर
+#घोषणा GET_LOWFLAT(var) GET_LOW(*LOWFLAT2LOW(&(var)))
+#घोषणा SET_LOWFLAT(var, val) SET_LOW(*LOWFLAT2LOW(&(var)), (val))
+
+#पूर्ण_अगर // __BIOSVAR_H

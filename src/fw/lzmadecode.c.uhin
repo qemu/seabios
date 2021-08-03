@@ -1,0 +1,399 @@
+<शैली गुरु>
+/*
+  LzmaDecode.c
+  LZMA Decoder (optimized क्रम Speed version)
+  
+  LZMA SDK 4.40 Copyright (c) 1999-2006 Igor Pavlov (2006-05-01)
+  http://www.7-zip.org/
+
+  LZMA SDK is licensed under two licenses:
+  1) GNU Lesser General Public License (GNU LGPL)
+  2) Common Public License (CPL)
+  It means that you can select one of these two licenses and 
+  follow rules of that license.
+
+  SPECIAL EXCEPTION:
+  Igor Pavlov, as the author of this Code, expressly permits you to 
+  अटलally or dynamically link your Code (or bind by name) to the 
+  पूर्णांकerfaces of this file without subjecting your linked Code to the 
+  terms of the CPL or GNU LGPL. Any modअगरications or additions 
+  to this file, however, are subject to the LGPL or CPL terms.
+*/
+
+#समावेश "lzmadecode.h"
+
+#घोषणा kNumTopBits 24
+#घोषणा kTopValue ((UInt32)1 << kNumTopBits)
+
+#घोषणा kNumBitModelTotalBits 11
+#घोषणा kBitModelTotal (1 << kNumBitModelTotalBits)
+#घोषणा kNumMoveBits 5
+
+#घोषणा RC_READ_BYTE (*Buffer++)
+
+#घोषणा RC_INIT2 Code = 0; Range = 0xFFFFFFFF; \
+  अणु पूर्णांक i; क्रम(i = 0; i < 5; i++) अणु RC_TEST; Code = (Code << 8) | RC_READ_BYTE; पूर्णपूर्ण
+
+
+#घोषणा RC_TEST अणु अगर (Buffer == BufferLim) वापस LZMA_RESULT_DATA_ERROR; पूर्ण
+
+#घोषणा RC_INIT(buffer, bufferSize) Buffer = buffer; BufferLim = buffer + bufferSize; RC_INIT2
+ 
+
+#घोषणा RC_NORMALIZE अगर (Range < kTopValue) अणु RC_TEST; Range <<= 8; Code = (Code << 8) | RC_READ_BYTE; पूर्ण
+
+#घोषणा IfBit0(p) RC_NORMALIZE; bound = (Range >> kNumBitModelTotalBits) * *(p); अगर (Code < bound)
+#घोषणा UpdateBit0(p) Range = bound; *(p) += (kBitModelTotal - *(p)) >> kNumMoveBits;
+#घोषणा UpdateBit1(p) Range -= bound; Code -= bound; *(p) -= (*(p)) >> kNumMoveBits;
+
+#घोषणा RC_GET_BIT2(p, mi, A0, A1) IfBit0(p) \
+  अणु UpdateBit0(p); mi <<= 1; A0; पूर्ण अन्यथा \
+  अणु UpdateBit1(p); mi = (mi + mi) + 1; A1; पूर्ण 
+  
+#घोषणा RC_GET_BIT(p, mi) RC_GET_BIT2(p, mi, ; , ;)               
+
+#घोषणा RangeDecoderBitTreeDecode(probs, numLevels, res) \
+  अणु पूर्णांक i = numLevels; res = 1; \
+  करो अणु CProb *cp = probs + res; RC_GET_BIT(cp, res) पूर्ण जबतक(--i != 0); \
+  res -= (1 << numLevels); पूर्ण
+
+
+#घोषणा kNumPosBitsMax 4
+#घोषणा kNumPosStatesMax (1 << kNumPosBitsMax)
+
+#घोषणा kLenNumLowBits 3
+#घोषणा kLenNumLowSymbols (1 << kLenNumLowBits)
+#घोषणा kLenNumMidBits 3
+#घोषणा kLenNumMidSymbols (1 << kLenNumMidBits)
+#घोषणा kLenNumHighBits 8
+#घोषणा kLenNumHighSymbols (1 << kLenNumHighBits)
+
+#घोषणा LenChoice 0
+#घोषणा LenChoice2 (LenChoice + 1)
+#घोषणा LenLow (LenChoice2 + 1)
+#घोषणा LenMid (LenLow + (kNumPosStatesMax << kLenNumLowBits))
+#घोषणा LenHigh (LenMid + (kNumPosStatesMax << kLenNumMidBits))
+#घोषणा kNumLenProbs (LenHigh + kLenNumHighSymbols) 
+
+
+#घोषणा kNumStates 12
+#घोषणा kNumLitStates 7
+
+#घोषणा kStartPosModelIndex 4
+#घोषणा kEndPosModelIndex 14
+#घोषणा kNumFullDistances (1 << (kEndPosModelIndex >> 1))
+
+#घोषणा kNumPosSlotBits 6
+#घोषणा kNumLenToPosStates 4
+
+#घोषणा kNumAlignBits 4
+#घोषणा kAlignTableSize (1 << kNumAlignBits)
+
+#घोषणा kMatchMinLen 2
+
+#घोषणा IsMatch 0
+#घोषणा IsRep (IsMatch + (kNumStates << kNumPosBitsMax))
+#घोषणा IsRepG0 (IsRep + kNumStates)
+#घोषणा IsRepG1 (IsRepG0 + kNumStates)
+#घोषणा IsRepG2 (IsRepG1 + kNumStates)
+#घोषणा IsRep0Long (IsRepG2 + kNumStates)
+#घोषणा PosSlot (IsRep0Long + (kNumStates << kNumPosBitsMax))
+#घोषणा SpecPos (PosSlot + (kNumLenToPosStates << kNumPosSlotBits))
+#घोषणा Align (SpecPos + kNumFullDistances - kEndPosModelIndex)
+#घोषणा LenCoder (Align + kAlignTableSize)
+#घोषणा RepLenCoder (LenCoder + kNumLenProbs)
+#घोषणा Literal (RepLenCoder + kNumLenProbs)
+
+#अगर Literal != LZMA_BASE_SIZE
+StopCompilingDueBUG
+#पूर्ण_अगर
+
+पूर्णांक LzmaDecodeProperties(CLzmaProperties *propsRes, स्थिर अचिन्हित अक्षर *propsData, पूर्णांक size)
+अणु
+  अचिन्हित अक्षर prop0;
+  अगर (size < LZMA_PROPERTIES_SIZE)
+    वापस LZMA_RESULT_DATA_ERROR;
+  prop0 = propsData[0];
+  अगर (prop0 >= (9 * 5 * 5))
+    वापस LZMA_RESULT_DATA_ERROR;
+  अणु
+    क्रम (propsRes->pb = 0; prop0 >= (9 * 5); propsRes->pb++, prop0 -= (9 * 5));
+    क्रम (propsRes->lp = 0; prop0 >= 9; propsRes->lp++, prop0 -= 9);
+    propsRes->lc = prop0;
+    /*
+    अचिन्हित अक्षर reमुख्यder = (अचिन्हित अक्षर)(prop0 / 9);
+    propsRes->lc = prop0 % 9;
+    propsRes->pb = reमुख्यder / 5;
+    propsRes->lp = reमुख्यder % 5;
+    */
+  पूर्ण
+
+  वापस LZMA_RESULT_OK;
+पूर्ण
+
+#घोषणा kLzmaStreamWasFinishedId (-1)
+
+पूर्णांक LzmaDecode(CLzmaDecoderState *vs,
+    स्थिर अचिन्हित अक्षर *inStream, SizeT inSize, SizeT *inSizeProcessed,
+    अचिन्हित अक्षर *outStream, SizeT outSize, SizeT *outSizeProcessed)
+अणु
+  CProb *p = vs->Probs;
+  SizeT nowPos = 0;
+  Byte previousByte = 0;
+  UInt32 posStateMask = (1 << (vs->Properties.pb)) - 1;
+  UInt32 literalPosMask = (1 << (vs->Properties.lp)) - 1;
+  पूर्णांक lc = vs->Properties.lc;
+
+
+  पूर्णांक state = 0;
+  UInt32 rep0 = 1, rep1 = 1, rep2 = 1, rep3 = 1;
+  पूर्णांक len = 0;
+  स्थिर Byte *Buffer;
+  स्थिर Byte *BufferLim;
+  UInt32 Range;
+  UInt32 Code;
+
+  *inSizeProcessed = 0;
+  *outSizeProcessed = 0;
+
+  अणु
+    UInt32 i;
+    UInt32 numProbs = Literal + ((UInt32)LZMA_LIT_SIZE << (lc + vs->Properties.lp));
+    क्रम (i = 0; i < numProbs; i++)
+      p[i] = kBitModelTotal >> 1;
+  पूर्ण
+  
+  RC_INIT(inStream, inSize);
+
+
+  जबतक(nowPos < outSize)
+  अणु
+    CProb *prob;
+    UInt32 bound;
+    पूर्णांक posState = (पूर्णांक)(
+        (nowPos 
+        )
+        & posStateMask);
+
+    prob = p + IsMatch + (state << kNumPosBitsMax) + posState;
+    IfBit0(prob)
+    अणु
+      पूर्णांक symbol = 1;
+      UpdateBit0(prob)
+      prob = p + Literal + (LZMA_LIT_SIZE * 
+        (((
+        (nowPos 
+        )
+        & literalPosMask) << lc) + (previousByte >> (8 - lc))));
+
+      अगर (state >= kNumLitStates)
+      अणु
+        पूर्णांक matchByte;
+        matchByte = outStream[nowPos - rep0];
+        करो
+        अणु
+          पूर्णांक bit;
+          CProb *probLit;
+          matchByte <<= 1;
+          bit = (matchByte & 0x100);
+          probLit = prob + 0x100 + bit + symbol;
+          RC_GET_BIT2(probLit, symbol, अगर (bit != 0) अवरोध, अगर (bit == 0) अवरोध)
+        पूर्ण
+        जबतक (symbol < 0x100);
+      पूर्ण
+      जबतक (symbol < 0x100)
+      अणु
+        CProb *probLit = prob + symbol;
+        RC_GET_BIT(probLit, symbol)
+      पूर्ण
+      previousByte = (Byte)symbol;
+
+      outStream[nowPos++] = previousByte;
+      अगर (state < 4) state = 0;
+      अन्यथा अगर (state < 10) state -= 3;
+      अन्यथा state -= 6;
+    पूर्ण
+    अन्यथा             
+    अणु
+      UpdateBit1(prob);
+      prob = p + IsRep + state;
+      IfBit0(prob)
+      अणु
+        UpdateBit0(prob);
+        rep3 = rep2;
+        rep2 = rep1;
+        rep1 = rep0;
+        state = state < kNumLitStates ? 0 : 3;
+        prob = p + LenCoder;
+      पूर्ण
+      अन्यथा
+      अणु
+        UpdateBit1(prob);
+        prob = p + IsRepG0 + state;
+        IfBit0(prob)
+        अणु
+          UpdateBit0(prob);
+          prob = p + IsRep0Long + (state << kNumPosBitsMax) + posState;
+          IfBit0(prob)
+          अणु
+            UpdateBit0(prob);
+            
+            अगर (nowPos == 0)
+              वापस LZMA_RESULT_DATA_ERROR;
+            
+            state = state < kNumLitStates ? 9 : 11;
+            previousByte = outStream[nowPos - rep0];
+            outStream[nowPos++] = previousByte;
+
+            जारी;
+          पूर्ण
+          अन्यथा
+          अणु
+            UpdateBit1(prob);
+          पूर्ण
+        पूर्ण
+        अन्यथा
+        अणु
+          UInt32 distance;
+          UpdateBit1(prob);
+          prob = p + IsRepG1 + state;
+          IfBit0(prob)
+          अणु
+            UpdateBit0(prob);
+            distance = rep1;
+          पूर्ण
+          अन्यथा 
+          अणु
+            UpdateBit1(prob);
+            prob = p + IsRepG2 + state;
+            IfBit0(prob)
+            अणु
+              UpdateBit0(prob);
+              distance = rep2;
+            पूर्ण
+            अन्यथा
+            अणु
+              UpdateBit1(prob);
+              distance = rep3;
+              rep3 = rep2;
+            पूर्ण
+            rep2 = rep1;
+          पूर्ण
+          rep1 = rep0;
+          rep0 = distance;
+        पूर्ण
+        state = state < kNumLitStates ? 8 : 11;
+        prob = p + RepLenCoder;
+      पूर्ण
+      अणु
+        पूर्णांक numBits, offset;
+        CProb *probLen = prob + LenChoice;
+        IfBit0(probLen)
+        अणु
+          UpdateBit0(probLen);
+          probLen = prob + LenLow + (posState << kLenNumLowBits);
+          offset = 0;
+          numBits = kLenNumLowBits;
+        पूर्ण
+        अन्यथा
+        अणु
+          UpdateBit1(probLen);
+          probLen = prob + LenChoice2;
+          IfBit0(probLen)
+          अणु
+            UpdateBit0(probLen);
+            probLen = prob + LenMid + (posState << kLenNumMidBits);
+            offset = kLenNumLowSymbols;
+            numBits = kLenNumMidBits;
+          पूर्ण
+          अन्यथा
+          अणु
+            UpdateBit1(probLen);
+            probLen = prob + LenHigh;
+            offset = kLenNumLowSymbols + kLenNumMidSymbols;
+            numBits = kLenNumHighBits;
+          पूर्ण
+        पूर्ण
+        RangeDecoderBitTreeDecode(probLen, numBits, len);
+        len += offset;
+      पूर्ण
+
+      अगर (state < 4)
+      अणु
+        पूर्णांक posSlot;
+        state += kNumLitStates;
+        prob = p + PosSlot +
+            ((len < kNumLenToPosStates ? len : kNumLenToPosStates - 1) << 
+            kNumPosSlotBits);
+        RangeDecoderBitTreeDecode(prob, kNumPosSlotBits, posSlot);
+        अगर (posSlot >= kStartPosModelIndex)
+        अणु
+          पूर्णांक numDirectBits = ((posSlot >> 1) - 1);
+          rep0 = (2 | ((UInt32)posSlot & 1));
+          अगर (posSlot < kEndPosModelIndex)
+          अणु
+            rep0 <<= numDirectBits;
+            prob = p + SpecPos + rep0 - posSlot - 1;
+          पूर्ण
+          अन्यथा
+          अणु
+            numDirectBits -= kNumAlignBits;
+            करो
+            अणु
+              RC_NORMALIZE
+              Range >>= 1;
+              rep0 <<= 1;
+              अगर (Code >= Range)
+              अणु
+                Code -= Range;
+                rep0 |= 1;
+              पूर्ण
+            पूर्ण
+            जबतक (--numDirectBits != 0);
+            prob = p + Align;
+            rep0 <<= kNumAlignBits;
+            numDirectBits = kNumAlignBits;
+          पूर्ण
+          अणु
+            पूर्णांक i = 1;
+            पूर्णांक mi = 1;
+            करो
+            अणु
+              CProb *prob3 = prob + mi;
+              RC_GET_BIT2(prob3, mi, ; , rep0 |= i);
+              i <<= 1;
+            पूर्ण
+            जबतक(--numDirectBits != 0);
+          पूर्ण
+        पूर्ण
+        अन्यथा
+          rep0 = posSlot;
+        अगर (++rep0 == (UInt32)(0))
+        अणु
+          /* it's क्रम stream version */
+          len = kLzmaStreamWasFinishedId;
+          अवरोध;
+        पूर्ण
+      पूर्ण
+
+      len += kMatchMinLen;
+      अगर (rep0 > nowPos)
+        वापस LZMA_RESULT_DATA_ERROR;
+
+
+      करो
+      अणु
+        previousByte = outStream[nowPos - rep0];
+        len--;
+        outStream[nowPos++] = previousByte;
+      पूर्ण
+      जबतक(len != 0 && nowPos < outSize);
+    पूर्ण
+  पूर्ण
+  RC_NORMALIZE;
+
+
+  *inSizeProcessed = (SizeT)(Buffer - inStream);
+  *outSizeProcessed = nowPos;
+  वापस LZMA_RESULT_OK;
+पूर्ण

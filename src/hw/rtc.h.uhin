@@ -1,0 +1,76 @@
+<शैली गुरु>
+#अगर_अघोषित __RTC_H
+#घोषणा __RTC_H
+
+#घोषणा PORT_CMOS_INDEX        0x0070
+#घोषणा PORT_CMOS_DATA         0x0071
+
+// PORT_CMOS_INDEX nmi disable bit
+#घोषणा NMI_DISABLE_BIT 0x80
+
+// Standard BIOS RTC chip entries
+#घोषणा CMOS_RTC_SECONDS         0x00
+#घोषणा CMOS_RTC_SECONDS_ALARM   0x01
+#घोषणा CMOS_RTC_MINUTES         0x02
+#घोषणा CMOS_RTC_MINUTES_ALARM   0x03
+#घोषणा CMOS_RTC_HOURS           0x04
+#घोषणा CMOS_RTC_HOURS_ALARM     0x05
+#घोषणा CMOS_RTC_DAY_WEEK        0x06
+#घोषणा CMOS_RTC_DAY_MONTH       0x07
+#घोषणा CMOS_RTC_MONTH           0x08
+#घोषणा CMOS_RTC_YEAR            0x09
+#घोषणा CMOS_STATUS_A            0x0a
+#घोषणा CMOS_STATUS_B            0x0b
+#घोषणा CMOS_STATUS_C            0x0c
+#घोषणा CMOS_STATUS_D            0x0d
+#घोषणा CMOS_RESET_CODE          0x0f
+
+// QEMU cmos config fields.  DO NOT ADD MORE.  (All new content should
+// be passed via the fw_cfg "file" पूर्णांकerface.)
+#घोषणा CMOS_FLOPPY_DRIVE_TYPE   0x10
+#घोषणा CMOS_DISK_DATA           0x12
+#घोषणा CMOS_EQUIPMENT_INFO      0x14
+#घोषणा CMOS_DISK_DRIVE1_TYPE    0x19
+#घोषणा CMOS_DISK_DRIVE2_TYPE    0x1a
+#घोषणा CMOS_DISK_DRIVE1_CYL     0x1b
+#घोषणा CMOS_DISK_DRIVE2_CYL     0x24
+#घोषणा CMOS_MEM_EXTMEM_LOW      0x30
+#घोषणा CMOS_MEM_EXTMEM_HIGH     0x31
+#घोषणा CMOS_CENTURY             0x32
+#घोषणा CMOS_MEM_EXTMEM2_LOW     0x34
+#घोषणा CMOS_MEM_EXTMEM2_HIGH    0x35
+#घोषणा CMOS_BIOS_BOOTFLAG1      0x38
+#घोषणा CMOS_BIOS_DISKTRANSFLAG  0x39
+#घोषणा CMOS_BIOS_BOOTFLAG2      0x3d
+#घोषणा CMOS_MEM_HIGHMEM_LOW     0x5b
+#घोषणा CMOS_MEM_HIGHMEM_MID     0x5c
+#घोषणा CMOS_MEM_HIGHMEM_HIGH    0x5d
+#घोषणा CMOS_BIOS_SMP_COUNT      0x5f
+
+// RTC रेजिस्टर flags
+#घोषणा RTC_A_UIP 0x80
+
+#घोषणा RTC_B_SET  0x80
+#घोषणा RTC_B_PIE  0x40
+#घोषणा RTC_B_AIE  0x20
+#घोषणा RTC_B_UIE  0x10
+#घोषणा RTC_B_BIN  0x04
+#घोषणा RTC_B_24HR 0x02
+#घोषणा RTC_B_DSE  0x01
+
+#अगर_अघोषित __ASSEMBLY__
+
+#समावेश "types.h" // u8
+
+// rtc.c
+u8 rtc_पढ़ो(u8 index);
+व्योम rtc_ग_लिखो(u8 index, u8 val);
+व्योम rtc_mask(u8 index, u8 off, u8 on);
+पूर्णांक rtc_updating(व्योम);
+व्योम rtc_setup(व्योम);
+व्योम rtc_use(व्योम);
+व्योम rtc_release(व्योम);
+
+#पूर्ण_अगर // !__ASSEMBLY__
+
+#पूर्ण_अगर // rtc.h

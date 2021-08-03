@@ -1,0 +1,145 @@
+<शैली गुरु>
+#अगर_अघोषित __USB_OHCI_H
+#घोषणा __USB_OHCI_H
+
+// usb-ohci.c
+व्योम ohci_setup(व्योम);
+काष्ठा usbdevice_s;
+काष्ठा usb_endpoपूर्णांक_descriptor;
+काष्ठा usb_pipe;
+काष्ठा usb_pipe *ohci_पुनः_स्मृति_pipe(काष्ठा usbdevice_s *usbdev
+                                   , काष्ठा usb_pipe *upipe
+                                   , काष्ठा usb_endpoपूर्णांक_descriptor *epdesc);
+पूर्णांक ohci_send_pipe(काष्ठा usb_pipe *p, पूर्णांक dir, स्थिर व्योम *cmd
+                   , व्योम *data, पूर्णांक datasize);
+पूर्णांक ohci_poll_पूर्णांकr(काष्ठा usb_pipe *p, व्योम *data);
+
+
+/****************************************************************
+ * ohci काष्ठाs and flags
+ ****************************************************************/
+
+काष्ठा ohci_ed अणु
+    u32 hwINFO;
+    u32 hwTailP;
+    u32 hwHeadP;
+    u32 hwNextED;
+पूर्ण PACKED;
+
+#घोषणा ED_ISO          (1 << 15)
+#घोषणा ED_SKIP         (1 << 14)
+#घोषणा ED_LOWSPEED     (1 << 13)
+#घोषणा ED_OUT          (0x01 << 11)
+#घोषणा ED_IN           (0x02 << 11)
+
+#घोषणा ED_C            (0x02)
+#घोषणा ED_H            (0x01)
+
+काष्ठा ohci_td अणु
+    u32 hwINFO;
+    u32 hwCBP;
+    u32 hwNextTD;
+    u32 hwBE;
+पूर्ण PACKED;
+
+#घोषणा TD_CC       0xf0000000
+#घोषणा TD_CC_GET(td_p) ((td_p >>28) & 0x0f)
+#घोषणा TD_DI       0x00E00000
+
+#घोषणा TD_DONE     0x00020000
+#घोषणा TD_ISO      0x00010000
+
+#घोषणा TD_EC       0x0C000000
+#घोषणा TD_T        0x03000000
+#घोषणा TD_T_DATA0  0x02000000
+#घोषणा TD_T_DATA1  0x03000000
+#घोषणा TD_T_TOGGLE 0x00000000
+#घोषणा TD_DP       0x00180000
+#घोषणा TD_DP_SETUP 0x00000000
+#घोषणा TD_DP_IN    0x00100000
+#घोषणा TD_DP_OUT   0x00080000
+
+#घोषणा TD_R        0x00040000
+
+काष्ठा ohci_hcca अणु
+    u32  पूर्णांक_table[32];
+    u32  frame_no;
+    u32  करोne_head;
+    u8   reserved[120];
+पूर्ण PACKED;
+
+काष्ठा ohci_regs अणु
+    u32  revision;
+    u32  control;
+    u32  cmdstatus;
+    u32  पूर्णांकrstatus;
+    u32  पूर्णांकrenable;
+    u32  पूर्णांकrdisable;
+
+    u32  hcca;
+    u32  ed_periodcurrent;
+    u32  ed_controlhead;
+    u32  ed_controlcurrent;
+    u32  ed_bulkhead;
+    u32  ed_bulkcurrent;
+    u32  करोnehead;
+
+    u32  fmपूर्णांकerval;
+    u32  fmreमुख्यing;
+    u32  fmnumber;
+    u32  periodicstart;
+    u32  lsthresh;
+
+    u32  roothub_a;
+    u32  roothub_b;
+    u32  roothub_status;
+    u32  roothub_portstatus[15];
+पूर्ण PACKED;
+
+#घोषणा OHCI_CTRL_CBSR  (3 << 0)
+#घोषणा OHCI_CTRL_PLE   (1 << 2)
+#घोषणा OHCI_CTRL_CLE   (1 << 4)
+#घोषणा OHCI_CTRL_BLE   (1 << 5)
+#घोषणा OHCI_CTRL_HCFS  (3 << 6)
+#       define OHCI_USB_RESET   (0 << 6)
+#       define OHCI_USB_OPER    (2 << 6)
+#घोषणा OHCI_CTRL_RWC   (1 << 9)
+
+#घोषणा OHCI_HCR        (1 << 0)
+#घोषणा OHCI_CLF        (1 << 1)
+#घोषणा OHCI_BLF        (1 << 2)
+
+#घोषणा OHCI_INTR_MIE   (1 << 31)
+
+#घोषणा RH_PS_CCS            0x00000001
+#घोषणा RH_PS_PES            0x00000002
+#घोषणा RH_PS_PSS            0x00000004
+#घोषणा RH_PS_POCI           0x00000008
+#घोषणा RH_PS_PRS            0x00000010
+#घोषणा RH_PS_PPS            0x00000100
+#घोषणा RH_PS_LSDA           0x00000200
+#घोषणा RH_PS_CSC            0x00010000
+#घोषणा RH_PS_PESC           0x00020000
+#घोषणा RH_PS_PSSC           0x00040000
+#घोषणा RH_PS_OCIC           0x00080000
+#घोषणा RH_PS_PRSC           0x00100000
+
+#घोषणा RH_HS_LPS            0x00000001
+#घोषणा RH_HS_OCI            0x00000002
+#घोषणा RH_HS_DRWE           0x00008000
+#घोषणा RH_HS_LPSC           0x00010000
+#घोषणा RH_HS_OCIC           0x00020000
+#घोषणा RH_HS_CRWE           0x80000000
+
+#घोषणा RH_B_DR         0x0000ffff
+#घोषणा RH_B_PPCM       0xffff0000
+
+#घोषणा RH_A_NDP        (0xff << 0)
+#घोषणा RH_A_PSM        (1 << 8)
+#घोषणा RH_A_NPS        (1 << 9)
+#घोषणा RH_A_DT         (1 << 10)
+#घोषणा RH_A_OCPM       (1 << 11)
+#घोषणा RH_A_NOCP       (1 << 12)
+#घोषणा RH_A_POTPGT     (0xff << 24)
+
+#पूर्ण_अगर // usb-ohci.h

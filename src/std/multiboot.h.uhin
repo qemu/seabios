@@ -1,0 +1,261 @@
+<शैली गुरु>
+/*  multiboot.h - Multiboot header file.  */
+/*  Copyright (C) 1999,2003,2007,2008,2009,2010  Free Software Foundation, Inc.
+ *
+ *  Permission is hereby granted, मुक्त of अक्षरge, to any person obtaining a copy
+ *  of this software and associated करोcumentation files (the "Software"), to
+ *  deal in the Software without restriction, including without limitation the
+ *  rights to use, copy, modअगरy, merge, publish, distribute, sublicense, and/or
+ *  sell copies of the Software, and to permit persons to whom the Software is
+ *  furnished to करो so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in
+ *  all copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL ANY
+ *  DEVELOPER OR DISTRIBUTOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ *  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+ *  IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+#अगर_अघोषित MULTIBOOT_HEADER
+#घोषणा MULTIBOOT_HEADER 1
+
+/* How many bytes from the start of the file we search क्रम the header.  */
+#घोषणा MULTIBOOT_SEARCH			8192
+#घोषणा MULTIBOOT_HEADER_ALIGN			4
+
+/* The magic field should contain this.  */
+#घोषणा MULTIBOOT_HEADER_MAGIC			0x1BADB002
+
+/* This should be in %eax.  */
+#घोषणा MULTIBOOT_BOOTLOADER_MAGIC		0x2BADB002
+
+/* Alignment of multiboot modules.  */
+#घोषणा MULTIBOOT_MOD_ALIGN			0x00001000
+
+/* Alignment of the multiboot info काष्ठाure.  */
+#घोषणा MULTIBOOT_INFO_ALIGN			0x00000004
+
+/* Flags set in the 'flags' member of the multiboot header.  */
+
+/* Align all boot modules on i386 page (4KB) boundaries.  */
+#घोषणा MULTIBOOT_PAGE_ALIGN			0x00000001
+
+/* Must pass memory inक्रमmation to OS.  */
+#घोषणा MULTIBOOT_MEMORY_INFO			0x00000002
+
+/* Must pass video inक्रमmation to OS.  */
+#घोषणा MULTIBOOT_VIDEO_MODE			0x00000004
+
+/* This flag indicates the use of the address fields in the header.  */
+#घोषणा MULTIBOOT_AOUT_KLUDGE			0x00010000
+
+/* Flags to be set in the 'flags' member of the multiboot info काष्ठाure.  */
+
+/* is there basic lower/upper memory inक्रमmation? */
+#घोषणा MULTIBOOT_INFO_MEMORY			0x00000001
+/* is there a boot device set? */
+#घोषणा MULTIBOOT_INFO_BOOTDEV			0x00000002
+/* is the command-line defined? */
+#घोषणा MULTIBOOT_INFO_CMDLINE			0x00000004
+/* are there modules to करो something with? */
+#घोषणा MULTIBOOT_INFO_MODS			0x00000008
+
+/* These next two are mutually exclusive */
+
+/* is there a symbol table loaded? */
+#घोषणा MULTIBOOT_INFO_AOUT_SYMS		0x00000010
+/* is there an ELF section header table? */
+#घोषणा MULTIBOOT_INFO_ELF_SHDR			0X00000020
+
+/* is there a full memory map? */
+#घोषणा MULTIBOOT_INFO_MEM_MAP			0x00000040
+
+/* Is there drive info?  */
+#घोषणा MULTIBOOT_INFO_DRIVE_INFO		0x00000080
+
+/* Is there a config table?  */
+#घोषणा MULTIBOOT_INFO_CONFIG_TABLE		0x00000100
+
+/* Is there a boot loader name?  */
+#घोषणा MULTIBOOT_INFO_BOOT_LOADER_NAME		0x00000200
+
+/* Is there a APM table?  */
+#घोषणा MULTIBOOT_INFO_APM_TABLE		0x00000400
+
+/* Is there video inक्रमmation?  */
+#घोषणा MULTIBOOT_INFO_VBE_INFO		        0x00000800
+#घोषणा MULTIBOOT_INFO_FRAMEBUFFER_INFO	        0x00001000
+
+#अगर_अघोषित ASM_खाता
+
+प्रकार अचिन्हित अक्षर		multiboot_uपूर्णांक8_t;
+प्रकार अचिन्हित लघु		multiboot_uपूर्णांक16_t;
+प्रकार अचिन्हित पूर्णांक		multiboot_uपूर्णांक32_t;
+प्रकार अचिन्हित दीर्घ दीर्घ	multiboot_uपूर्णांक64_t;
+
+काष्ठा multiboot_header
+अणु
+  /* Must be MULTIBOOT_MAGIC - see above.  */
+  multiboot_uपूर्णांक32_t magic;
+
+  /* Feature flags.  */
+  multiboot_uपूर्णांक32_t flags;
+
+  /* The above fields plus this one must equal 0 mod 2^32. */
+  multiboot_uपूर्णांक32_t checksum;
+
+  /* These are only valid अगर MULTIBOOT_AOUT_KLUDGE is set.  */
+  multiboot_uपूर्णांक32_t header_addr;
+  multiboot_uपूर्णांक32_t load_addr;
+  multiboot_uपूर्णांक32_t load_end_addr;
+  multiboot_uपूर्णांक32_t bss_end_addr;
+  multiboot_uपूर्णांक32_t entry_addr;
+
+  /* These are only valid अगर MULTIBOOT_VIDEO_MODE is set.  */
+  multiboot_uपूर्णांक32_t mode_type;
+  multiboot_uपूर्णांक32_t width;
+  multiboot_uपूर्णांक32_t height;
+  multiboot_uपूर्णांक32_t depth;
+पूर्ण;
+
+/* The symbol table क्रम a.out.  */
+काष्ठा multiboot_aout_symbol_table
+अणु
+  multiboot_uपूर्णांक32_t tअसलize;
+  multiboot_uपूर्णांक32_t strsize;
+  multiboot_uपूर्णांक32_t addr;
+  multiboot_uपूर्णांक32_t reserved;
+पूर्ण;
+प्रकार काष्ठा multiboot_aout_symbol_table multiboot_aout_symbol_table_t;
+
+/* The section header table क्रम ELF.  */
+काष्ठा multiboot_elf_section_header_table
+अणु
+  multiboot_uपूर्णांक32_t num;
+  multiboot_uपूर्णांक32_t size;
+  multiboot_uपूर्णांक32_t addr;
+  multiboot_uपूर्णांक32_t shndx;
+पूर्ण;
+प्रकार काष्ठा multiboot_elf_section_header_table multiboot_elf_section_header_table_t;
+
+काष्ठा multiboot_info
+अणु
+  /* Multiboot info version number */
+  multiboot_uपूर्णांक32_t flags;
+
+  /* Available memory from BIOS */
+  multiboot_uपूर्णांक32_t mem_lower;
+  multiboot_uपूर्णांक32_t mem_upper;
+
+  /* "root" partition */
+  multiboot_uपूर्णांक32_t boot_device;
+
+  /* Kernel command line */
+  multiboot_uपूर्णांक32_t cmdline;
+
+  /* Boot-Module list */
+  multiboot_uपूर्णांक32_t mods_count;
+  multiboot_uपूर्णांक32_t mods_addr;
+
+  जोड़
+  अणु
+    multiboot_aout_symbol_table_t aout_sym;
+    multiboot_elf_section_header_table_t elf_sec;
+  पूर्ण u;
+
+  /* Memory Mapping buffer */
+  multiboot_uपूर्णांक32_t mmap_length;
+  multiboot_uपूर्णांक32_t mmap_addr;
+
+  /* Drive Info buffer */
+  multiboot_uपूर्णांक32_t drives_length;
+  multiboot_uपूर्णांक32_t drives_addr;
+
+  /* ROM configuration table */
+  multiboot_uपूर्णांक32_t config_table;
+
+  /* Boot Loader Name */
+  multiboot_uपूर्णांक32_t boot_loader_name;
+
+  /* APM table */
+  multiboot_uपूर्णांक32_t apm_table;
+
+  /* Video */
+  multiboot_uपूर्णांक32_t vbe_control_info;
+  multiboot_uपूर्णांक32_t vbe_mode_info;
+  multiboot_uपूर्णांक16_t vbe_mode;
+  multiboot_uपूर्णांक16_t vbe_पूर्णांकerface_seg;
+  multiboot_uपूर्णांक16_t vbe_पूर्णांकerface_off;
+  multiboot_uपूर्णांक16_t vbe_पूर्णांकerface_len;
+
+  multiboot_uपूर्णांक64_t framebuffer_addr;
+  multiboot_uपूर्णांक32_t framebuffer_pitch;
+  multiboot_uपूर्णांक32_t framebuffer_width;
+  multiboot_uपूर्णांक32_t framebuffer_height;
+  multiboot_uपूर्णांक8_t framebuffer_bpp;
+#घोषणा MULTIBOOT_FRAMEBUFFER_TYPE_INDEXED 0
+#घोषणा MULTIBOOT_FRAMEBUFFER_TYPE_RGB     1
+#घोषणा MULTIBOOT_FRAMEBUFFER_TYPE_EGA_TEXT	2
+  multiboot_uपूर्णांक8_t framebuffer_type;
+  जोड़
+  अणु
+    काष्ठा
+    अणु
+      multiboot_uपूर्णांक32_t framebuffer_palette_addr;
+      multiboot_uपूर्णांक16_t framebuffer_palette_num_colors;
+    पूर्ण;
+    काष्ठा
+    अणु
+      multiboot_uपूर्णांक8_t framebuffer_red_field_position;
+      multiboot_uपूर्णांक8_t framebuffer_red_mask_size;
+      multiboot_uपूर्णांक8_t framebuffer_green_field_position;
+      multiboot_uपूर्णांक8_t framebuffer_green_mask_size;
+      multiboot_uपूर्णांक8_t framebuffer_blue_field_position;
+      multiboot_uपूर्णांक8_t framebuffer_blue_mask_size;
+    पूर्ण;
+  पूर्ण;
+पूर्ण;
+प्रकार काष्ठा multiboot_info multiboot_info_t;
+
+काष्ठा multiboot_color
+अणु
+  multiboot_uपूर्णांक8_t red;
+  multiboot_uपूर्णांक8_t green;
+  multiboot_uपूर्णांक8_t blue;
+पूर्ण;
+
+काष्ठा multiboot_mmap_entry
+अणु
+  multiboot_uपूर्णांक32_t size;
+  multiboot_uपूर्णांक64_t addr;
+  multiboot_uपूर्णांक64_t len;
+#घोषणा MULTIBOOT_MEMORY_AVAILABLE		1
+#घोषणा MULTIBOOT_MEMORY_RESERVED		2
+#घोषणा MULTIBOOT_MEMORY_ACPI_RECLAIMABLE       3
+#घोषणा MULTIBOOT_MEMORY_NVS                    4
+#घोषणा MULTIBOOT_MEMORY_BADRAM                 5
+  multiboot_uपूर्णांक32_t type;
+पूर्ण __attribute__((packed));
+प्रकार काष्ठा multiboot_mmap_entry multiboot_memory_map_t;
+
+काष्ठा multiboot_mod_list
+अणु
+  /* the memory used goes from bytes 'mod_start' to 'mod_end-1' inclusive */
+  multiboot_uपूर्णांक32_t mod_start;
+  multiboot_uपूर्णांक32_t mod_end;
+
+  /* Module command line */
+  multiboot_uपूर्णांक32_t cmdline;
+
+  /* padding to take it to 16 bytes (must be zero) */
+  multiboot_uपूर्णांक32_t pad;
+पूर्ण;
+प्रकार काष्ठा multiboot_mod_list multiboot_module_t;
+
+#पूर्ण_अगर /* ! ASM_खाता */
+
+#पूर्ण_अगर /* ! MULTIBOOT_HEADER */

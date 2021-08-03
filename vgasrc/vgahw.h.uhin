@@ -1,0 +1,161 @@
+<शैली गुरु>
+#अगर_अघोषित __VGAHW_H
+#घोषणा __VGAHW_H
+
+#समावेश "types.h" // u8
+#समावेश "config.h" // CONFIG_*
+
+#समावेश "bochsvga.h" // bochsvga_set_mode
+#समावेश "stdvga.h" // stdvga_set_mode
+#समावेश "geodevga.h" // geodevga_setup
+#समावेश "vgautil.h" // stdvga_list_modes
+
+अटल अंतरभूत काष्ठा vgamode_s *vgahw_find_mode(पूर्णांक mode) अणु
+    अगर (CONFIG_VGA_CIRRUS)
+        वापस clext_find_mode(mode);
+    अगर (CONFIG_VGA_ATI)
+        वापस ati_find_mode(mode);
+    अगर (CONFIG_VGA_BOCHS)
+        वापस bochsvga_find_mode(mode);
+    अगर (CONFIG_VGA_EMULATE_TEXT)
+        वापस cbvga_find_mode(mode);
+    वापस stdvga_find_mode(mode);
+पूर्ण
+
+अटल अंतरभूत पूर्णांक vgahw_set_mode(काष्ठा vgamode_s *vmode_g, पूर्णांक flags) अणु
+    अगर (CONFIG_VGA_CIRRUS)
+        वापस clext_set_mode(vmode_g, flags);
+    अगर (CONFIG_VGA_ATI)
+        वापस ati_set_mode(vmode_g, flags);
+    अगर (CONFIG_VGA_BOCHS)
+        वापस bochsvga_set_mode(vmode_g, flags);
+    अगर (CONFIG_VGA_EMULATE_TEXT)
+        वापस cbvga_set_mode(vmode_g, flags);
+    वापस stdvga_set_mode(vmode_g, flags);
+पूर्ण
+
+अटल अंतरभूत व्योम vgahw_list_modes(u16 seg, u16 *dest, u16 *last) अणु
+    अगर (CONFIG_VGA_CIRRUS)
+        clext_list_modes(seg, dest, last);
+    अन्यथा अगर (CONFIG_VGA_ATI)
+        ati_list_modes(seg, dest, last);
+    अन्यथा अगर (CONFIG_VGA_BOCHS)
+        bochsvga_list_modes(seg, dest, last);
+    अन्यथा अगर (CONFIG_VGA_EMULATE_TEXT)
+        cbvga_list_modes(seg, dest, last);
+    अन्यथा
+        stdvga_list_modes(seg, dest, last);
+पूर्ण
+
+अटल अंतरभूत पूर्णांक vgahw_setup(व्योम) अणु
+    अगर (CONFIG_VGA_CIRRUS)
+        वापस clext_setup();
+    अगर (CONFIG_VGA_ATI)
+        वापस ati_setup();
+    अगर (CONFIG_VGA_BOCHS)
+        वापस bochsvga_setup();
+    अगर (CONFIG_VGA_GEODEGX2 || CONFIG_VGA_GEODELX)
+        वापस geodevga_setup();
+    अगर (CONFIG_VGA_COREBOOT)
+        वापस cbvga_setup();
+    अगर (CONFIG_DISPLAY_BOCHS)
+        वापस bochs_display_setup();
+    अगर (CONFIG_VGA_RAMFB)
+        वापस ramfb_setup();
+    वापस stdvga_setup();
+पूर्ण
+
+अटल अंतरभूत पूर्णांक vgahw_get_winकरोw(काष्ठा vgamode_s *vmode_g, पूर्णांक winकरोw) अणु
+    अगर (CONFIG_VGA_CIRRUS)
+        वापस clext_get_winकरोw(vmode_g, winकरोw);
+    अगर (CONFIG_VGA_BOCHS)
+        वापस bochsvga_get_winकरोw(vmode_g, winकरोw);
+    अगर (CONFIG_VGA_EMULATE_TEXT)
+        वापस cbvga_get_winकरोw(vmode_g, winकरोw);
+    वापस stdvga_get_winकरोw(vmode_g, winकरोw);
+पूर्ण
+
+अटल अंतरभूत पूर्णांक vgahw_set_winकरोw(काष्ठा vgamode_s *vmode_g, पूर्णांक winकरोw
+                                   , पूर्णांक val) अणु
+    अगर (CONFIG_VGA_CIRRUS)
+        वापस clext_set_winकरोw(vmode_g, winकरोw, val);
+    अगर (CONFIG_VGA_BOCHS)
+        वापस bochsvga_set_winकरोw(vmode_g, winकरोw, val);
+    अगर (CONFIG_VGA_EMULATE_TEXT)
+        वापस cbvga_set_winकरोw(vmode_g, winकरोw, val);
+    वापस stdvga_set_winकरोw(vmode_g, winकरोw, val);
+पूर्ण
+
+अटल अंतरभूत पूर्णांक vgahw_get_linelength(काष्ठा vgamode_s *vmode_g) अणु
+    अगर (CONFIG_VGA_CIRRUS)
+        वापस clext_get_linelength(vmode_g);
+    अगर (CONFIG_VGA_BOCHS)
+        वापस bochsvga_get_linelength(vmode_g);
+    अगर (CONFIG_VGA_EMULATE_TEXT)
+        वापस cbvga_get_linelength(vmode_g);
+    वापस stdvga_get_linelength(vmode_g);
+पूर्ण
+
+अटल अंतरभूत पूर्णांक vgahw_set_linelength(काष्ठा vgamode_s *vmode_g, पूर्णांक val) अणु
+    अगर (CONFIG_VGA_CIRRUS)
+        वापस clext_set_linelength(vmode_g, val);
+    अगर (CONFIG_VGA_BOCHS)
+        वापस bochsvga_set_linelength(vmode_g, val);
+    अगर (CONFIG_VGA_EMULATE_TEXT)
+        वापस cbvga_set_linelength(vmode_g, val);
+    वापस stdvga_set_linelength(vmode_g, val);
+पूर्ण
+
+अटल अंतरभूत पूर्णांक vgahw_get_displaystart(काष्ठा vgamode_s *vmode_g) अणु
+    अगर (CONFIG_VGA_CIRRUS)
+        वापस clext_get_displaystart(vmode_g);
+    अगर (CONFIG_VGA_BOCHS)
+        वापस bochsvga_get_displaystart(vmode_g);
+    अगर (CONFIG_VGA_EMULATE_TEXT)
+        वापस cbvga_get_displaystart(vmode_g);
+    वापस stdvga_get_displaystart(vmode_g);
+पूर्ण
+
+अटल अंतरभूत पूर्णांक vgahw_set_displaystart(काष्ठा vgamode_s *vmode_g, पूर्णांक val) अणु
+    अगर (CONFIG_VGA_CIRRUS)
+        वापस clext_set_displaystart(vmode_g, val);
+    अगर (CONFIG_VGA_BOCHS)
+        वापस bochsvga_set_displaystart(vmode_g, val);
+    अगर (CONFIG_VGA_EMULATE_TEXT)
+        वापस cbvga_set_displaystart(vmode_g, val);
+    वापस stdvga_set_displaystart(vmode_g, val);
+पूर्ण
+
+अटल अंतरभूत पूर्णांक vgahw_get_dacक्रमmat(काष्ठा vgamode_s *vmode_g) अणु
+    अगर (CONFIG_VGA_BOCHS)
+        वापस bochsvga_get_dacक्रमmat(vmode_g);
+    अगर (CONFIG_VGA_EMULATE_TEXT)
+        वापस cbvga_get_dacक्रमmat(vmode_g);
+    वापस stdvga_get_dacक्रमmat(vmode_g);
+पूर्ण
+
+अटल अंतरभूत पूर्णांक vgahw_set_dacक्रमmat(काष्ठा vgamode_s *vmode_g, पूर्णांक val) अणु
+    अगर (CONFIG_VGA_BOCHS)
+        वापस bochsvga_set_dacक्रमmat(vmode_g, val);
+    अगर (CONFIG_VGA_EMULATE_TEXT)
+        वापस cbvga_set_dacक्रमmat(vmode_g, val);
+    वापस stdvga_set_dacक्रमmat(vmode_g, val);
+पूर्ण
+
+अटल अंतरभूत पूर्णांक vgahw_save_restore(पूर्णांक cmd, u16 seg, व्योम *data) अणु
+    अगर (CONFIG_VGA_CIRRUS)
+        वापस clext_save_restore(cmd, seg, data);
+    अगर (CONFIG_VGA_BOCHS)
+        वापस bochsvga_save_restore(cmd, seg, data);
+    अगर (CONFIG_VGA_EMULATE_TEXT)
+        वापस cbvga_save_restore(cmd, seg, data);
+    वापस stdvga_save_restore(cmd, seg, data);
+पूर्ण
+
+अटल अंतरभूत पूर्णांक vgahw_get_linesize(काष्ठा vgamode_s *vmode_g) अणु
+    अगर (CONFIG_VGA_EMULATE_TEXT)
+        वापस cbvga_get_linesize(vmode_g);
+    वापस stdvga_get_linesize(vmode_g);
+पूर्ण
+
+#पूर्ण_अगर // vgahw.h

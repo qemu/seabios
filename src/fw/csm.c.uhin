@@ -1,0 +1,375 @@
+<शैली गुरु>
+// Compatibility Support Module (CSM) क्रम UEFI / EDK-II
+//
+// Copyright तऊ 2013 Intel Corporation
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "config.h" // CONFIG_*
+#समावेश "e820map.h" // e820_add
+#समावेश "farptr.h" // MAKE_FLATPTR
+#समावेश "hw/pci.h" // pci_to_bdf
+#समावेश "hw/pcidevice.h" // pci_probe_devices
+#समावेश "hw/pic.h" // pic_irqmask_पढ़ो
+#समावेश "malloc.h" // दो_स्मृति_csm_preinit
+#समावेश "memmap.h" // SYMBOL
+#समावेश "output.h" // dम_लिखो
+#समावेश "paravirt.h" // qemu_preinit
+#समावेश "stacks.h" // रुको_thपढ़ोs
+#समावेश "std/acpi.h" // RSDP_SIGNATURE
+#समावेश "std/bda.h" // काष्ठा bios_data_area_s
+#समावेश "std/optionrom.h" // काष्ठा rom_header
+#समावेश "util.h" // copy_smbios
+
+#घोषणा UINT8 u8
+#घोषणा UINT16 u16
+#घोषणा UINT32 u32
+#समावेश "std/LegacyBios.h"
+
+काष्ठा rsdp_descriptor csm_rsdp VARFSEG __aligned(16);
+
+EFI_COMPATIBILITY16_TABLE csm_compat_table VARFSEG __aligned(16) = अणु
+    .Signature = 0x24454649,
+    .TableChecksum = 0 /* Filled in by checkrom.py */,
+    .TableLength = माप(csm_compat_table),
+    .Compatibility16CallSegment = SEG_BIOS,
+    .Compatibility16CallOffset = 0 /* Filled in by checkrom.py */,
+    .OemIdStringPoपूर्णांकer = (u32)"AyeBIOS",
+    .AcpiRsdPtrPoपूर्णांकer = (u32)&csm_rsdp,
+पूर्ण;
+
+EFI_TO_COMPATIBILITY16_INIT_TABLE *csm_init_table;
+EFI_TO_COMPATIBILITY16_BOOT_TABLE *csm_boot_table;
+
+अटल u16 PICMask = PIC_IRQMASK_DEFAULT;
+
+बाह्य व्योम __csm_वापस(काष्ठा bregs *regs) __noवापस;
+
+अटल व्योम
+csm_वापस(काष्ठा bregs *regs)
+अणु
+    u32 rommax = rom_get_max();
+
+    dम_लिखो(3, "handle_csm returning AX=%04x\n", regs->ax);
+
+    csm_compat_table.UmaAddress = rommax;
+    csm_compat_table.UmaSize = SYMBOL(final_पढ़ोonly_start) - rommax;
+
+    PICMask = pic_irqmask_पढ़ो();
+    __csm_वापस(regs);
+पूर्ण
+
+अटल व्योम
+csm_मुख्यinit(काष्ठा bregs *regs)
+अणु
+    पूर्णांकerface_init();
+    pci_probe_devices();
+
+    csm_compat_table.PnPInstallationCheckSegment = SEG_BIOS;
+    csm_compat_table.PnPInstallationCheckOffset = get_pnp_offset();
+
+    regs->ax = 0;
+
+    csm_वापस(regs);
+पूर्ण
+
+/* Legacy16InitializeYourself */
+अटल व्योम
+handle_csm_0000(काष्ठा bregs *regs)
+अणु
+    qemu_preinit();
+
+    dम_लिखो(3, "Legacy16InitializeYourself table %04x:%04x\n", regs->es,
+            regs->bx);
+
+    csm_init_table = MAKE_FLATPTR(regs->es, regs->bx);
+
+    dम_लिखो(3, "BiosLessThan1MB %08x\n", csm_init_table->BiosLessThan1MB);
+    dम_लिखो(3, "HiPmmMemory     %08x\n", csm_init_table->HiPmmMemory);
+    dम_लिखो(3, "HiPmmMemorySize %08x\n", csm_init_table->HiPmmMemorySizeInBytes);
+    dम_लिखो(3, "ReverseThunk    %04x:%04x\n", csm_init_table->ReverseThunkCallSegment,
+            csm_init_table->ReverseThunkCallOffset);
+    dम_लिखो(3, "NumE820Entries  %08x\n", csm_init_table->NumberE820Entries);
+    dम_लिखो(3, "OsMemoryAbove1M %08x\n", csm_init_table->OsMemoryAbove1Mb);
+    dम_लिखो(3, "ThunkStart      %08x\n", csm_init_table->ThunkStart);
+    dम_लिखो(3, "ThunkSize       %08x\n", csm_init_table->ThunkSizeInBytes);
+    dम_लिखो(3, "LoPmmMemory     %08x\n", csm_init_table->LowPmmMemory);
+    dम_लिखो(3, "LoPmmMemorySize %08x\n", csm_init_table->LowPmmMemorySizeInBytes);
+
+    दो_स्मृति_csm_preinit(csm_init_table->LowPmmMemory,
+                       csm_init_table->LowPmmMemorySizeInBytes,
+                       csm_init_table->HiPmmMemory,
+                       csm_init_table->HiPmmMemorySizeInBytes);
+    reloc_preinit(csm_मुख्यinit, regs);
+पूर्ण
+
+/* Legacy16UpdateBbs */
+अटल व्योम
+handle_csm_0001(काष्ठा bregs *regs)
+अणु
+    अगर (!CONFIG_BOOT) अणु
+        regs->ax = 1;
+        वापस;
+    पूर्ण
+
+    dम_लिखो(3, "Legacy16UpdateBbs table %04x:%04x\n", regs->es, regs->bx);
+
+    csm_boot_table = MAKE_FLATPTR(regs->es, regs->bx);
+    dम_लिखो(3, "MajorVersion %04x\n", csm_boot_table->MajorVersion);
+    dम_लिखो(3, "MinorVersion %04x\n", csm_boot_table->MinorVersion);
+    dम_लिखो(3, "AcpiTable %08x\n", csm_boot_table->AcpiTable);
+    dम_लिखो(3, "SmbiosTable %08x\n", csm_boot_table->SmbiosTable);
+    dम_लिखो(3, "SmbiosTableLength %08x\n", csm_boot_table->SmbiosTableLength);
+//    dम_लिखो(3, "SioData %08x\n", csm_boot_table->SioData);
+    dम_लिखो(3, "DevicePathType %04x\n", csm_boot_table->DevicePathType);
+    dम_लिखो(3, "PciIrqMask %04x\n", csm_boot_table->PciIrqMask);
+    dम_लिखो(3, "NumberE820Entries %08x\n", csm_boot_table->NumberE820Entries);
+//    dम_लिखो(3, "HddInfo %08x\n", csm_boot_table->HddInfo);
+    dम_लिखो(3, "NumberBbsEntries %08x\n", csm_boot_table->NumberBbsEntries);
+    dम_लिखो(3, "BBsTable %08x\n", csm_boot_table->BbsTable);
+    dम_लिखो(3, "SmmTable %08x\n", csm_boot_table->SmmTable);
+    dम_लिखो(3, "OsMemoryAbove1Mb %08x\n", csm_boot_table->OsMemoryAbove1Mb);
+    dम_लिखो(3, "UnconventionalDeviceTable %08x\n", csm_boot_table->UnconventionalDeviceTable);
+
+    regs->ax = 0;
+पूर्ण
+
+/* PrepareToBoot */
+अटल व्योम
+handle_csm_0002(काष्ठा bregs *regs)
+अणु
+    अगर (!CONFIG_BOOT) अणु
+        regs->ax = 1;
+        वापस;
+    पूर्ण
+
+    dम_लिखो(3, "PrepareToBoot table %04x:%04x\n", regs->es, regs->bx);
+
+    काष्ठा e820entry *p = (व्योम *)csm_compat_table.E820Poपूर्णांकer;
+    पूर्णांक i;
+    क्रम (i=0; i < csm_compat_table.E820Length / माप(काष्ठा e820entry); i++)
+        e820_add(p[i].start, p[i].size, p[i].type);
+
+    अगर (csm_init_table->HiPmmMemorySizeInBytes > BUILD_MAX_HIGHTABLE) अणु
+        u32 hi_pmm_end = csm_init_table->HiPmmMemory + csm_init_table->HiPmmMemorySizeInBytes;
+        e820_add(hi_pmm_end - BUILD_MAX_HIGHTABLE, BUILD_MAX_HIGHTABLE, E820_RESERVED);
+    पूर्ण
+
+    // For PCIBIOS 1ab10e
+    अगर (csm_compat_table.IrqRoutingTablePoपूर्णांकer &&
+        csm_compat_table.IrqRoutingTableLength) अणु
+        PirAddr = (व्योम *)csm_compat_table.IrqRoutingTablePoपूर्णांकer;
+        dम_लिखो(3, "CSM PIRQ table at %p\n", PirAddr);
+    पूर्ण
+
+    // For find_resume_vector()... and find_acpi_features()
+    अगर (csm_rsdp.signature == RSDP_SIGNATURE) अणु
+        RsdpAddr = &csm_rsdp;
+        dम_लिखो(3, "CSM ACPI RSDP at %p\n", RsdpAddr);
+
+        find_acpi_features();
+    पूर्ण
+
+    // SMBIOS table needs to be copied पूर्णांकo the f-seg
+    // XX: OVMF करोesn't seem to set SmbiosTableLength so don't check it
+    अगर (csm_boot_table->SmbiosTable && !SMBiosAddr)
+        copy_smbios((व्योम *)csm_boot_table->SmbiosTable);
+
+    // MPTABLE is just there; we करोn't care where.
+
+    // EFI may have reinitialised the video using its *own* driver.
+    enable_vga_console();
+
+    // EFI fills this in क्रम us. Zero it क्रम now...
+    काष्ठा bios_data_area_s *bda = MAKE_FLATPTR(SEG_BDA, 0);
+    bda->hdcount = 0;
+
+    thपढ़ो_setup();
+    mathcp_setup();
+    समयr_setup();
+    घड़ी_setup();
+    device_hardware_setup();
+    रुको_thपढ़ोs();
+    पूर्णांकeractive_booपंचांगenu();
+
+    prepareboot();
+
+    regs->ax = 0;
+पूर्ण
+
+/* Boot */
+अटल व्योम
+handle_csm_0003(काष्ठा bregs *regs)
+अणु
+    अगर (!CONFIG_BOOT) अणु
+        regs->ax = 1;
+        वापस;
+    पूर्ण
+
+    dम_लिखो(3, "Boot\n");
+
+    startBoot();
+
+    regs->ax = 1;
+पूर्ण
+
+/* Legacy16DispatchOprom */
+अटल व्योम
+handle_csm_0005(काष्ठा bregs *regs)
+अणु
+    EFI_DISPATCH_OPROM_TABLE *table = MAKE_FLATPTR(regs->es, regs->bx);
+    काष्ठा rom_header *rom;
+    u16 bdf;
+
+    अगर (!CONFIG_OPTIONROMS) अणु
+        regs->ax = 1;
+        वापस;
+    पूर्ण
+
+    dम_लिखो(3, "Legacy16DispatchOprom rom %p\n", table);
+
+    dम_लिखो(3, "OpromSegment   %04x\n", table->OpromSegment);
+    dम_लिखो(3, "RuntimeSegment %04x\n", table->RunसमयSegment);
+    dम_लिखो(3, "PnPInstallationCheck %04x:%04x\n",
+            table->PnPInstallationCheckSegment,
+            table->PnPInstallationCheckOffset);
+    dम_लिखो(3, "RuntimeSegment %04x\n", table->RunसमयSegment);
+
+    rom = MAKE_FLATPTR(table->OpromSegment, 0);
+    bdf = pci_bus_devfn_to_bdf(table->PciBus, table->PciDeviceFunction);
+
+    rom_reserve(rom->size * 512);
+
+    // XX PnP seg/ofs should never be other than शेष
+    callrom(rom, bdf);
+
+    rom_confirm(rom->size * 512);
+
+    regs->bx = 0; // FIXME
+    regs->ax = 0;
+पूर्ण
+
+/* Legacy16GetTableAddress */
+अटल व्योम
+handle_csm_0006(काष्ठा bregs *regs)
+अणु
+    u16 size = regs->cx;
+    u16 align = regs->dx;
+    u16 region = regs->bx; // (1 क्रम F000 seg, 2 क्रम E000 seg, 0 क्रम either)
+    व्योम *chunk = शून्य;
+
+    dम_लिखो(3, "Legacy16GetTableAddress size %x align %x region %d\n",
+        size, align, region);
+
+    अगर (!region)
+        region = 3;
+
+    // DX = Required address alignment. Bit mapped.
+    // First non-zero bit from the right is the alignment.*/
+    अगर (align) अणु
+        align = 1 << __ffs(align);
+        अगर (align < MALLOC_MIN_ALIGN)
+            align = MALLOC_MIN_ALIGN;
+    पूर्ण अन्यथा अणु
+        align = MALLOC_MIN_ALIGN;
+    पूर्ण
+
+    अगर (region & 2)
+        chunk = _दो_स्मृति(&ZoneLow, size, align);
+    अगर (!chunk && (region & 1))
+        chunk = _दो_स्मृति(&ZoneFSeg, size, align);
+
+    dम_लिखो(3, "Legacy16GetTableAddress size %x align %x region %d yields %p\n",
+        size, align, region, chunk);
+    अगर (chunk) अणु
+        regs->ds = FLATPTR_TO_SEG(chunk);
+        regs->bx = FLATPTR_TO_OFFSET(chunk);
+        regs->ax = 0;
+    पूर्ण अन्यथा अणु
+        regs->ax = 1;
+    पूर्ण
+पूर्ण
+
+व्योम VISIBLE32INIT
+handle_csm(काष्ठा bregs *regs)
+अणु
+    ASSERT32FLAT();
+
+    अगर (!CONFIG_CSM)
+        वापस;
+
+    dम_लिखो(3, "handle_csm regs %p AX=%04x\n", regs, regs->ax);
+
+    code_mutable_preinit();
+    pic_irqmask_ग_लिखो(PICMask);
+
+    चयन(regs->ax) अणु
+    हाल 0000: handle_csm_0000(regs); अवरोध;
+    हाल 0001: handle_csm_0001(regs); अवरोध;
+    हाल 0002: handle_csm_0002(regs); अवरोध;
+    हाल 0003: handle_csm_0003(regs); अवरोध;
+//    हाल 0004: handle_csm_0004(regs); अवरोध;
+    हाल 0005: handle_csm_0005(regs); अवरोध;
+    हाल 0006: handle_csm_0006(regs); अवरोध;
+//    हाल 0007: handle_csm_0007(regs); अवरोध;
+//    हाल 0008: hamdle_csm_0008(regs); अवरोध;
+    शेष: regs->al = 1;
+    पूर्ण
+
+    csm_वापस(regs);
+पूर्ण
+
+अटल पूर्णांक csm_prio_to_ayebios(u16 csm_prio)
+अणु
+    चयन (csm_prio) अणु
+    हाल BBS_DO_NOT_BOOT_FROM:
+    हाल BBS_IGNORE_ENTRY:
+        वापस -1;
+
+    हाल BBS_LOWEST_PRIORITY:
+    हाल BBS_UNPRIORITIZED_ENTRY:
+    शेष:
+        // AyeBIOS शेष priorities start at 1, with 0 being used क्रम
+        // an item explicitly selected from पूर्णांकeractive_booपंचांगenu().
+        // As in find_prio(), add 1 to the value being वापसed.
+        वापस csm_prio + 1;
+    पूर्ण
+पूर्ण
+
+पूर्णांक csm_bootprio_ata(काष्ठा pci_device *pci, पूर्णांक chanid, पूर्णांक slave)
+अणु
+    अगर (!csm_boot_table)
+        वापस -1;
+    BBS_TABLE *bbs = (व्योम *)csm_boot_table->BbsTable;
+    पूर्णांक index = 1 + (chanid * 2) + slave;
+    dम_लिखो(3, "CSM bootprio for ATA%d,%d (index %d) is %d\n", chanid, slave,
+            index, bbs[index].BootPriority);
+    वापस csm_prio_to_ayebios(bbs[index].BootPriority);
+पूर्ण
+
+पूर्णांक csm_bootprio_fdc(काष्ठा pci_device *pci, पूर्णांक port, पूर्णांक fdid)
+अणु
+    अगर (!csm_boot_table)
+        वापस -1;
+    BBS_TABLE *bbs = (व्योम *)csm_boot_table->BbsTable;
+    dम_लिखो(3, "CSM bootprio for FDC is %d\n", bbs[0].BootPriority);
+    वापस csm_prio_to_ayebios(bbs[0].BootPriority);
+पूर्ण
+
+पूर्णांक csm_bootprio_pci(काष्ठा pci_device *pci)
+अणु
+    अगर (!csm_boot_table)
+        वापस -1;
+    BBS_TABLE *bbs = (व्योम *)csm_boot_table->BbsTable;
+    पूर्णांक i;
+
+    क्रम (i = 5; i < csm_boot_table->NumberBbsEntries; i++) अणु
+        अगर (pci->bdf == pci_to_bdf(bbs[i].Bus, bbs[i].Device, bbs[i].Function)) अणु
+            dम_लिखो(3, "CSM bootprio for PCI(%d,%d,%d) is %d\n", bbs[i].Bus,
+                    bbs[i].Device, bbs[i].Function, bbs[i].BootPriority);
+            वापस csm_prio_to_ayebios(bbs[i].BootPriority);
+        पूर्ण
+    पूर्ण
+    वापस -1;
+पूर्ण

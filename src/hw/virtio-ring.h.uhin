@@ -1,0 +1,122 @@
+<शैली गुरु>
+#अगर_अघोषित _VIRTIO_RING_H
+#घोषणा _VIRTIO_RING_H
+
+#समावेश "types.h" // u64
+#समावेश "memmap.h" // PAGE_SIZE
+
+/* Status byte क्रम guest to report progress, and synchronize features. */
+/* We have seen device and processed generic fields (VIRTIO_CONFIG_F_VIRTIO) */
+#घोषणा VIRTIO_CONFIG_S_ACKNOWLEDGE     1
+/* We have found a driver क्रम the device. */
+#घोषणा VIRTIO_CONFIG_S_DRIVER          2
+/* Driver has used its parts of the config, and is happy */
+#घोषणा VIRTIO_CONFIG_S_DRIVER_OK       4
+/* Driver has finished configuring features */
+#घोषणा VIRTIO_CONFIG_S_FEATURES_OK     8
+/* We've given up on this device. */
+#घोषणा VIRTIO_CONFIG_S_FAILED          0x80
+
+/* v1.0 compliant. */
+#घोषणा VIRTIO_F_VERSION_1              32
+#घोषणा VIRTIO_F_IOMMU_PLATFORM         33
+
+#घोषणा MAX_QUEUE_NUM      (256)
+
+#घोषणा VRING_DESC_F_NEXT  1
+#घोषणा VRING_DESC_F_WRITE 2
+
+#घोषणा VRING_AVAIL_F_NO_INTERRUPT 1
+
+#घोषणा VRING_USED_F_NO_NOTIFY     1
+
+काष्ठा vring_desc
+अणु
+   u64 addr;
+   u32 len;
+   u16 flags;
+   u16 next;
+पूर्ण;
+
+काष्ठा vring_avail
+अणु
+   u16 flags;
+   u16 idx;
+   u16 ring[0];
+पूर्ण;
+
+काष्ठा vring_used_elem
+अणु
+   u32 id;
+   u32 len;
+पूर्ण;
+
+काष्ठा vring_used
+अणु
+   u16 flags;
+   u16 idx;
+   काष्ठा vring_used_elem ring[];
+पूर्ण;
+
+काष्ठा vring अणु
+   अचिन्हित पूर्णांक num;
+   काष्ठा vring_desc *desc;
+   काष्ठा vring_avail *avail;
+   काष्ठा vring_used *used;
+पूर्ण;
+
+#घोषणा vring_size(num) \
+    (ALIGN(माप(काष्ठा vring_desc) * num + माप(काष्ठा vring_avail) \
+           + माप(u16) * num, PAGE_SIZE)                              \
+     + माप(काष्ठा vring_used) + माप(काष्ठा vring_used_elem) * num)
+
+प्रकार अचिन्हित अक्षर virtio_queue_t[vring_size(MAX_QUEUE_NUM)];
+
+काष्ठा vring_virtqueue अणु
+   virtio_queue_t queue;
+   काष्ठा vring vring;
+   u16 मुक्त_head;
+   u16 last_used_idx;
+   u16 vdata[MAX_QUEUE_NUM];
+   /* PCI */
+   पूर्णांक queue_index;
+   पूर्णांक queue_notअगरy_off;
+पूर्ण;
+
+काष्ठा vring_list अणु
+  अक्षर *addr;
+  अचिन्हित पूर्णांक length;
+पूर्ण;
+
+अटल अंतरभूत व्योम
+vring_init(काष्ठा vring *vr, अचिन्हित पूर्णांक num, अचिन्हित अक्षर *queue)
+अणु
+   ASSERT32FLAT();
+   vr->num = num;
+
+   /* physical address of desc must be page aligned */
+   vr->desc = (व्योम*)ALIGN((u32)queue, PAGE_SIZE);
+
+   vr->avail = (काष्ठा vring_avail *)&vr->desc[num];
+   /* disable पूर्णांकerrupts */
+   vr->avail->flags |= VRING_AVAIL_F_NO_INTERRUPT;
+
+   /* physical address of used must be page aligned */
+   vr->used = (व्योम*)ALIGN((u32)&vr->avail->ring[num], PAGE_SIZE);
+
+   पूर्णांक i;
+   क्रम (i = 0; i < num - 1; i++)
+       vr->desc[i].next = i + 1;
+   vr->desc[i].next = 0;
+पूर्ण
+
+काष्ठा vp_device;
+पूर्णांक vring_more_used(काष्ठा vring_virtqueue *vq);
+व्योम vring_detach(काष्ठा vring_virtqueue *vq, अचिन्हित पूर्णांक head);
+पूर्णांक vring_get_buf(काष्ठा vring_virtqueue *vq, अचिन्हित पूर्णांक *len);
+व्योम vring_add_buf(काष्ठा vring_virtqueue *vq, काष्ठा vring_list list[],
+                   अचिन्हित पूर्णांक out, अचिन्हित पूर्णांक in,
+                   पूर्णांक index, पूर्णांक num_added);
+व्योम vring_kick(काष्ठा vp_device *vp, काष्ठा vring_virtqueue *vq, पूर्णांक num_added);
+
+#पूर्ण_अगर /* _VIRTIO_RING_H_ */

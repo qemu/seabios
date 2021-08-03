@@ -1,0 +1,787 @@
+<शैली गुरु>
+// Low level NVMe disk access
+//
+// Copyright 2017 Amazon.com, Inc. or its affiliates.
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "blockcmd.h"
+#समावेश "malloc.h" // दो_स्मृति_high
+#समावेश "output.h" // dम_लिखो
+#समावेश "pci.h"
+#समावेश "pci_ids.h" // PCI_CLASS_STORAGE_NVME
+#समावेश "pci_regs.h" // PCI_BASE_ADDRESS_0
+#समावेश "pcidevice.h" // क्रमeachpci
+#समावेश "stacks.h" // yield
+#समावेश "std/disk.h" // DISK_RET_
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // boot_add_hd
+#समावेश "x86.h" // पढ़ोl
+
+#समावेश "nvme.h"
+#समावेश "nvme-int.h"
+
+अटल व्योम *
+zalloc_page_aligned(काष्ठा zone_s *zone, u32 size)
+अणु
+    व्योम *res = _दो_स्मृति(zone, size, NVME_PAGE_SIZE);
+    अगर (res) स_रखो(res, 0, size);
+    वापस res;
+पूर्ण
+
+अटल व्योम
+nvme_init_queue_common(काष्ठा nvme_ctrl *ctrl, काष्ठा nvme_queue *q, u16 q_idx,
+                       u16 length)
+अणु
+    स_रखो(q, 0, माप(*q));
+    q->dbl = (u32 *)((अक्षर *)ctrl->reg + 0x1000 + q_idx * ctrl->करोorbell_stride);
+    dम_लिखो(3, " q %p q_idx %u dbl %p\n", q, q_idx, q->dbl);
+    q->mask = length - 1;
+पूर्ण
+
+अटल पूर्णांक
+nvme_init_sq(काष्ठा nvme_ctrl *ctrl, काष्ठा nvme_sq *sq, u16 q_idx, u16 length,
+             काष्ठा nvme_cq *cq)
+अणु
+    nvme_init_queue_common(ctrl, &sq->common, q_idx, length);
+    sq->sqe = zalloc_page_aligned(&ZoneHigh, माप(*sq->sqe) * length);
+
+    अगर (!sq->sqe) अणु
+        warn_noalloc();
+        वापस -1;
+    पूर्ण
+
+    dम_लिखो(3, "sq %p q_idx %u sqe %p\n", sq, q_idx, sq->sqe);
+    sq->cq   = cq;
+    sq->head = 0;
+    sq->tail = 0;
+
+    वापस 0;
+पूर्ण
+
+अटल पूर्णांक
+nvme_init_cq(काष्ठा nvme_ctrl *ctrl, काष्ठा nvme_cq *cq, u16 q_idx, u16 length)
+अणु
+    nvme_init_queue_common(ctrl, &cq->common, q_idx, length);
+    cq->cqe = zalloc_page_aligned(&ZoneHigh, माप(*cq->cqe) * length);
+    अगर (!cq->cqe) अणु
+        warn_noalloc();
+        वापस -1;
+    पूर्ण
+
+    cq->head = 0;
+
+    /* All CQE phase bits are initialized to zero. This means initially we रुको
+       क्रम the host controller to set these to 1. */
+    cq->phase = 1;
+
+    वापस 0;
+पूर्ण
+
+अटल पूर्णांक
+nvme_poll_cq(काष्ठा nvme_cq *cq)
+अणु
+    u32 dw3 = पढ़ोl(&cq->cqe[cq->head].dword[3]);
+    वापस (!!(dw3 & NVME_CQE_DW3_P) == cq->phase);
+पूर्ण
+
+अटल पूर्णांक
+nvme_is_cqe_success(काष्ठा nvme_cqe स्थिर *cqe)
+अणु
+    वापस ((cqe->status >> 1) & 0xFF) == 0;
+पूर्ण
+
+अटल काष्ठा nvme_cqe
+nvme_error_cqe(व्योम)
+अणु
+    काष्ठा nvme_cqe r;
+
+    /* 0xFF is a venकरोr specअगरic status code != success. Should be okay क्रम
+       indicating failure. */
+    स_रखो(&r, 0xFF, माप(r));
+    वापस r;
+पूर्ण
+
+अटल काष्ठा nvme_cqe
+nvme_consume_cqe(काष्ठा nvme_sq *sq)
+अणु
+    काष्ठा nvme_cq *cq = sq->cq;
+
+    अगर (!nvme_poll_cq(cq)) अणु
+        /* Cannot consume a completion queue entry, अगर there is none पढ़ोy. */
+        वापस nvme_error_cqe();
+    पूर्ण
+
+    काष्ठा nvme_cqe *cqe = &cq->cqe[cq->head];
+    u16 cq_next_head = (cq->head + 1) & cq->common.mask;
+    dम_लिखो(4, "cq %p head %u -> %u\n", cq, cq->head, cq_next_head);
+    अगर (cq_next_head < cq->head) अणु
+        dम_लिखो(3, "cq %p wrap\n", cq);
+        cq->phase = ~cq->phase;
+    पूर्ण
+    cq->head = cq_next_head;
+
+    /* Update the submission queue head. */
+    अगर (cqe->sq_head != sq->head) अणु
+        sq->head = cqe->sq_head;
+        dम_लिखो(4, "sq %p advanced to %u\n", sq, cqe->sq_head);
+    पूर्ण
+
+    /* Tell the controller that we consumed the completion. */
+    ग_लिखोl(cq->common.dbl, cq->head);
+
+    वापस *cqe;
+पूर्ण
+
+अटल काष्ठा nvme_cqe
+nvme_रुको(काष्ठा nvme_sq *sq)
+अणु
+    अटल स्थिर अचिन्हित nvme_समयout = 5000 /* ms */;
+    u32 to = समयr_calc(nvme_समयout);
+    जबतक (!nvme_poll_cq(sq->cq)) अणु
+        yield();
+
+        अगर (समयr_check(to)) अणु
+            warn_समयout();
+            वापस nvme_error_cqe();
+        पूर्ण
+    पूर्ण
+
+    वापस nvme_consume_cqe(sq);
+पूर्ण
+
+/* Returns the next submission queue entry (or शून्य अगर the queue is full). It
+   also fills out Command Dword 0 and clears the rest. */
+अटल काष्ठा nvme_sqe *
+nvme_get_next_sqe(काष्ठा nvme_sq *sq, u8 opc, व्योम *metadata, व्योम *data, व्योम *data2)
+अणु
+    अगर (((sq->head + 1) & sq->common.mask) == sq->tail) अणु
+        dम_लिखो(3, "submission queue is full\n");
+        वापस शून्य;
+    पूर्ण
+
+    काष्ठा nvme_sqe *sqe = &sq->sqe[sq->tail];
+    dम_लिखो(4, "sq %p next_sqe %u\n", sq, sq->tail);
+
+    स_रखो(sqe, 0, माप(*sqe));
+    sqe->cdw0 = opc | (sq->tail << 16 /* CID */);
+    sqe->mptr = (u32)metadata;
+    sqe->dptr_prp1 = (u32)data;
+    sqe->dptr_prp2 = (u32)data2;
+
+    वापस sqe;
+पूर्ण
+
+/* Call this after you've filled out an sqe that you've got from nvme_get_next_sqe. */
+अटल व्योम
+nvme_commit_sqe(काष्ठा nvme_sq *sq)
+अणु
+    dम_लिखो(4, "sq %p commit_sqe %u\n", sq, sq->tail);
+    sq->tail = (sq->tail + 1) & sq->common.mask;
+    ग_लिखोl(sq->common.dbl, sq->tail);
+पूर्ण
+
+/* Perक्रमm an identअगरy command on the admin queue and वापस the resulting
+   buffer. This may be a शून्य poपूर्णांकer, अगर something failed. This function
+   cannot be used after initialization, because it uses buffers in पंचांगp zone. */
+अटल जोड़ nvme_identअगरy *
+nvme_admin_identअगरy(काष्ठा nvme_ctrl *ctrl, u8 cns, u32 nsid)
+अणु
+    जोड़ nvme_identअगरy *identअगरy_buf = zalloc_page_aligned(&ZoneTmpHigh, 4096);
+    अगर (!identअगरy_buf) अणु
+        /* Could not allocate identअगरy buffer. */
+        warn_पूर्णांकernalerror();
+        वापस शून्य;
+    पूर्ण
+
+    काष्ठा nvme_sqe *cmd_identअगरy;
+    cmd_identअगरy = nvme_get_next_sqe(&ctrl->admin_sq,
+                                     NVME_SQE_OPC_ADMIN_IDENTIFY, शून्य,
+                                     identअगरy_buf, शून्य);
+
+    अगर (!cmd_identअगरy) अणु
+        warn_पूर्णांकernalerror();
+        जाओ error;
+    पूर्ण
+
+    cmd_identअगरy->nsid = nsid;
+    cmd_identअगरy->dword[10] = cns;
+
+    nvme_commit_sqe(&ctrl->admin_sq);
+
+    काष्ठा nvme_cqe cqe = nvme_रुको(&ctrl->admin_sq);
+
+    अगर (!nvme_is_cqe_success(&cqe)) अणु
+        जाओ error;
+    पूर्ण
+
+    वापस identअगरy_buf;
+ error:
+    मुक्त(identअगरy_buf);
+    वापस शून्य;
+पूर्ण
+
+अटल काष्ठा nvme_identअगरy_ctrl *
+nvme_admin_identअगरy_ctrl(काष्ठा nvme_ctrl *ctrl)
+अणु
+    वापस &nvme_admin_identअगरy(ctrl, NVME_ADMIN_IDENTIFY_CNS_ID_CTRL, 0)->ctrl;
+पूर्ण
+
+अटल काष्ठा nvme_identअगरy_ns *
+nvme_admin_identअगरy_ns(काष्ठा nvme_ctrl *ctrl, u32 ns_id)
+अणु
+    वापस &nvme_admin_identअगरy(ctrl, NVME_ADMIN_IDENTIFY_CNS_ID_NS,
+                                ns_id)->ns;
+पूर्ण
+
+अटल व्योम
+nvme_probe_ns(काष्ठा nvme_ctrl *ctrl, u32 ns_idx, u8 mdts)
+अणु
+    u32 ns_id = ns_idx + 1;
+
+    काष्ठा nvme_identअगरy_ns *id = nvme_admin_identअगरy_ns(ctrl, ns_id);
+    अगर (!id) अणु
+        dम_लिखो(2, "NVMe couldn't identify namespace %u.\n", ns_id);
+        जाओ मुक्त_buffer;
+    पूर्ण
+
+    u8 current_lba_क्रमmat = id->flbas & 0xF;
+    अगर (current_lba_क्रमmat > id->nlbaf) अणु
+        dम_लिखो(2, "NVMe NS %u: current LBA format %u is beyond what the "
+                " namespace supports (%u)?\n",
+                ns_id, current_lba_क्रमmat, id->nlbaf + 1);
+        जाओ मुक्त_buffer;
+    पूर्ण
+
+    अगर (!id->nsze) अणु
+        dम_लिखो(2, "NVMe NS %u is inactive.\n", ns_id);
+        जाओ मुक्त_buffer;
+    पूर्ण
+
+    काष्ठा nvme_namespace *ns = दो_स्मृति_fseg(माप(*ns));
+    अगर (!ns) अणु
+        warn_noalloc();
+        जाओ मुक्त_buffer;
+    पूर्ण
+    स_रखो(ns, 0, माप(*ns));
+    ns->ctrl  = ctrl;
+    ns->ns_id = ns_id;
+    ns->lba_count = id->nsze;
+
+    काष्ठा nvme_lba_क्रमmat *fmt = &id->lbaf[current_lba_क्रमmat];
+
+    ns->block_size    = 1U << fmt->lbads;
+    ns->metadata_size = fmt->ms;
+
+    अगर (ns->block_size > NVME_PAGE_SIZE) अणु
+        /* If we see devices that trigger this path, we need to increase our
+           buffer size. */
+        warn_पूर्णांकernalerror();
+        मुक्त(ns);
+        जाओ मुक्त_buffer;
+    पूर्ण
+
+    ns->drive.cntl_id   = ns_idx;
+    ns->drive.removable = 0;
+    ns->drive.type      = DTYPE_NVME;
+    ns->drive.blksize   = ns->block_size;
+    ns->drive.sectors   = ns->lba_count;
+
+    अगर (mdts) अणु
+        ns->max_req_size = ((1U << mdts) * NVME_PAGE_SIZE) / ns->block_size;
+        dम_लिखो(3, "NVME NS %u max request size: %d sectors\n",
+                ns_id, ns->max_req_size);
+    पूर्ण अन्यथा अणु
+        ns->max_req_size = -1U;
+    पूर्ण
+
+    ns->dma_buffer = zalloc_page_aligned(&ZoneHigh, NVME_PAGE_SIZE);
+
+    अक्षर *desc = znम_लिखो(MAXDESCSIZE, "NVMe NS %u: %llu MiB (%llu %u-byte "
+                          "blocks + %u-byte metadata)",
+                          ns_id, (ns->lba_count * ns->block_size) >> 20,
+                          ns->lba_count, ns->block_size, ns->metadata_size);
+
+    dम_लिखो(3, "%s\n", desc);
+    boot_add_hd(&ns->drive, desc, bootprio_find_pci_device(ctrl->pci));
+
+मुक्त_buffer:
+    मुक्त (id);
+पूर्ण
+
+
+/* Release memory allocated क्रम a completion queue */
+अटल व्योम
+nvme_destroy_cq(काष्ठा nvme_cq *cq)
+अणु
+    मुक्त(cq->cqe);
+    cq->cqe = शून्य;
+पूर्ण
+
+/* Release memory allocated क्रम a submission queue */
+अटल व्योम
+nvme_destroy_sq(काष्ठा nvme_sq *sq)
+अणु
+    मुक्त(sq->sqe);
+    sq->sqe = शून्य;
+पूर्ण
+
+/* Returns 0 on success. */
+अटल पूर्णांक
+nvme_create_io_cq(काष्ठा nvme_ctrl *ctrl, काष्ठा nvme_cq *cq, u16 q_idx)
+अणु
+    पूर्णांक rc;
+    काष्ठा nvme_sqe *cmd_create_cq;
+    u32 length = 1 + (ctrl->reg->cap & 0xffff);
+    अगर (length > NVME_PAGE_SIZE / माप(काष्ठा nvme_cqe))
+        length = NVME_PAGE_SIZE / माप(काष्ठा nvme_cqe);
+
+    rc = nvme_init_cq(ctrl, cq, q_idx, length);
+    अगर (rc) अणु
+        जाओ err;
+    पूर्ण
+
+    cmd_create_cq = nvme_get_next_sqe(&ctrl->admin_sq,
+                                      NVME_SQE_OPC_ADMIN_CREATE_IO_CQ, शून्य,
+                                      cq->cqe, शून्य);
+    अगर (!cmd_create_cq) अणु
+        जाओ err_destroy_cq;
+    पूर्ण
+
+    cmd_create_cq->dword[10] = (cq->common.mask << 16) | (q_idx >> 1);
+    cmd_create_cq->dword[11] = 1 /* physically contiguous */;
+
+    nvme_commit_sqe(&ctrl->admin_sq);
+
+    काष्ठा nvme_cqe cqe = nvme_रुको(&ctrl->admin_sq);
+
+    अगर (!nvme_is_cqe_success(&cqe)) अणु
+        dम_लिखो(2, "create io cq failed: %08x %08x %08x %08x\n",
+                cqe.dword[0], cqe.dword[1], cqe.dword[2], cqe.dword[3]);
+
+        जाओ err_destroy_cq;
+    पूर्ण
+
+    वापस 0;
+
+err_destroy_cq:
+    nvme_destroy_cq(cq);
+err:
+    वापस -1;
+पूर्ण
+
+/* Returns 0 on success. */
+अटल पूर्णांक
+nvme_create_io_sq(काष्ठा nvme_ctrl *ctrl, काष्ठा nvme_sq *sq, u16 q_idx, काष्ठा nvme_cq *cq)
+अणु
+    पूर्णांक rc;
+    काष्ठा nvme_sqe *cmd_create_sq;
+    u32 length = 1 + (ctrl->reg->cap & 0xffff);
+    अगर (length > NVME_PAGE_SIZE / माप(काष्ठा nvme_cqe))
+        length = NVME_PAGE_SIZE / माप(काष्ठा nvme_cqe);
+
+    rc = nvme_init_sq(ctrl, sq, q_idx, length, cq);
+    अगर (rc) अणु
+        जाओ err;
+    पूर्ण
+
+    cmd_create_sq = nvme_get_next_sqe(&ctrl->admin_sq,
+                                      NVME_SQE_OPC_ADMIN_CREATE_IO_SQ, शून्य,
+                                      sq->sqe, शून्य);
+    अगर (!cmd_create_sq) अणु
+        जाओ err_destroy_sq;
+    पूर्ण
+
+    cmd_create_sq->dword[10] = (sq->common.mask << 16) | (q_idx >> 1);
+    cmd_create_sq->dword[11] = (q_idx >> 1) << 16 | 1 /* contiguous */;
+    dम_लिखो(3, "sq %p create dword10 %08x dword11 %08x\n", sq,
+            cmd_create_sq->dword[10], cmd_create_sq->dword[11]);
+
+    nvme_commit_sqe(&ctrl->admin_sq);
+
+    काष्ठा nvme_cqe cqe = nvme_रुको(&ctrl->admin_sq);
+
+    अगर (!nvme_is_cqe_success(&cqe)) अणु
+        dम_लिखो(2, "create io sq failed: %08x %08x %08x %08x\n",
+                cqe.dword[0], cqe.dword[1], cqe.dword[2], cqe.dword[3]);
+        जाओ err_destroy_sq;
+    पूर्ण
+
+    वापस 0;
+
+err_destroy_sq:
+    nvme_destroy_sq(sq);
+err:
+    वापस -1;
+पूर्ण
+
+/* Reads count sectors पूर्णांकo buf. Returns DISK_RET_*. The buffer cannot cross
+   page boundaries. */
+अटल पूर्णांक
+nvme_io_पढ़ोग_लिखो(काष्ठा nvme_namespace *ns, u64 lba, अक्षर *buf, u16 count,
+                  पूर्णांक ग_लिखो)
+अणु
+    u32 buf_addr = (u32)buf;
+    व्योम *prp2;
+
+    अगर (buf_addr & 0x3) अणु
+        /* Buffer is misaligned */
+        warn_पूर्णांकernalerror();
+        वापस DISK_RET_EBADTRACK;
+    पूर्ण
+
+    अगर ((ns->block_size * count) > (NVME_PAGE_SIZE * 2)) अणु
+        /* We need to describe more than 2 pages, rely on PRP List */
+        prp2 = ns->prpl;
+    पूर्ण अन्यथा अगर ((ns->block_size * count) > NVME_PAGE_SIZE) अणु
+        /* Directly embed the 2nd page अगर we only need 2 pages */
+        prp2 = (व्योम *)(दीर्घ)ns->prpl[0];
+    पूर्ण अन्यथा अणु
+        /* One page is enough, करोn't expose anything अन्यथा */
+        prp2 = शून्य;
+    पूर्ण
+
+    काष्ठा nvme_sqe *io_पढ़ो = nvme_get_next_sqe(&ns->ctrl->io_sq,
+                                                 ग_लिखो ? NVME_SQE_OPC_IO_WRITE
+                                                       : NVME_SQE_OPC_IO_READ,
+                                                 शून्य, buf, prp2);
+    io_पढ़ो->nsid = ns->ns_id;
+    io_पढ़ो->dword[10] = (u32)lba;
+    io_पढ़ो->dword[11] = (u32)(lba >> 32);
+    io_पढ़ो->dword[12] = (1U << 31 /* limited retry */) | (count - 1);
+
+    nvme_commit_sqe(&ns->ctrl->io_sq);
+
+    काष्ठा nvme_cqe cqe = nvme_रुको(&ns->ctrl->io_sq);
+
+    अगर (!nvme_is_cqe_success(&cqe)) अणु
+        dम_लिखो(2, "read io: %08x %08x %08x %08x\n",
+                cqe.dword[0], cqe.dword[1], cqe.dword[2], cqe.dword[3]);
+
+        वापस DISK_RET_EBADTRACK;
+    पूर्ण
+
+    वापस DISK_RET_SUCCESS;
+पूर्ण
+
+अटल व्योम nvme_reset_prpl(काष्ठा nvme_namespace *ns)
+अणु
+    ns->prpl_len = 0;
+पूर्ण
+
+अटल पूर्णांक nvme_add_prpl(काष्ठा nvme_namespace *ns, u64 base)
+अणु
+    अगर (ns->prpl_len >= NVME_MAX_PRPL_ENTRIES)
+        वापस -1;
+
+    ns->prpl[ns->prpl_len++] = base;
+
+    वापस 0;
+पूर्ण
+
+अटल पूर्णांक nvme_build_prpl(काष्ठा nvme_namespace *ns, व्योम *op_buf, u16 count)
+अणु
+    पूर्णांक first_page = 1;
+    u32 base = (दीर्घ)op_buf;
+    s32 size;
+
+    अगर (count > ns->max_req_size)
+        count = ns->max_req_size;
+
+    nvme_reset_prpl(ns);
+
+    size = count * ns->block_size;
+    /* Special हाल क्रम transfers that fit पूर्णांकo PRP1, but are unaligned */
+    अगर (((size + (base & ~NVME_PAGE_MASK)) <= NVME_PAGE_SIZE)) अणु
+        ns->prp1 = op_buf;
+        वापस count;
+    पूर्ण
+
+    /* Every request has to be page aligned */
+    अगर (base & ~NVME_PAGE_MASK)
+        वापस 0;
+
+    /* Make sure a full block fits पूर्णांकo the last chunk */
+    अगर (size & (ns->block_size - 1ULL))
+        वापस 0;
+
+    क्रम (; size > 0; base += NVME_PAGE_SIZE, size -= NVME_PAGE_SIZE) अणु
+        अगर (first_page) अणु
+            /* First page is special */
+            ns->prp1 = (व्योम*)base;
+            first_page = 0;
+            जारी;
+        पूर्ण
+        अगर (nvme_add_prpl(ns, base))
+            वापस 0;
+    पूर्ण
+
+    वापस count;
+पूर्ण
+
+अटल पूर्णांक
+nvme_create_io_queues(काष्ठा nvme_ctrl *ctrl)
+अणु
+    अगर (nvme_create_io_cq(ctrl, &ctrl->io_cq, 3))
+        जाओ err;
+
+    अगर (nvme_create_io_sq(ctrl, &ctrl->io_sq, 2, &ctrl->io_cq))
+        जाओ err_मुक्त_cq;
+
+    वापस 0;
+
+ err_मुक्त_cq:
+    nvme_destroy_cq(&ctrl->io_cq);
+ err:
+    वापस -1;
+पूर्ण
+
+/* Waits क्रम CSTS.RDY to match rdy. Returns 0 on success. */
+अटल पूर्णांक
+nvme_रुको_csts_rdy(काष्ठा nvme_ctrl *ctrl, अचिन्हित rdy)
+अणु
+    u32 स्थिर max_to = 500 /* ms */ * ((ctrl->reg->cap >> 24) & 0xFFU);
+    u32 to = समयr_calc(max_to);
+    u32 csts;
+
+    जबतक (rdy != ((csts = ctrl->reg->csts) & NVME_CSTS_RDY)) अणु
+        yield();
+
+        अगर (csts & NVME_CSTS_FATAL) अणु
+            dम_लिखो(3, "NVMe fatal error during controller shutdown\n");
+            वापस -1;
+        पूर्ण
+
+        अगर (समयr_check(to)) अणु
+            warn_समयout();
+            वापस -1;
+        पूर्ण
+    पूर्ण
+
+    वापस 0;
+पूर्ण
+
+/* Returns 0 on success. */
+अटल पूर्णांक
+nvme_controller_enable(काष्ठा nvme_ctrl *ctrl)
+अणु
+    पूर्णांक rc;
+
+    pci_enable_busmaster(ctrl->pci);
+
+    /* Turn the controller off. */
+    ctrl->reg->cc = 0;
+    अगर (nvme_रुको_csts_rdy(ctrl, 0)) अणु
+        dम_लिखो(2, "NVMe fatal error during controller shutdown\n");
+        वापस -1;
+    पूर्ण
+
+    ctrl->करोorbell_stride = 4U << ((ctrl->reg->cap >> 32) & 0xF);
+
+    rc = nvme_init_cq(ctrl, &ctrl->admin_cq, 1,
+                      NVME_PAGE_SIZE / माप(काष्ठा nvme_cqe));
+    अगर (rc) अणु
+        वापस -1;
+    पूर्ण
+
+    rc = nvme_init_sq(ctrl, &ctrl->admin_sq, 0,
+                      NVME_PAGE_SIZE / माप(काष्ठा nvme_sqe), &ctrl->admin_cq);
+    अगर (rc) अणु
+        जाओ err_destroy_admin_cq;
+    पूर्ण
+
+    ctrl->reg->aqa = ctrl->admin_cq.common.mask << 16
+        | ctrl->admin_sq.common.mask;
+
+    ctrl->reg->asq = (u32)ctrl->admin_sq.sqe;
+    ctrl->reg->acq = (u32)ctrl->admin_cq.cqe;
+
+    dम_लिखो(3, "  admin submission queue: %p\n", ctrl->admin_sq.sqe);
+    dम_लिखो(3, "  admin completion queue: %p\n", ctrl->admin_cq.cqe);
+
+    ctrl->reg->cc = NVME_CC_EN | (NVME_CQE_SIZE_LOG << 20)
+        | (NVME_SQE_SIZE_LOG << 16 /* IOSQES */);
+
+    अगर (nvme_रुको_csts_rdy(ctrl, 1)) अणु
+        dम_लिखो(2, "NVMe fatal error while enabling controller\n");
+        जाओ err_destroy_admin_sq;
+    पूर्ण
+
+    /* The admin queue is set up and the controller is पढ़ोy. Let's figure out
+       what namespaces we have. */
+
+    काष्ठा nvme_identअगरy_ctrl *identअगरy = nvme_admin_identअगरy_ctrl(ctrl);
+
+    अगर (!identअगरy) अणु
+        dम_लिखो(2, "NVMe couldn't identify controller.\n");
+        जाओ err_destroy_admin_sq;
+    पूर्ण
+
+    dम_लिखो(3, "NVMe has %u namespace%s.\n",
+            identअगरy->nn, (identअगरy->nn == 1) ? "" : "s");
+
+    ctrl->ns_count = identअगरy->nn;
+    मुक्त(identअगरy);
+
+    अगर ((ctrl->ns_count == 0) || nvme_create_io_queues(ctrl)) अणु
+        /* No poपूर्णांक to जारी, अगर the controller says it करोesn't have
+           namespaces or we couldn't create I/O queues. */
+        जाओ err_destroy_admin_sq;
+    पूर्ण
+
+    /* Populate namespace IDs */
+    पूर्णांक ns_idx;
+    क्रम (ns_idx = 0; ns_idx < ctrl->ns_count; ns_idx++) अणु
+        nvme_probe_ns(ctrl, ns_idx, identअगरy->mdts);
+    पूर्ण
+
+    dम_लिखो(3, "NVMe initialization complete!\n");
+    वापस 0;
+
+ err_destroy_admin_sq:
+    nvme_destroy_sq(&ctrl->admin_sq);
+ err_destroy_admin_cq:
+    nvme_destroy_cq(&ctrl->admin_cq);
+    वापस -1;
+पूर्ण
+
+/* Initialize an NVMe controller and detect its drives. */
+अटल व्योम
+nvme_controller_setup(व्योम *opaque)
+अणु
+    u8 skip_nonbootable = is_bootprio_strict();
+    काष्ठा pci_device *pci = opaque;
+
+    अगर (skip_nonbootable && bootprio_find_pci_device(pci) < 0) अणु
+        dम_लिखो(1, "skipping init of a non-bootable NVMe at %pP\n",
+                pci);
+        जाओ err;
+    पूर्ण
+
+    काष्ठा nvme_reg अस्थिर *reg = pci_enable_membar(pci, PCI_BASE_ADDRESS_0);
+    अगर (!reg)
+        वापस;
+
+    u32 version = reg->vs;
+    dम_लिखो(3, "Found NVMe controller with version %u.%u.%u.\n",
+            version >> 16, (version >> 8) & 0xFF, version & 0xFF);
+    dम_लिखो(3, "  Capabilities %016llx\n", reg->cap);
+
+    अगर (~reg->cap & NVME_CAP_CSS_NVME) अणु
+        dम_लिखो(3, "Controller doesn't speak NVMe command set. Skipping.\n");
+        जाओ err;
+    पूर्ण
+
+    काष्ठा nvme_ctrl *ctrl = दो_स्मृति_high(माप(*ctrl));
+    अगर (!ctrl) अणु
+        warn_noalloc();
+        जाओ err;
+    पूर्ण
+
+    स_रखो(ctrl, 0, माप(*ctrl));
+
+    ctrl->reg = reg;
+    ctrl->pci = pci;
+
+    अगर (nvme_controller_enable(ctrl)) अणु
+        जाओ err_मुक्त_ctrl;
+    पूर्ण
+
+    वापस;
+
+ err_मुक्त_ctrl:
+    मुक्त(ctrl);
+ err:
+    dम_लिखो(2, "Failed to enable NVMe controller.\n");
+पूर्ण
+
+// Locate and init NVMe controllers
+अटल व्योम
+nvme_scan(व्योम)
+अणु
+    // Scan PCI bus क्रम NVMe adapters
+    काष्ठा pci_device *pci;
+
+    क्रमeachpci(pci) अणु
+        अगर (pci->class != PCI_CLASS_STORAGE_NVME)
+            जारी;
+        अगर (pci->prog_अगर != 2 /* as of NVM 1.0e */) अणु
+            dम_लिखो(3, "Found incompatble NVMe: prog-if=%02x\n", pci->prog_अगर);
+            जारी;
+        पूर्ण
+
+        run_thपढ़ो(nvme_controller_setup, pci);
+    पूर्ण
+पूर्ण
+
+अटल पूर्णांक
+nvme_cmd_पढ़ोग_लिखो(काष्ठा nvme_namespace *ns, काष्ठा disk_op_s *op, पूर्णांक ग_लिखो)
+अणु
+    पूर्णांक res = DISK_RET_SUCCESS;
+    u16 स्थिर max_blocks = NVME_PAGE_SIZE / ns->block_size;
+    u16 i, blocks;
+
+    क्रम (i = 0; i < op->count && res == DISK_RET_SUCCESS;) अणु
+        u16 blocks_reमुख्यing = op->count - i;
+        अक्षर *op_buf = op->buf_fl + i * ns->block_size;
+
+        blocks = nvme_build_prpl(ns, op_buf, blocks_reमुख्यing);
+        अगर (blocks) अणु
+            res = nvme_io_पढ़ोग_लिखो(ns, op->lba + i, ns->prp1, blocks, ग_लिखो);
+            dम_लिखो(5, "ns %u %s lba %llu+%u: %d\n", ns->ns_id, ग_लिखो ? "write"
+                                                                      : "read",
+                    op->lba, blocks, res);
+        पूर्ण अन्यथा अणु
+            blocks = blocks_reमुख्यing < max_blocks ? blocks_reमुख्यing
+                                                   : max_blocks;
+
+            अगर (ग_लिखो) अणु
+                स_नकल(ns->dma_buffer, op_buf, blocks * ns->block_size);
+            पूर्ण
+
+            res = nvme_io_पढ़ोग_लिखो(ns, op->lba + i, ns->dma_buffer, blocks, ग_लिखो);
+            dम_लिखो(5, "ns %u %s lba %llu+%u: %d\n", ns->ns_id, ग_लिखो ? "write"
+                                                                      : "read",
+                    op->lba + i, blocks, res);
+
+            अगर (!ग_लिखो && res == DISK_RET_SUCCESS) अणु
+                स_नकल(op_buf, ns->dma_buffer, blocks * ns->block_size);
+            पूर्ण
+        पूर्ण
+
+        i += blocks;
+    पूर्ण
+
+    वापस res;
+पूर्ण
+
+पूर्णांक
+nvme_process_op(काष्ठा disk_op_s *op)
+अणु
+    अगर (!CONFIG_NVME)
+        वापस DISK_RET_SUCCESS;
+
+    काष्ठा nvme_namespace *ns = container_of(op->drive_fl, काष्ठा nvme_namespace,
+                                             drive);
+
+    चयन (op->command) अणु
+    हाल CMD_READ:
+    हाल CMD_WRITE:
+        वापस nvme_cmd_पढ़ोग_लिखो(ns, op, op->command == CMD_WRITE);
+    शेष:
+        वापस शेष_process_op(op);
+    पूर्ण
+पूर्ण
+
+व्योम
+nvme_setup(व्योम)
+अणु
+    ASSERT32FLAT();
+    अगर (!CONFIG_NVME)
+        वापस;
+
+    dम_लिखो(3, "init nvme\n");
+    nvme_scan();
+पूर्ण
+
+/* खातापूर्ण */

@@ -1,0 +1,1251 @@
+<शैली गुरु>
+/*
+ * Copyright (C) 2002 Roman Zippel <zippel@linux-m68k.org>
+ * Released under the terms of the GNU GPL v2.0.
+ */
+
+#समावेश <sys/स्थिति.स>
+#समावेश <प्रकार.स>
+#समावेश <त्रुटिसं.स>
+#समावेश <fcntl.h>
+#समावेश <मानकतर्क.स>
+#समावेश <मानकपन.स>
+#समावेश <मानककोष.स>
+#समावेश <माला.स>
+#समावेश <समय.स>
+#समावेश <unistd.h>
+
+#समावेश "lkc.h"
+
+अटल व्योम conf_warning(स्थिर अक्षर *fmt, ...)
+	__attribute__ ((क्रमmat (म_लिखो, 1, 2)));
+
+अटल व्योम conf_message(स्थिर अक्षर *fmt, ...)
+	__attribute__ ((क्रमmat (म_लिखो, 1, 2)));
+
+अटल स्थिर अक्षर *conf_filename;
+अटल पूर्णांक conf_lineno, conf_warnings, conf_unsaved;
+
+स्थिर अक्षर conf_defname[] = "arch/$ARCH/defconfig";
+
+अटल व्योम conf_warning(स्थिर अक्षर *fmt, ...)
+अणु
+	बहु_सूची ap;
+	बहु_शुरू(ap, fmt);
+	ख_लिखो(मानक_त्रुटि, "%s:%d:warning: ", conf_filename, conf_lineno);
+	भख_लिखो(मानक_त्रुटि, fmt, ap);
+	ख_लिखो(मानक_त्रुटि, "\n");
+	बहु_पूर्ण(ap);
+	conf_warnings++;
+पूर्ण
+
+अटल व्योम conf_शेष_message_callback(स्थिर अक्षर *fmt, बहु_सूची ap)
+अणु
+	म_लिखो("#\n# ");
+	भ_लिखो(fmt, ap);
+	म_लिखो("\n#\n");
+पूर्ण
+
+अटल व्योम (*conf_message_callback) (स्थिर अक्षर *fmt, बहु_सूची ap) =
+	conf_शेष_message_callback;
+व्योम conf_set_message_callback(व्योम (*fn) (स्थिर अक्षर *fmt, बहु_सूची ap))
+अणु
+	conf_message_callback = fn;
+पूर्ण
+
+अटल व्योम conf_message(स्थिर अक्षर *fmt, ...)
+अणु
+	बहु_सूची ap;
+
+	बहु_शुरू(ap, fmt);
+	अगर (conf_message_callback)
+		conf_message_callback(fmt, ap);
+पूर्ण
+
+स्थिर अक्षर *conf_get_configname(व्योम)
+अणु
+	अक्षर *name = दो_पर्या("KCONFIG_CONFIG");
+
+	वापस name ? name : ".config";
+पूर्ण
+
+स्थिर अक्षर *conf_get_स्वतःconfig_name(व्योम)
+अणु
+	अक्षर *name = दो_पर्या("KCONFIG_AUTOCONFIG");
+
+	वापस name ? name : "include/config/auto.conf";
+पूर्ण
+
+अटल अक्षर *conf_expand_value(स्थिर अक्षर *in)
+अणु
+	काष्ठा symbol *sym;
+	स्थिर अक्षर *src;
+	अटल अक्षर res_value[SYMBOL_MAXLENGTH];
+	अक्षर *dst, name[SYMBOL_MAXLENGTH];
+
+	res_value[0] = 0;
+	dst = name;
+	जबतक ((src = म_अक्षर(in, '$'))) अणु
+		म_जोड़न(res_value, in, src - in);
+		src++;
+		dst = name;
+		जबतक (है_अक्षर_अंक(*src) || *src == '_')
+			*dst++ = *src++;
+		*dst = 0;
+		sym = sym_lookup(name, 0);
+		sym_calc_value(sym);
+		म_जोड़ो(res_value, sym_get_string_value(sym));
+		in = src;
+	पूर्ण
+	म_जोड़ो(res_value, in);
+
+	वापस res_value;
+पूर्ण
+
+अक्षर *conf_get_शेष_confname(व्योम)
+अणु
+	काष्ठा stat buf;
+	अटल अक्षर fullname[PATH_MAX+1];
+	अक्षर *env, *name;
+
+	name = conf_expand_value(conf_defname);
+	env = दो_पर्या(SRCTREE);
+	अगर (env) अणु
+		प्र_लिखो(fullname, "%s/%s", env, name);
+		अगर (!stat(fullname, &buf))
+			वापस fullname;
+	पूर्ण
+	वापस name;
+पूर्ण
+
+अटल पूर्णांक conf_set_sym_val(काष्ठा symbol *sym, पूर्णांक def, पूर्णांक def_flags, अक्षर *p)
+अणु
+	अक्षर *p2;
+
+	चयन (sym->type) अणु
+	हाल S_TRISTATE:
+		अगर (p[0] == 'm') अणु
+			sym->def[def].tri = mod;
+			sym->flags |= def_flags;
+			अवरोध;
+		पूर्ण
+		/* fall through */
+	हाल S_BOOLEAN:
+		अगर (p[0] == 'y') अणु
+			sym->def[def].tri = yes;
+			sym->flags |= def_flags;
+			अवरोध;
+		पूर्ण
+		अगर (p[0] == 'n') अणु
+			sym->def[def].tri = no;
+			sym->flags |= def_flags;
+			अवरोध;
+		पूर्ण
+		अगर (def != S_DEF_AUTO)
+			conf_warning("symbol value '%s' invalid for %s",
+				     p, sym->name);
+		वापस 1;
+	हाल S_OTHER:
+		अगर (*p != '"') अणु
+			क्रम (p2 = p; *p2 && !है_खाली(*p2); p2++)
+				;
+			sym->type = S_STRING;
+			जाओ करोne;
+		पूर्ण
+		/* fall through */
+	हाल S_STRING:
+		अगर (*p++ != '"')
+			अवरोध;
+		क्रम (p2 = p; (p2 = strpbrk(p2, "\"\\")); p2++) अणु
+			अगर (*p2 == '"') अणु
+				*p2 = 0;
+				अवरोध;
+			पूर्ण
+			स_हटाओ(p2, p2 + 1, म_माप(p2));
+		पूर्ण
+		अगर (!p2) अणु
+			अगर (def != S_DEF_AUTO)
+				conf_warning("invalid string found");
+			वापस 1;
+		पूर्ण
+		/* fall through */
+	हाल S_INT:
+	हाल S_HEX:
+	करोne:
+		अगर (sym_string_valid(sym, p)) अणु
+			sym->def[def].val = strdup(p);
+			sym->flags |= def_flags;
+		पूर्ण अन्यथा अणु
+			अगर (def != S_DEF_AUTO)
+				conf_warning("symbol value '%s' invalid for %s",
+					     p, sym->name);
+			वापस 1;
+		पूर्ण
+		अवरोध;
+	शेष:
+		;
+	पूर्ण
+	वापस 0;
+पूर्ण
+
+#घोषणा LINE_GROWTH 16
+अटल पूर्णांक add_byte(पूर्णांक c, अक्षर **lineptr, माप_प्रकार slen, माप_प्रकार *n)
+अणु
+	अक्षर *nline;
+	माप_प्रकार new_size = slen + 1;
+	अगर (new_size > *n) अणु
+		new_size += LINE_GROWTH - 1;
+		new_size *= 2;
+		nline = पुनः_स्मृति(*lineptr, new_size);
+		अगर (!nline)
+			वापस -1;
+
+		*lineptr = nline;
+		*n = new_size;
+	पूर्ण
+
+	(*lineptr)[slen] = c;
+
+	वापस 0;
+पूर्ण
+
+अटल sमाप_प्रकार compat_getline(अक्षर **lineptr, माप_प्रकार *n, खाता *stream)
+अणु
+	अक्षर *line = *lineptr;
+	माप_प्रकार slen = 0;
+
+	क्रम (;;) अणु
+		पूर्णांक c = अ_लो(stream);
+
+		चयन (c) अणु
+		हाल '\n':
+			अगर (add_byte(c, &line, slen, n) < 0)
+				जाओ e_out;
+			slen++;
+			/* fall through */
+		हाल खातापूर्ण:
+			अगर (add_byte('\0', &line, slen, n) < 0)
+				जाओ e_out;
+			*lineptr = line;
+			अगर (slen == 0)
+				वापस -1;
+			वापस slen;
+		शेष:
+			अगर (add_byte(c, &line, slen, n) < 0)
+				जाओ e_out;
+			slen++;
+		पूर्ण
+	पूर्ण
+
+e_out:
+	line[slen-1] = '\0';
+	*lineptr = line;
+	वापस -1;
+पूर्ण
+
+पूर्णांक conf_पढ़ो_simple(स्थिर अक्षर *name, पूर्णांक def)
+अणु
+	खाता *in = शून्य;
+	अक्षर   *line = शून्य;
+	माप_प्रकार  line_asize = 0;
+	अक्षर *p, *p2;
+	काष्ठा symbol *sym;
+	पूर्णांक i, def_flags;
+
+	अगर (name) अणु
+		in = zconf_ख_खोलो(name);
+	पूर्ण अन्यथा अणु
+		काष्ठा property *prop;
+
+		name = conf_get_configname();
+		in = zconf_ख_खोलो(name);
+		अगर (in)
+			जाओ load;
+		sym_add_change_count(1);
+		अगर (!sym_defconfig_list) अणु
+			अगर (modules_sym)
+				sym_calc_value(modules_sym);
+			वापस 1;
+		पूर्ण
+
+		क्रम_all_शेषs(sym_defconfig_list, prop) अणु
+			अगर (expr_calc_value(prop->visible.expr) == no ||
+			    prop->expr->type != E_SYMBOL)
+				जारी;
+			name = conf_expand_value(prop->expr->left.sym->name);
+			in = zconf_ख_खोलो(name);
+			अगर (in) अणु
+				conf_message(_("using defaults found in %s"),
+					 name);
+				जाओ load;
+			पूर्ण
+		पूर्ण
+	पूर्ण
+	अगर (!in)
+		वापस 1;
+
+load:
+	conf_filename = name;
+	conf_lineno = 0;
+	conf_warnings = 0;
+	conf_unsaved = 0;
+
+	def_flags = SYMBOL_DEF << def;
+	क्रम_all_symbols(i, sym) अणु
+		sym->flags |= SYMBOL_CHANGED;
+		sym->flags &= ~(def_flags|SYMBOL_VALID);
+		अगर (sym_is_choice(sym))
+			sym->flags |= def_flags;
+		चयन (sym->type) अणु
+		हाल S_INT:
+		हाल S_HEX:
+		हाल S_STRING:
+			अगर (sym->def[def].val)
+				मुक्त(sym->def[def].val);
+			/* fall through */
+		शेष:
+			sym->def[def].val = शून्य;
+			sym->def[def].tri = no;
+		पूर्ण
+	पूर्ण
+
+	जबतक (compat_getline(&line, &line_asize, in) != -1) अणु
+		conf_lineno++;
+		sym = शून्य;
+		अगर (line[0] == '#') अणु
+			अगर (स_भेद(line + 2, CONFIG_, म_माप(CONFIG_)))
+				जारी;
+			p = म_अक्षर(line + 2 + म_माप(CONFIG_), ' ');
+			अगर (!p)
+				जारी;
+			*p++ = 0;
+			अगर (म_भेदन(p, "is not set", 10))
+				जारी;
+			अगर (def == S_DEF_USER) अणु
+				sym = sym_find(line + 2 + म_माप(CONFIG_));
+				अगर (!sym) अणु
+					sym_add_change_count(1);
+					जाओ setsym;
+				पूर्ण
+			पूर्ण अन्यथा अणु
+				sym = sym_lookup(line + 2 + म_माप(CONFIG_), 0);
+				अगर (sym->type == S_UNKNOWN)
+					sym->type = S_BOOLEAN;
+			पूर्ण
+			अगर (sym->flags & def_flags) अणु
+				conf_warning("override: reassigning to symbol %s", sym->name);
+			पूर्ण
+			चयन (sym->type) अणु
+			हाल S_BOOLEAN:
+			हाल S_TRISTATE:
+				sym->def[def].tri = no;
+				sym->flags |= def_flags;
+				अवरोध;
+			शेष:
+				;
+			पूर्ण
+		पूर्ण अन्यथा अगर (स_भेद(line, CONFIG_, म_माप(CONFIG_)) == 0) अणु
+			p = म_अक्षर(line + म_माप(CONFIG_), '=');
+			अगर (!p)
+				जारी;
+			*p++ = 0;
+			p2 = म_अक्षर(p, '\n');
+			अगर (p2) अणु
+				*p2-- = 0;
+				अगर (*p2 == '\r')
+					*p2 = 0;
+			पूर्ण
+			अगर (def == S_DEF_USER) अणु
+				sym = sym_find(line + म_माप(CONFIG_));
+				अगर (!sym) अणु
+					sym_add_change_count(1);
+					जाओ setsym;
+				पूर्ण
+			पूर्ण अन्यथा अणु
+				sym = sym_lookup(line + म_माप(CONFIG_), 0);
+				अगर (sym->type == S_UNKNOWN)
+					sym->type = S_OTHER;
+			पूर्ण
+			अगर (sym->flags & def_flags) अणु
+				conf_warning("override: reassigning to symbol %s", sym->name);
+			पूर्ण
+			अगर (conf_set_sym_val(sym, def, def_flags, p))
+				जारी;
+		पूर्ण अन्यथा अणु
+			अगर (line[0] != '\r' && line[0] != '\n')
+				conf_warning("unexpected data");
+			जारी;
+		पूर्ण
+setsym:
+		अगर (sym && sym_is_choice_value(sym)) अणु
+			काष्ठा symbol *cs = prop_get_symbol(sym_get_choice_prop(sym));
+			चयन (sym->def[def].tri) अणु
+			हाल no:
+				अवरोध;
+			हाल mod:
+				अगर (cs->def[def].tri == yes) अणु
+					conf_warning("%s creates inconsistent choice state", sym->name);
+					cs->flags &= ~def_flags;
+				पूर्ण
+				अवरोध;
+			हाल yes:
+				अगर (cs->def[def].tri != no)
+					conf_warning("override: %s changes choice state", sym->name);
+				cs->def[def].val = sym;
+				अवरोध;
+			पूर्ण
+			cs->def[def].tri = EXPR_OR(cs->def[def].tri, sym->def[def].tri);
+		पूर्ण
+	पूर्ण
+	मुक्त(line);
+	ख_बंद(in);
+
+	अगर (modules_sym)
+		sym_calc_value(modules_sym);
+	वापस 0;
+पूर्ण
+
+पूर्णांक conf_पढ़ो(स्थिर अक्षर *name)
+अणु
+	काष्ठा symbol *sym;
+	पूर्णांक i;
+
+	sym_set_change_count(0);
+
+	अगर (conf_पढ़ो_simple(name, S_DEF_USER))
+		वापस 1;
+
+	क्रम_all_symbols(i, sym) अणु
+		sym_calc_value(sym);
+		अगर (sym_is_choice(sym) || (sym->flags & SYMBOL_AUTO))
+			जारी;
+		अगर (sym_has_value(sym) && (sym->flags & SYMBOL_WRITE)) अणु
+			/* check that calculated value agrees with saved value */
+			चयन (sym->type) अणु
+			हाल S_BOOLEAN:
+			हाल S_TRISTATE:
+				अगर (sym->def[S_DEF_USER].tri != sym_get_tristate_value(sym))
+					अवरोध;
+				अगर (!sym_is_choice(sym))
+					जारी;
+				/* fall through */
+			शेष:
+				अगर (!म_भेद(sym->curr.val, sym->def[S_DEF_USER].val))
+					जारी;
+				अवरोध;
+			पूर्ण
+		पूर्ण अन्यथा अगर (!sym_has_value(sym) && !(sym->flags & SYMBOL_WRITE))
+			/* no previous value and not saved */
+			जारी;
+		conf_unsaved++;
+		/* maybe prपूर्णांक value in verbose mode... */
+	पूर्ण
+
+	क्रम_all_symbols(i, sym) अणु
+		अगर (sym_has_value(sym) && !sym_is_choice_value(sym)) अणु
+			/* Reset values of generates values, so they'll appear
+			 * as new, अगर they should become visible, but that
+			 * करोesn't quite work अगर the Kconfig and the saved
+			 * configuration disagree.
+			 */
+			अगर (sym->visible == no && !conf_unsaved)
+				sym->flags &= ~SYMBOL_DEF_USER;
+			चयन (sym->type) अणु
+			हाल S_STRING:
+			हाल S_INT:
+			हाल S_HEX:
+				/* Reset a string value अगर it's out of range */
+				अगर (sym_string_within_range(sym, sym->def[S_DEF_USER].val))
+					अवरोध;
+				sym->flags &= ~(SYMBOL_VALID|SYMBOL_DEF_USER);
+				conf_unsaved++;
+				अवरोध;
+			शेष:
+				अवरोध;
+			पूर्ण
+		पूर्ण
+	पूर्ण
+
+	sym_add_change_count(conf_warnings || conf_unsaved);
+
+	वापस 0;
+पूर्ण
+
+/*
+ * Kconfig configuration prपूर्णांकer
+ *
+ * This prपूर्णांकer is used when generating the resulting configuration after
+ * kconfig invocation and `defconfig' files. Unset symbol might be omitted by
+ * passing a non-शून्य argument to the prपूर्णांकer.
+ *
+ */
+अटल व्योम
+kconfig_prपूर्णांक_symbol(खाता *fp, काष्ठा symbol *sym, स्थिर अक्षर *value, व्योम *arg)
+अणु
+
+	चयन (sym->type) अणु
+	हाल S_BOOLEAN:
+	हाल S_TRISTATE:
+		अगर (*value == 'n') अणु
+			bool skip_unset = (arg != शून्य);
+
+			अगर (!skip_unset)
+				ख_लिखो(fp, "# %s%s is not set\n",
+				    CONFIG_, sym->name);
+			वापस;
+		पूर्ण
+		अवरोध;
+	शेष:
+		अवरोध;
+	पूर्ण
+
+	ख_लिखो(fp, "%s%s=%s\n", CONFIG_, sym->name, value);
+पूर्ण
+
+अटल व्योम
+kconfig_prपूर्णांक_comment(खाता *fp, स्थिर अक्षर *value, व्योम *arg)
+अणु
+	स्थिर अक्षर *p = value;
+	माप_प्रकार l;
+
+	क्रम (;;) अणु
+		l = म_खोज(p, "\n");
+		ख_लिखो(fp, "#");
+		अगर (l) अणु
+			ख_लिखो(fp, " ");
+			xख_डालो(p, l, 1, fp);
+			p += l;
+		पूर्ण
+		ख_लिखो(fp, "\n");
+		अगर (*p++ == '\0')
+			अवरोध;
+	पूर्ण
+पूर्ण
+
+अटल काष्ठा conf_prपूर्णांकer kconfig_prपूर्णांकer_cb =
+अणु
+	.prपूर्णांक_symbol = kconfig_prपूर्णांक_symbol,
+	.prपूर्णांक_comment = kconfig_prपूर्णांक_comment,
+पूर्ण;
+
+/*
+ * Header prपूर्णांकer
+ *
+ * This prपूर्णांकer is used when generating the `include/generated/स्वतःconf.h' file.
+ */
+अटल व्योम
+header_prपूर्णांक_symbol(खाता *fp, काष्ठा symbol *sym, स्थिर अक्षर *value, व्योम *arg)
+अणु
+
+	चयन (sym->type) अणु
+	हाल S_BOOLEAN:
+	हाल S_TRISTATE: अणु
+		स्थिर अक्षर *suffix = "";
+
+		चयन (*value) अणु
+		हाल 'n':
+			ख_लिखो(fp, "#define %s%s%s 0\n",
+			    CONFIG_, sym->name, suffix);
+			अवरोध;
+		हाल 'm':
+			suffix = "_MODULE";
+			/* fall through */
+		शेष:
+			ख_लिखो(fp, "#define %s%s%s 1\n",
+			    CONFIG_, sym->name, suffix);
+		पूर्ण
+		अवरोध;
+	पूर्ण
+	हाल S_HEX: अणु
+		स्थिर अक्षर *prefix = "";
+
+		अगर (value[0] != '0' || (value[1] != 'x' && value[1] != 'X'))
+			prefix = "0x";
+		अगर (!value[0])
+			prefix = "0";
+		ख_लिखो(fp, "#define %s%s %s%s\n",
+		    CONFIG_, sym->name, prefix, value);
+		अवरोध;
+	पूर्ण
+	हाल S_STRING:
+	हाल S_INT:
+		ख_लिखो(fp, "#define %s%s %s\n",
+		    CONFIG_, sym->name, value);
+		अवरोध;
+	शेष:
+		अवरोध;
+	पूर्ण
+
+पूर्ण
+
+अटल व्योम
+header_prपूर्णांक_comment(खाता *fp, स्थिर अक्षर *value, व्योम *arg)
+अणु
+	स्थिर अक्षर *p = value;
+	माप_प्रकार l;
+
+	ख_लिखो(fp, "/*\n");
+	क्रम (;;) अणु
+		l = म_खोज(p, "\n");
+		ख_लिखो(fp, " *");
+		अगर (l) अणु
+			ख_लिखो(fp, " ");
+			xख_डालो(p, l, 1, fp);
+			p += l;
+		पूर्ण
+		ख_लिखो(fp, "\n");
+		अगर (*p++ == '\0')
+			अवरोध;
+	पूर्ण
+	ख_लिखो(fp, " */\n");
+पूर्ण
+
+अटल काष्ठा conf_prपूर्णांकer header_prपूर्णांकer_cb =
+अणु
+	.prपूर्णांक_symbol = header_prपूर्णांक_symbol,
+	.prपूर्णांक_comment = header_prपूर्णांक_comment,
+पूर्ण;
+
+/*
+ * Tristate prपूर्णांकer
+ *
+ * This prपूर्णांकer is used when generating the `include/config/tristate.conf' file.
+ */
+अटल व्योम
+tristate_prपूर्णांक_symbol(खाता *fp, काष्ठा symbol *sym, स्थिर अक्षर *value, व्योम *arg)
+अणु
+
+	अगर (sym->type == S_TRISTATE && *value != 'n')
+		ख_लिखो(fp, "%s%s=%c\n", CONFIG_, sym->name, (अक्षर)बड़े(*value));
+पूर्ण
+
+अटल काष्ठा conf_prपूर्णांकer tristate_prपूर्णांकer_cb =
+अणु
+	.prपूर्णांक_symbol = tristate_prपूर्णांक_symbol,
+	.prपूर्णांक_comment = kconfig_prपूर्णांक_comment,
+पूर्ण;
+
+अटल व्योम conf_ग_लिखो_symbol(खाता *fp, काष्ठा symbol *sym,
+			      काष्ठा conf_prपूर्णांकer *prपूर्णांकer, व्योम *prपूर्णांकer_arg)
+अणु
+	स्थिर अक्षर *str;
+
+	चयन (sym->type) अणु
+	हाल S_OTHER:
+	हाल S_UNKNOWN:
+		अवरोध;
+	हाल S_STRING:
+		str = sym_get_string_value(sym);
+		str = sym_escape_string_value(str);
+		prपूर्णांकer->prपूर्णांक_symbol(fp, sym, str, prपूर्णांकer_arg);
+		मुक्त((व्योम *)str);
+		अवरोध;
+	शेष:
+		str = sym_get_string_value(sym);
+		prपूर्णांकer->prपूर्णांक_symbol(fp, sym, str, prपूर्णांकer_arg);
+	पूर्ण
+पूर्ण
+
+अटल व्योम
+conf_ग_लिखो_heading(खाता *fp, काष्ठा conf_prपूर्णांकer *prपूर्णांकer, व्योम *prपूर्णांकer_arg)
+अणु
+	अक्षर buf[256];
+
+	snम_लिखो(buf, माप(buf),
+	    "\n"
+	    "Automatically generated file; DO NOT EDIT.\n"
+	    "%s\n",
+	    rooपंचांगenu.prompt->text);
+
+	prपूर्णांकer->prपूर्णांक_comment(fp, buf, prपूर्णांकer_arg);
+पूर्ण
+
+/*
+ * Write out a minimal config.
+ * All values that has शेष values are skipped as this is redundant.
+ */
+पूर्णांक conf_ग_लिखो_defconfig(स्थिर अक्षर *filename)
+अणु
+	काष्ठा symbol *sym;
+	काष्ठा menu *menu;
+	खाता *out;
+
+	out = ख_खोलो(filename, "w");
+	अगर (!out)
+		वापस 1;
+
+	sym_clear_all_valid();
+
+	/* Traverse all menus to find all relevant symbols */
+	menu = rooपंचांगenu.list;
+
+	जबतक (menu != शून्य)
+	अणु
+		sym = menu->sym;
+		अगर (sym == शून्य) अणु
+			अगर (!menu_is_visible(menu))
+				जाओ next_menu;
+		पूर्ण अन्यथा अगर (!sym_is_choice(sym)) अणु
+			sym_calc_value(sym);
+			अगर (!(sym->flags & SYMBOL_WRITE))
+				जाओ next_menu;
+			sym->flags &= ~SYMBOL_WRITE;
+			/* If we cannot change the symbol - skip */
+			अगर (!sym_is_changable(sym))
+				जाओ next_menu;
+			/* If symbol equals to शेष value - skip */
+			अगर (म_भेद(sym_get_string_value(sym), sym_get_string_शेष(sym)) == 0)
+				जाओ next_menu;
+
+			/*
+			 * If symbol is a choice value and equals to the
+			 * शेष क्रम a choice - skip.
+			 * But only अगर value is bool and equal to "y" and
+			 * choice is not "optional".
+			 * (If choice is "optional" then all values can be "n")
+			 */
+			अगर (sym_is_choice_value(sym)) अणु
+				काष्ठा symbol *cs;
+				काष्ठा symbol *ds;
+
+				cs = prop_get_symbol(sym_get_choice_prop(sym));
+				ds = sym_choice_शेष(cs);
+				अगर (!sym_is_optional(cs) && sym == ds) अणु
+					अगर ((sym->type == S_BOOLEAN) &&
+					    sym_get_tristate_value(sym) == yes)
+						जाओ next_menu;
+				पूर्ण
+			पूर्ण
+			conf_ग_लिखो_symbol(out, sym, &kconfig_prपूर्णांकer_cb, शून्य);
+		पूर्ण
+next_menu:
+		अगर (menu->list != शून्य) अणु
+			menu = menu->list;
+		पूर्ण
+		अन्यथा अगर (menu->next != शून्य) अणु
+			menu = menu->next;
+		पूर्ण अन्यथा अणु
+			जबतक ((menu = menu->parent)) अणु
+				अगर (menu->next != शून्य) अणु
+					menu = menu->next;
+					अवरोध;
+				पूर्ण
+			पूर्ण
+		पूर्ण
+	पूर्ण
+	ख_बंद(out);
+	वापस 0;
+पूर्ण
+
+पूर्णांक conf_ग_लिखो(स्थिर अक्षर *name)
+अणु
+	खाता *out;
+	काष्ठा symbol *sym;
+	काष्ठा menu *menu;
+	स्थिर अक्षर *basename;
+	स्थिर अक्षर *str;
+	अक्षर स_नाम[PATH_MAX+1], क्षणिकe[PATH_MAX+1], newname[PATH_MAX+1];
+	अक्षर *env;
+
+	स_नाम[0] = 0;
+	अगर (name && name[0]) अणु
+		काष्ठा stat st;
+		अक्षर *slash;
+
+		अगर (!stat(name, &st) && S_ISसूची(st.st_mode)) अणु
+			म_नकल(स_नाम, name);
+			म_जोड़ो(स_नाम, "/");
+			basename = conf_get_configname();
+		पूर्ण अन्यथा अगर ((slash = म_खोजप(name, '/'))) अणु
+			पूर्णांक size = slash - name + 1;
+			स_नकल(स_नाम, name, size);
+			स_नाम[size] = 0;
+			अगर (slash[1])
+				basename = slash + 1;
+			अन्यथा
+				basename = conf_get_configname();
+		पूर्ण अन्यथा
+			basename = name;
+	पूर्ण अन्यथा
+		basename = conf_get_configname();
+
+	प्र_लिखो(newname, "%s%s", स_नाम, basename);
+	env = दो_पर्या("KCONFIG_OVERWRITECONFIG");
+	अगर (!env || !*env) अणु
+		प्र_लिखो(क्षणिकe, "%s.tmpconfig.%d", स_नाम, (पूर्णांक)getpid());
+		out = ख_खोलो(क्षणिकe, "w");
+	पूर्ण अन्यथा अणु
+		*क्षणिकe = 0;
+		out = ख_खोलो(newname, "w");
+	पूर्ण
+	अगर (!out)
+		वापस 1;
+
+	conf_ग_लिखो_heading(out, &kconfig_prपूर्णांकer_cb, शून्य);
+
+	अगर (!conf_get_changed())
+		sym_clear_all_valid();
+
+	menu = rooपंचांगenu.list;
+	जबतक (menu) अणु
+		sym = menu->sym;
+		अगर (!sym) अणु
+			अगर (!menu_is_visible(menu))
+				जाओ next;
+			str = menu_get_prompt(menu);
+			ख_लिखो(out, "\n"
+				     "#\n"
+				     "# %s\n"
+				     "#\n", str);
+		पूर्ण अन्यथा अगर (!(sym->flags & SYMBOL_CHOICE)) अणु
+			sym_calc_value(sym);
+			अगर (!(sym->flags & SYMBOL_WRITE))
+				जाओ next;
+			sym->flags &= ~SYMBOL_WRITE;
+
+			conf_ग_लिखो_symbol(out, sym, &kconfig_prपूर्णांकer_cb, शून्य);
+		पूर्ण
+
+next:
+		अगर (menu->list) अणु
+			menu = menu->list;
+			जारी;
+		पूर्ण
+		अगर (menu->next)
+			menu = menu->next;
+		अन्यथा जबतक ((menu = menu->parent)) अणु
+			अगर (menu->next) अणु
+				menu = menu->next;
+				अवरोध;
+			पूर्ण
+		पूर्ण
+	पूर्ण
+	ख_बंद(out);
+
+	अगर (*क्षणिकe) अणु
+		म_जोड़ो(स_नाम, basename);
+		म_जोड़ो(स_नाम, ".old");
+		नाम(newname, स_नाम);
+		अगर (नाम(क्षणिकe, newname))
+			वापस 1;
+	पूर्ण
+
+	conf_message(_("configuration written to %s"), newname);
+
+	sym_set_change_count(0);
+
+	वापस 0;
+पूर्ण
+
+अटल पूर्णांक conf_split_config(व्योम)
+अणु
+	स्थिर अक्षर *name;
+	अक्षर path[PATH_MAX+1];
+	अक्षर *s, *d, c;
+	काष्ठा symbol *sym;
+	काष्ठा stat sb;
+	पूर्णांक res, i, fd;
+
+	name = conf_get_स्वतःconfig_name();
+	conf_पढ़ो_simple(name, S_DEF_AUTO);
+
+	अगर (स_बदलो("include/config"))
+		वापस 1;
+
+	res = 0;
+	क्रम_all_symbols(i, sym) अणु
+		sym_calc_value(sym);
+		अगर ((sym->flags & SYMBOL_AUTO) || !sym->name)
+			जारी;
+		अगर (sym->flags & SYMBOL_WRITE) अणु
+			अगर (sym->flags & SYMBOL_DEF_AUTO) अणु
+				/*
+				 * symbol has old and new value,
+				 * so compare them...
+				 */
+				चयन (sym->type) अणु
+				हाल S_BOOLEAN:
+				हाल S_TRISTATE:
+					अगर (sym_get_tristate_value(sym) ==
+					    sym->def[S_DEF_AUTO].tri)
+						जारी;
+					अवरोध;
+				हाल S_STRING:
+				हाल S_HEX:
+				हाल S_INT:
+					अगर (!म_भेद(sym_get_string_value(sym),
+						    sym->def[S_DEF_AUTO].val))
+						जारी;
+					अवरोध;
+				शेष:
+					अवरोध;
+				पूर्ण
+			पूर्ण अन्यथा अणु
+				/*
+				 * If there is no old value, only 'no' (unset)
+				 * is allowed as new value.
+				 */
+				चयन (sym->type) अणु
+				हाल S_BOOLEAN:
+				हाल S_TRISTATE:
+					अगर (sym_get_tristate_value(sym) == no)
+						जारी;
+					अवरोध;
+				शेष:
+					अवरोध;
+				पूर्ण
+			पूर्ण
+		पूर्ण अन्यथा अगर (!(sym->flags & SYMBOL_DEF_AUTO))
+			/* There is neither an old nor a new value. */
+			जारी;
+		/* अन्यथा
+		 *	There is an old value, but no new value ('no' (unset)
+		 *	isn't saved in स्वतः.conf, so the old value is always
+		 *	dअगरferent from 'no').
+		 */
+
+		/* Replace all '_' and append ".h" */
+		s = sym->name;
+		d = path;
+		जबतक ((c = *s++)) अणु
+			c = छोटे(c);
+			*d++ = (c == '_') ? '/' : c;
+		पूर्ण
+		म_नकल(d, ".h");
+
+		/* Assume directory path alपढ़ोy exists. */
+		fd = खोलो(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		अगर (fd == -1) अणु
+			अगर (त्रुटि_सं != ENOENT) अणु
+				res = 1;
+				अवरोध;
+			पूर्ण
+			/*
+			 * Create directory components,
+			 * unless they exist alपढ़ोy.
+			 */
+			d = path;
+			जबतक ((d = म_अक्षर(d, '/'))) अणु
+				*d = 0;
+				अगर (stat(path, &sb) && सूची_गढ़ो(path, 0755)) अणु
+					res = 1;
+					जाओ out;
+				पूर्ण
+				*d++ = '/';
+			पूर्ण
+			/* Try it again. */
+			fd = खोलो(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+			अगर (fd == -1) अणु
+				res = 1;
+				अवरोध;
+			पूर्ण
+		पूर्ण
+		बंद(fd);
+	पूर्ण
+out:
+	अगर (स_बदलो("../.."))
+		वापस 1;
+
+	वापस res;
+पूर्ण
+
+पूर्णांक conf_ग_लिखो_स्वतःconf(व्योम)
+अणु
+	काष्ठा symbol *sym;
+	स्थिर अक्षर *name;
+	खाता *out, *tristate, *out_h;
+	पूर्णांक i;
+
+	sym_clear_all_valid();
+
+	file_ग_लिखो_dep("include/config/auto.conf.cmd");
+
+	अगर (conf_split_config())
+		वापस 1;
+
+	out = ख_खोलो(".tmpconfig", "w");
+	अगर (!out)
+		वापस 1;
+
+	tristate = ख_खोलो(".tmpconfig_tristate", "w");
+	अगर (!tristate) अणु
+		ख_बंद(out);
+		वापस 1;
+	पूर्ण
+
+	out_h = ख_खोलो(".tmpconfig.h", "w");
+	अगर (!out_h) अणु
+		ख_बंद(out);
+		ख_बंद(tristate);
+		वापस 1;
+	पूर्ण
+
+	conf_ग_लिखो_heading(out, &kconfig_prपूर्णांकer_cb, शून्य);
+
+	conf_ग_लिखो_heading(tristate, &tristate_prपूर्णांकer_cb, शून्य);
+
+	conf_ग_लिखो_heading(out_h, &header_prपूर्णांकer_cb, शून्य);
+
+	क्रम_all_symbols(i, sym) अणु
+		sym_calc_value(sym);
+		अगर (!sym->name)
+			जारी;
+		अगर (!(sym->flags & SYMBOL_WRITE)) अणु
+			conf_ग_लिखो_symbol(out_h, sym, &header_prपूर्णांकer_cb, शून्य);
+			जारी;
+		पूर्ण
+
+		/* ग_लिखो symbol to स्वतः.conf, tristate and header files */
+		conf_ग_लिखो_symbol(out, sym, &kconfig_prपूर्णांकer_cb, (व्योम *)1);
+
+		conf_ग_लिखो_symbol(tristate, sym, &tristate_prपूर्णांकer_cb, (व्योम *)1);
+
+		conf_ग_लिखो_symbol(out_h, sym, &header_prपूर्णांकer_cb, शून्य);
+	पूर्ण
+	ख_बंद(out);
+	ख_बंद(tristate);
+	ख_बंद(out_h);
+
+	name = दो_पर्या("KCONFIG_AUTOHEADER");
+	अगर (!name)
+		name = "include/generated/autoconf.h";
+	अगर (नाम(".tmpconfig.h", name))
+		वापस 1;
+	name = दो_पर्या("KCONFIG_TRISTATE");
+	अगर (!name)
+		name = "include/config/tristate.conf";
+	अगर (नाम(".tmpconfig_tristate", name))
+		वापस 1;
+	name = conf_get_स्वतःconfig_name();
+	/*
+	 * This must be the last step, kbuild has a dependency on स्वतः.conf
+	 * and this marks the successful completion of the previous steps.
+	 */
+	अगर (नाम(".tmpconfig", name))
+		वापस 1;
+
+	वापस 0;
+पूर्ण
+
+अटल पूर्णांक sym_change_count;
+अटल व्योम (*conf_changed_callback)(व्योम);
+
+व्योम sym_set_change_count(पूर्णांक count)
+अणु
+	पूर्णांक _sym_change_count = sym_change_count;
+	sym_change_count = count;
+	अगर (conf_changed_callback &&
+	    (bool)_sym_change_count != (bool)count)
+		conf_changed_callback();
+पूर्ण
+
+व्योम sym_add_change_count(पूर्णांक count)
+अणु
+	sym_set_change_count(count + sym_change_count);
+पूर्ण
+
+bool conf_get_changed(व्योम)
+अणु
+	वापस sym_change_count;
+पूर्ण
+
+व्योम conf_set_changed_callback(व्योम (*fn)(व्योम))
+अणु
+	conf_changed_callback = fn;
+पूर्ण
+
+अटल bool अक्रमomize_choice_values(काष्ठा symbol *csym)
+अणु
+	काष्ठा property *prop;
+	काष्ठा symbol *sym;
+	काष्ठा expr *e;
+	पूर्णांक cnt, def;
+
+	/*
+	 * If choice is mod then we may have more items selected
+	 * and अगर no then no-one.
+	 * In both हालs stop.
+	 */
+	अगर (csym->curr.tri != yes)
+		वापस false;
+
+	prop = sym_get_choice_prop(csym);
+
+	/* count entries in choice block */
+	cnt = 0;
+	expr_list_क्रम_each_sym(prop->expr, e, sym)
+		cnt++;
+
+	/*
+	 * find a अक्रमom value and set it to yes,
+	 * set the rest to no so we have only one set
+	 */
+	def = (अक्रम() % cnt);
+
+	cnt = 0;
+	expr_list_क्रम_each_sym(prop->expr, e, sym) अणु
+		अगर (def == cnt++) अणु
+			sym->def[S_DEF_USER].tri = yes;
+			csym->def[S_DEF_USER].val = sym;
+		पूर्ण
+		अन्यथा अणु
+			sym->def[S_DEF_USER].tri = no;
+		पूर्ण
+		sym->flags |= SYMBOL_DEF_USER;
+		/* clear VALID to get value calculated */
+		sym->flags &= ~SYMBOL_VALID;
+	पूर्ण
+	csym->flags |= SYMBOL_DEF_USER;
+	/* clear VALID to get value calculated */
+	csym->flags &= ~(SYMBOL_VALID);
+
+	वापस true;
+पूर्ण
+
+व्योम set_all_choice_values(काष्ठा symbol *csym)
+अणु
+	काष्ठा property *prop;
+	काष्ठा symbol *sym;
+	काष्ठा expr *e;
+
+	prop = sym_get_choice_prop(csym);
+
+	/*
+	 * Set all non-assinged choice values to no
+	 */
+	expr_list_क्रम_each_sym(prop->expr, e, sym) अणु
+		अगर (!sym_has_value(sym))
+			sym->def[S_DEF_USER].tri = no;
+	पूर्ण
+	csym->flags |= SYMBOL_DEF_USER;
+	/* clear VALID to get value calculated */
+	csym->flags &= ~(SYMBOL_VALID | SYMBOL_NEED_SET_CHOICE_VALUES);
+पूर्ण
+
+bool conf_set_all_new_symbols(क्रमागत conf_def_mode mode)
+अणु
+	काष्ठा symbol *sym, *csym;
+	पूर्णांक i, cnt, pby, pty, pपंचांग;	/* pby: probability of boolean  = y
+					 * pty: probability of tristate = y
+					 * pपंचांग: probability of tristate = m
+					 */
+
+	pby = 50; pty = pपंचांग = 33; /* can't go as the शेष in चयन-हाल
+				   * below, otherwise gcc whines about
+				   * -Wmaybe-uninitialized */
+	अगर (mode == def_अक्रमom) अणु
+		पूर्णांक n, p[3];
+		अक्षर *env = दो_पर्या("KCONFIG_PROBABILITY");
+		n = 0;
+		जबतक( env && *env ) अणु
+			अक्षर *endp;
+			पूर्णांक पंचांगp = म_से_दीर्घ( env, &endp, 10 );
+			अगर( पंचांगp >= 0 && पंचांगp <= 100 ) अणु
+				p[n++] = पंचांगp;
+			पूर्ण अन्यथा अणु
+				त्रुटि_सं = दुस्फल;
+				लिखो_त्रुटि( "KCONFIG_PROBABILITY" );
+				निकास( 1 );
+			पूर्ण
+			env = (*endp == ':') ? endp+1 : endp;
+			अगर( n >=3 ) अणु
+				अवरोध;
+			पूर्ण
+		पूर्ण
+		चयन( n ) अणु
+		हाल 1:
+			pby = p[0]; pपंचांग = pby/2; pty = pby-pपंचांग;
+			अवरोध;
+		हाल 2:
+			pty = p[0]; pपंचांग = p[1]; pby = pty + pपंचांग;
+			अवरोध;
+		हाल 3:
+			pby = p[0]; pty = p[1]; pपंचांग = p[2];
+			अवरोध;
+		पूर्ण
+
+		अगर( pty+pपंचांग > 100 ) अणु
+			त्रुटि_सं = दुस्फल;
+			लिखो_त्रुटि( "KCONFIG_PROBABILITY" );
+			निकास( 1 );
+		पूर्ण
+	पूर्ण
+	bool has_changed = false;
+
+	क्रम_all_symbols(i, sym) अणु
+		अगर (sym_has_value(sym) || (sym->flags & SYMBOL_VALID))
+			जारी;
+		चयन (sym_get_type(sym)) अणु
+		हाल S_BOOLEAN:
+		हाल S_TRISTATE:
+			has_changed = true;
+			चयन (mode) अणु
+			हाल def_yes:
+				sym->def[S_DEF_USER].tri = yes;
+				अवरोध;
+			हाल def_mod:
+				sym->def[S_DEF_USER].tri = mod;
+				अवरोध;
+			हाल def_no:
+				अगर (sym->flags & SYMBOL_ALLNOCONFIG_Y)
+					sym->def[S_DEF_USER].tri = yes;
+				अन्यथा
+					sym->def[S_DEF_USER].tri = no;
+				अवरोध;
+			हाल def_अक्रमom:
+				sym->def[S_DEF_USER].tri = no;
+				cnt = अक्रम() % 100;
+				अगर (sym->type == S_TRISTATE) अणु
+					अगर (cnt < pty)
+						sym->def[S_DEF_USER].tri = yes;
+					अन्यथा अगर (cnt < (pty+pपंचांग))
+						sym->def[S_DEF_USER].tri = mod;
+				पूर्ण अन्यथा अगर (cnt < pby)
+					sym->def[S_DEF_USER].tri = yes;
+				अवरोध;
+			शेष:
+				जारी;
+			पूर्ण
+			अगर (!(sym_is_choice(sym) && mode == def_अक्रमom))
+				sym->flags |= SYMBOL_DEF_USER;
+			अवरोध;
+		शेष:
+			अवरोध;
+		पूर्ण
+
+	पूर्ण
+
+	sym_clear_all_valid();
+
+	/*
+	 * We have dअगरferent type of choice blocks.
+	 * If curr.tri equals to mod then we can select several
+	 * choice symbols in one block.
+	 * In this हाल we करो nothing.
+	 * If curr.tri equals yes then only one symbol can be
+	 * selected in a choice block and we set it to yes,
+	 * and the rest to no.
+	 */
+	अगर (mode != def_अक्रमom) अणु
+		क्रम_all_symbols(i, csym) अणु
+			अगर ((sym_is_choice(csym) && !sym_has_value(csym)) ||
+			    sym_is_choice_value(csym))
+				csym->flags |= SYMBOL_NEED_SET_CHOICE_VALUES;
+		पूर्ण
+	पूर्ण
+
+	क्रम_all_symbols(i, csym) अणु
+		अगर (sym_has_value(csym) || !sym_is_choice(csym))
+			जारी;
+
+		sym_calc_value(csym);
+		अगर (mode == def_अक्रमom)
+			has_changed = अक्रमomize_choice_values(csym);
+		अन्यथा अणु
+			set_all_choice_values(csym);
+			has_changed = true;
+		पूर्ण
+	पूर्ण
+
+	वापस has_changed;
+पूर्ण

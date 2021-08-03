@@ -1,0 +1,22 @@
+<शैली गुरु>
+#अगर_अघोषित __MEMMAP_H
+#घोषणा __MEMMAP_H
+
+#समावेश "types.h" // u32
+
+// A typical OS page size
+#घोषणा PAGE_SIZE 4096
+#घोषणा PAGE_SHIFT 12
+
+अटल अंतरभूत u32 virt_to_phys(व्योम *v) अणु
+    वापस (u32)v;
+पूर्ण
+अटल अंतरभूत व्योम *memremap(u32 addr, u32 len) अणु
+    वापस (व्योम*)addr;
+पूर्ण
+
+// Return the value of a linker script symbol (see scripts/layoutrom.py)
+#घोषणा SYMBOL(SYM) (अणु बाह्य अक्षर SYM; (u32)&SYM; पूर्ण)
+#घोषणा VSYMBOL(SYM) ((व्योम*)SYMBOL(SYM))
+
+#पूर्ण_अगर // memmap.h

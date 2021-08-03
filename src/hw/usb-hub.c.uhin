@@ -1,0 +1,206 @@
+<शैली गुरु>
+// Code क्रम handling standard USB hubs.
+//
+// Copyright (C) 2010  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "config.h" // CONFIG_USB_HUB
+#समावेश "output.h" // dम_लिखो
+#समावेश "string.h" // स_रखो
+#समावेश "usb.h" // काष्ठा usb_s
+#समावेश "usb-hub.h" // काष्ठा usb_hub_descriptor
+#समावेश "util.h" // समयr_calc
+
+अटल पूर्णांक
+get_hub_desc(काष्ठा usb_pipe *pipe, काष्ठा usb_hub_descriptor *desc)
+अणु
+    काष्ठा usb_ctrlrequest req;
+    req.bRequestType = USB_सूची_IN | USB_TYPE_CLASS | USB_RECIP_DEVICE;
+    req.bRequest = USB_REQ_GET_DESCRIPTOR;
+    अगर (pipe->speed == USB_SUPERSPEED)
+        req.wValue = USB_DT_HUB3<<8;
+    अन्यथा
+        req.wValue = USB_DT_HUB<<8;
+    req.wIndex = 0;
+    req.wLength = माप(*desc);
+    वापस usb_send_शेष_control(pipe, &req, desc);
+पूर्ण
+
+अटल पूर्णांक
+set_hub_depth(काष्ठा usb_pipe *pipe, u16 depth)
+अणु
+    काष्ठा usb_ctrlrequest req;
+    req.bRequestType = USB_सूची_OUT | USB_TYPE_CLASS | USB_RECIP_DEVICE;
+    req.bRequest = HUB_REQ_SET_HUB_DEPTH;
+    req.wValue = depth;
+    req.wIndex = 0;
+    req.wLength = 0;
+    वापस usb_send_शेष_control(pipe, &req, शून्य);
+पूर्ण
+
+अटल पूर्णांक
+set_port_feature(काष्ठा usbhub_s *hub, पूर्णांक port, पूर्णांक feature)
+अणु
+    काष्ठा usb_ctrlrequest req;
+    req.bRequestType = USB_सूची_OUT | USB_TYPE_CLASS | USB_RECIP_OTHER;
+    req.bRequest = USB_REQ_SET_FEATURE;
+    req.wValue = feature;
+    req.wIndex = port + 1;
+    req.wLength = 0;
+    mutex_lock(&hub->lock);
+    पूर्णांक ret = usb_send_शेष_control(hub->usbdev->defpipe, &req, शून्य);
+    mutex_unlock(&hub->lock);
+    वापस ret;
+पूर्ण
+
+अटल पूर्णांक
+clear_port_feature(काष्ठा usbhub_s *hub, पूर्णांक port, पूर्णांक feature)
+अणु
+    काष्ठा usb_ctrlrequest req;
+    req.bRequestType = USB_सूची_OUT | USB_TYPE_CLASS | USB_RECIP_OTHER;
+    req.bRequest = USB_REQ_CLEAR_FEATURE;
+    req.wValue = feature;
+    req.wIndex = port + 1;
+    req.wLength = 0;
+    mutex_lock(&hub->lock);
+    पूर्णांक ret = usb_send_शेष_control(hub->usbdev->defpipe, &req, शून्य);
+    mutex_unlock(&hub->lock);
+    वापस ret;
+पूर्ण
+
+अटल पूर्णांक
+get_port_status(काष्ठा usbhub_s *hub, पूर्णांक port, काष्ठा usb_port_status *sts)
+अणु
+    काष्ठा usb_ctrlrequest req;
+    req.bRequestType = USB_सूची_IN | USB_TYPE_CLASS | USB_RECIP_OTHER;
+    req.bRequest = USB_REQ_GET_STATUS;
+    req.wValue = 0;
+    req.wIndex = port + 1;
+    req.wLength = माप(*sts);
+    mutex_lock(&hub->lock);
+    पूर्णांक ret = usb_send_शेष_control(hub->usbdev->defpipe, &req, sts);
+    mutex_unlock(&hub->lock);
+    वापस ret;
+पूर्ण
+
+// Check अगर device attached to port
+अटल पूर्णांक
+usb_hub_detect(काष्ठा usbhub_s *hub, u32 port)
+अणु
+    काष्ठा usb_port_status sts;
+    पूर्णांक ret = get_port_status(hub, port, &sts);
+    अगर (ret) अणु
+        dम_लिखो(1, "Failure on hub port %d detect\n", port);
+        वापस -1;
+    पूर्ण
+    वापस (sts.wPortStatus & USB_PORT_STAT_CONNECTION) ? 1 : 0;
+पूर्ण
+
+// Disable port
+अटल व्योम
+usb_hub_disconnect(काष्ठा usbhub_s *hub, u32 port)
+अणु
+    पूर्णांक ret = clear_port_feature(hub, port, USB_PORT_FEAT_ENABLE);
+    अगर (ret)
+        dम_लिखो(1, "Failure on hub port %d disconnect\n", port);
+पूर्ण
+
+// Reset device on port
+अटल पूर्णांक
+usb_hub_reset(काष्ठा usbhub_s *hub, u32 port)
+अणु
+    पूर्णांक ret = set_port_feature(hub, port, USB_PORT_FEAT_RESET);
+    अगर (ret)
+        जाओ fail;
+
+    // Wait क्रम reset to complete.
+    काष्ठा usb_port_status sts;
+    u32 end = समयr_calc(USB_TIME_DRST * 2);
+    क्रम (;;) अणु
+        ret = get_port_status(hub, port, &sts);
+        अगर (ret)
+            जाओ fail;
+        अगर (!(sts.wPortStatus & USB_PORT_STAT_RESET)
+            && (hub->usbdev->speed != USB_SUPERSPEED
+                || !(sts.wPortStatus & USB_PORT_STAT_LINK_MASK)))
+            अवरोध;
+        अगर (समयr_check(end)) अणु
+            warn_समयout();
+            जाओ fail;
+        पूर्ण
+        msleep(5);
+    पूर्ण
+
+    // Reset complete.
+    अगर (!(sts.wPortStatus & USB_PORT_STAT_CONNECTION))
+        // Device no दीर्घer present
+        वापस -1;
+
+    अगर (hub->usbdev->speed == USB_SUPERSPEED)
+        वापस USB_SUPERSPEED;
+    वापस ((sts.wPortStatus & USB_PORT_STAT_SPEED_MASK)
+            >> USB_PORT_STAT_SPEED_SHIFT);
+
+fail:
+    dम_लिखो(1, "Failure on hub port %d reset\n", port);
+    usb_hub_disconnect(hub, port);
+    वापस -1;
+पूर्ण
+
+अटल काष्ठा usbhub_op_s HubOp = अणु
+    .detect = usb_hub_detect,
+    .reset = usb_hub_reset,
+    .disconnect = usb_hub_disconnect,
+पूर्ण;
+
+// Configure a usb hub and then find devices connected to it.
+पूर्णांक
+usb_hub_setup(काष्ठा usbdevice_s *usbdev)
+अणु
+    ASSERT32FLAT();
+    अगर (!CONFIG_USB_HUB)
+        वापस -1;
+
+    काष्ठा usb_hub_descriptor desc;
+    पूर्णांक ret = get_hub_desc(usbdev->defpipe, &desc);
+    अगर (ret)
+        वापस ret;
+
+    काष्ठा usbhub_s hub;
+    स_रखो(&hub, 0, माप(hub));
+    hub.usbdev = usbdev;
+    hub.cntl = usbdev->defpipe->cntl;
+    hub.portcount = desc.bNbrPorts;
+    hub.op = &HubOp;
+
+    अगर (usbdev->speed == USB_SUPERSPEED) अणु
+        पूर्णांक depth = 0;
+        काष्ठा usbdevice_s *parent = usbdev->hub->usbdev;
+        जबतक (parent) अणु
+            depth++;
+            parent = parent->hub->usbdev;
+        पूर्ण
+
+        ret = set_hub_depth(usbdev->defpipe, depth);
+        अगर (ret)
+            वापस ret;
+    पूर्ण
+
+    // Turn on घातer to ports.
+    पूर्णांक port;
+    क्रम (port=0; port<desc.bNbrPorts; port++) अणु
+        ret = set_port_feature(&hub, port, USB_PORT_FEAT_POWER);
+        अगर (ret)
+            वापस ret;
+    पूर्ण
+    // Wait क्रम port घातer to stabilize.
+    msleep(desc.bPwrOn2PwrGood * 2);
+
+    usb_क्रमागतerate(&hub);
+
+    dम_लिखो(1, "Initialized USB HUB (%d ports used)\n", hub.devcount);
+    अगर (hub.devcount)
+        वापस 0;
+    वापस -1;
+पूर्ण

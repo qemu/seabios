@@ -1,0 +1,252 @@
+<शैली गुरु>
+// String manipulation functions.
+//
+// Copyright (C) 2008-2013  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "stacks.h" // yield
+#समावेश "string.h" // स_नकल
+#समावेश "farptr.h" // SET_SEG
+
+
+/****************************************************************
+ * String ops
+ ****************************************************************/
+
+// Sum the bytes in the specअगरied area.
+u8
+checksum_far(u16 buf_seg, व्योम *buf_far, u32 len)
+अणु
+    SET_SEG(ES, buf_seg);
+    u32 i;
+    u8 sum = 0;
+    क्रम (i=0; i<len; i++)
+        sum += GET_VAR(ES, ((u8*)buf_far)[i]);
+    वापस sum;
+पूर्ण
+
+u8
+checksum(व्योम *buf, u32 len)
+अणु
+    वापस checksum_far(GET_SEG(SS), buf, len);
+पूर्ण
+
+माप_प्रकार
+म_माप(स्थिर अक्षर *s)
+अणु
+    अगर (__builtin_स्थिरant_p(s))
+        वापस __builtin_म_माप(s);
+    स्थिर अक्षर *p = s;
+    जबतक (*p)
+        p++;
+    वापस p-s;
+पूर्ण
+
+पूर्णांक
+स_भेद_far(u16 s1seg, स्थिर व्योम *s1, u16 s2seg, स्थिर व्योम *s2, माप_प्रकार n)
+अणु
+    जबतक (n--) अणु
+        पूर्णांक d = GET_FARVAR(s1seg, *(u8*)s1) - GET_FARVAR(s2seg, *(u8*)s2);
+        अगर (d)
+            वापस d < 0 ? -1 : 1;
+        s1++;
+        s2++;
+    पूर्ण
+    वापस 0;
+पूर्ण
+
+// Compare two areas of memory.
+पूर्णांक
+स_भेद(स्थिर व्योम *s1, स्थिर व्योम *s2, माप_प्रकार n)
+अणु
+    जबतक (n) अणु
+        अगर (*(u8*)s1 != *(u8*)s2)
+            वापस *(u8*)s1 < *(u8*)s2 ? -1 : 1;
+        s1++;
+        s2++;
+        n--;
+    पूर्ण
+    वापस 0;
+पूर्ण
+
+// Compare two strings.
+पूर्णांक
+म_भेद(स्थिर अक्षर *s1, स्थिर अक्षर *s2)
+अणु
+    क्रम (;;) अणु
+        अगर (*s1 != *s2)
+            वापस *s1 < *s2 ? -1 : 1;
+        अगर (! *s1)
+            वापस 0;
+        s1++;
+        s2++;
+    पूर्ण
+पूर्ण
+
+अंतरभूत व्योम
+स_रखो_far(u16 d_seg, व्योम *d_far, u8 c, माप_प्रकार len)
+अणु
+    SET_SEG(ES, d_seg);
+    यंत्र अस्थिर(
+        "rep stosb %%es:(%%di)"
+        : "+c"(len), "+D"(d_far)
+        : "a"(c), "m" (__segment_ES)
+        : "cc", "memory");
+पूर्ण
+
+अंतरभूत व्योम
+स_रखो16_far(u16 d_seg, व्योम *d_far, u16 c, माप_प्रकार len)
+अणु
+    len /= 2;
+    SET_SEG(ES, d_seg);
+    यंत्र अस्थिर(
+        "rep stosw %%es:(%%di)"
+        : "+c"(len), "+D"(d_far)
+        : "a"(c), "m" (__segment_ES)
+        : "cc", "memory");
+पूर्ण
+
+व्योम *
+स_रखो(व्योम *s, पूर्णांक c, माप_प्रकार n)
+अणु
+    जबतक (n)
+        ((अक्षर *)s)[--n] = c;
+    वापस s;
+पूर्ण
+
+व्योम स_रखो_fl(व्योम *ptr, u8 val, माप_प्रकार size)
+अणु
+    अगर (MODESEGMENT)
+        स_रखो_far(FLATPTR_TO_SEG(ptr), (व्योम*)(FLATPTR_TO_OFFSET(ptr)),
+                   val, size);
+    अन्यथा
+        स_रखो(ptr, val, size);
+पूर्ण
+
+अंतरभूत व्योम
+स_नकल_far(u16 d_seg, व्योम *d_far, u16 s_seg, स्थिर व्योम *s_far, माप_प्रकार len)
+अणु
+    SET_SEG(ES, d_seg);
+    u16 bkup_ds;
+    यंत्र अस्थिर(
+        "movw %%ds, %w0\n"
+        "movw %w4, %%ds\n"
+        "rep movsb (%%si),%%es:(%%di)\n"
+        "movw %w0, %%ds"
+        : "=&r"(bkup_ds), "+c"(len), "+S"(s_far), "+D"(d_far)
+        : "r"(s_seg), "m" (__segment_ES)
+        : "cc", "memory");
+पूर्ण
+
+अंतरभूत व्योम
+स_नकल_fl(व्योम *d_fl, स्थिर व्योम *s_fl, माप_प्रकार len)
+अणु
+    अगर (MODESEGMENT)
+        स_नकल_far(FLATPTR_TO_SEG(d_fl), (व्योम*)FLATPTR_TO_OFFSET(d_fl)
+                   , FLATPTR_TO_SEG(s_fl), (व्योम*)FLATPTR_TO_OFFSET(s_fl)
+                   , len);
+    अन्यथा
+        स_नकल(d_fl, s_fl, len);
+पूर्ण
+
+व्योम *
+#अघोषित स_नकल
+स_नकल(व्योम *d1, स्थिर व्योम *s1, माप_प्रकार len)
+#अगर MODESEGMENT == 0
+#घोषणा स_नकल __builtin_स_नकल
+#पूर्ण_अगर
+अणु
+    SET_SEG(ES, GET_SEG(SS));
+    व्योम *d = d1;
+    अगर (((u32)d1 | (u32)s1 | len) & 3) अणु
+        // non-aligned स_नकल
+        यंत्र अस्थिर(
+            "rep movsb (%%esi),%%es:(%%edi)"
+            : "+c"(len), "+S"(s1), "+D"(d)
+            : "m" (__segment_ES) : "cc", "memory");
+        वापस d1;
+    पूर्ण
+    // Common हाल - use 4-byte copy
+    len /= 4;
+    यंत्र अस्थिर(
+        "rep movsl (%%esi),%%es:(%%edi)"
+        : "+c"(len), "+S"(s1), "+D"(d)
+        : "m" (__segment_ES) : "cc", "memory");
+    वापस d1;
+पूर्ण
+
+// Copy to/from memory mapped IO.  IO mem is very slow, so yield
+// periodically.
+व्योम
+ioस_नकल(व्योम *d, स्थिर व्योम *s, u32 len)
+अणु
+    ASSERT32FLAT();
+    yield();
+    जबतक (len > 3) अणु
+        u32 copylen = len;
+        अगर (copylen > 2048)
+            copylen = 2048;
+        copylen /= 4;
+        len -= copylen * 4;
+        यंत्र अस्थिर(
+            "rep movsl (%%esi),%%es:(%%edi)"
+            : "+c"(copylen), "+S"(s), "+D"(d)
+            : : "cc", "memory");
+        yield();
+    पूर्ण
+    अगर (len)
+        // Copy any reमुख्यing bytes.
+        स_नकल(d, s, len);
+पूर्ण
+
+व्योम *
+स_हटाओ(व्योम *d, स्थिर व्योम *s, माप_प्रकार len)
+अणु
+    अगर (s >= d)
+        वापस स_नकल(d, s, len);
+
+    d += len-1;
+    s += len-1;
+    जबतक (len--) अणु
+        *(अक्षर*)d = *(अक्षर*)s;
+        d--;
+        s--;
+    पूर्ण
+
+    वापस d;
+पूर्ण
+
+// Copy a string - truncating it अगर necessary.
+अक्षर *
+strtcpy(अक्षर *dest, स्थिर अक्षर *src, माप_प्रकार len)
+अणु
+    अक्षर *d = dest;
+    जबतक (--len && *src != '\0')
+        *d++ = *src++;
+    *d = '\0';
+    वापस dest;
+पूर्ण
+
+// locate first occurrence of अक्षरacter c in the string s
+अक्षर *
+म_अक्षर(स्थिर अक्षर *s, पूर्णांक c)
+अणु
+    क्रम (; *s; s++)
+        अगर (*s == c)
+            वापस (अक्षर*)s;
+    वापस शून्य;
+पूर्ण
+
+// Remove any trailing blank अक्षरacters (spaces, new lines, carriage वापसs)
+अक्षर *
+nullTrailingSpace(अक्षर *buf)
+अणु
+    पूर्णांक len = म_माप(buf);
+    अक्षर *end = &buf[len-1];
+    जबतक (end >= buf && *end <= ' ')
+        *(end--) = '\0';
+    जबतक (*buf && *buf <= ' ')
+        buf++;
+    वापस buf;
+पूर्ण

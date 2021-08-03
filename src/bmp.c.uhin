@@ -1,0 +1,117 @@
+<शैली गुरु>
+/*
+* Basic BMP data process and Raw picture data handle functions.
+* Could be used to adjust pixel data क्रमmat, get inक्रमmation, etc.
+*
+* Copyright (C) 2011 Wayne Xia <xiawenc@cn.ibm.com>
+*
+* This work is licensed under the terms of the GNU LGPLv3.
+*/
+#समावेश "malloc.h" // दो_स्मृति_पंचांगphigh
+#समावेश "string.h" // स_नकल
+#समावेश "util.h" // काष्ठा bmp_decdata
+
+काष्ठा bmp_decdata अणु
+    काष्ठा tagRGBQUAD *quadp;
+    अचिन्हित अक्षर *datap;
+    पूर्णांक width;
+    पूर्णांक height;
+    पूर्णांक bpp;
+पूर्ण;
+
+#घोषणा bmp_load4byte(addr) (*(u32 *)(addr))
+#घोषणा bmp_load2byte(addr) (*(u16 *)(addr))
+
+प्रकार काष्ठा tagBITMAPखाताHEADER अणु
+    u8 bfType[2];
+    u8 bfSize[4];
+    u8 bfReserved1[2];
+    u8 bfReserved2[2];
+    u8 bfOffBits[4];
+पूर्ण BITMAPखाताHEADER, tagBITMAPखाताHEADER;
+
+प्रकार काष्ठा tagBITMAPINFOHEADER अणु
+    u8 biSize[4];
+    u8 biWidth[4];
+    u8 biHeight[4];
+    u8 biPlanes[2];
+    u8 biBitCount[2];
+    u8 biCompression[4];
+    u8 biSizeImage[4];
+    u8 biXPelsPerMeter[4];
+    u8 biYPelsPerMeter[4];
+    u8 biClrUsed[4];
+    u8 biClrImportant[4];
+पूर्ण BITMAPINFOHEADER, tagBITMAPINFOHEADER;
+
+प्रकार काष्ठा tagRGBQUAD अणु
+    u8 rgbBlue;
+    u8 rgbGreen;
+    u8 rgbRed;
+    u8 rgbReserved;
+पूर्ण RGBQUAD, tagRGBQUAD;
+
+/* flat picture data adjusting function
+* description:
+*   चयन the vertical line sequence
+*   arrange horizontal pixel data, add extra space in the dest buffer
+*       क्रम every line
+*/
+अटल व्योम raw_data_क्रमmat_adjust(u8 *src, u8 *dest, पूर्णांक width,
+		पूर्णांक height, पूर्णांक bytes_per_line_src, पूर्णांक bytes_per_line_dest)
+अणु
+    पूर्णांक i;
+    क्रम (i = 0 ; i < height ; i++) अणु
+        स_नकल(dest + i * bytes_per_line_dest,
+           src + (height - 1 - i) * bytes_per_line_src, bytes_per_line_src);
+    पूर्ण
+पूर्ण
+
+/* allocate decdata काष्ठा */
+काष्ठा bmp_decdata *bmp_alloc(व्योम)
+अणु
+    काष्ठा bmp_decdata *bmp = दो_स्मृति_पंचांगphigh(माप(*bmp));
+    वापस bmp;
+पूर्ण
+
+/* extract inक्रमmation from bmp file data */
+पूर्णांक bmp_decode(काष्ठा bmp_decdata *bmp, अचिन्हित अक्षर *data, पूर्णांक data_size)
+अणु
+    अगर (data_size < 54)
+        वापस 1;
+
+    u16 bmp_filehead = bmp_load2byte(data + 0);
+    अगर (bmp_filehead != 0x4d42)
+        वापस 2;
+    u32 bmp_recordsize = bmp_load4byte(data + 2);
+    अगर (bmp_recordsize != data_size)
+        वापस 3;
+    u32 bmp_dataoffset = bmp_load4byte(data + 10);
+    bmp->datap = (अचिन्हित अक्षर *)data + bmp_dataoffset;
+    bmp->width = bmp_load4byte(data + 18);
+    bmp->height = bmp_load4byte(data + 22);
+    bmp->bpp = bmp_load2byte(data + 28);
+    वापस 0;
+पूर्ण
+
+/* get bmp properties */
+व्योम bmp_get_info(काष्ठा bmp_decdata *bmp, पूर्णांक *width, पूर्णांक *height, पूर्णांक *bpp)
+अणु
+    *width = bmp->width;
+    *height = bmp->height;
+    *bpp = bmp->bpp;
+पूर्ण
+
+/* flush flat picture data to *pc */
+पूर्णांक bmp_show(काष्ठा bmp_decdata *bmp, अचिन्हित अक्षर *pic, पूर्णांक width,
+             पूर्णांक height, पूर्णांक depth, पूर्णांक bytes_per_line_dest)
+अणु
+    अगर (bmp->datap == pic)
+        वापस 0;
+    अगर ((depth == bmp->bpp) && (bmp->bpp%8 == 0)) अणु
+        raw_data_क्रमmat_adjust(bmp->datap, pic, width, height,
+			(bmp->bpp/8)*width, bytes_per_line_dest);
+        वापस 0;
+    पूर्ण
+    वापस 1;
+पूर्ण

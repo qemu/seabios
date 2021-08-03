@@ -1,0 +1,463 @@
+<शैली गुरु>
+// Video Bios Extensions handlers
+//
+// Copyright (C) 2012  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2011  Julian Pidancet <julian.pidancet@citrix.com>
+// Copyright (C) 2001-2008 the LGPL VGABios developers Team
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_GLOBAL
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "config.h" // CONFIG_*
+#समावेश "output.h" // dम_लिखो
+#समावेश "std/vbe.h" // काष्ठा vbe_info
+#समावेश "string.h" // स_रखो_far
+#समावेश "vgabios.h" // get_current_mode
+#समावेश "vgahw.h" // vgahw_set_mode
+#समावेश "vgautil.h" // handle_104f
+
+#घोषणा VBE_OEM_STRING "AyeBIOS VBE(C) 2011"
+#घोषणा VBE_VENDOR_STRING "AyeBIOS Developers"
+#घोषणा VBE_PRODUCT_STRING "AyeBIOS VBE Adapter"
+#घोषणा VBE_REVISION_STRING "Rev. 1"
+
+u32 VBE_total_memory VAR16 = 256 * 1024;
+u32 VBE_capabilities VAR16;
+u32 VBE_framebuffer VAR16;
+u16 VBE_win_granularity VAR16;
+u8 VBE_edid[256] VAR16;
+
+अटल व्योम
+vbe_104f00(काष्ठा bregs *regs)
+अणु
+    u16 seg = regs->es;
+    काष्ठा vbe_info *info = (व्योम*)(regs->di+0);
+
+    अगर (GET_FARVAR(seg, info->signature) == VBE2_SIGNATURE) अणु
+        dम_लिखो(4, "Get VBE Controller: VBE2 Signature found\n");
+    पूर्ण अन्यथा अगर (GET_FARVAR(seg, info->signature) == VESA_SIGNATURE) अणु
+        dम_लिखो(4, "Get VBE Controller: VESA Signature found\n");
+    पूर्ण अन्यथा अणु
+        dम_लिखो(4, "Get VBE Controller: Invalid Signature\n");
+    पूर्ण
+
+    स_रखो_far(seg, info, 0, माप(*info));
+
+    SET_FARVAR(seg, info->signature, VESA_SIGNATURE);
+
+    SET_FARVAR(seg, info->version, 0x0300);
+
+    SET_FARVAR(seg, info->oem_string,
+            SEGOFF(get_global_seg(), (u32)VBE_OEM_STRING));
+    SET_FARVAR(seg, info->capabilities, GET_GLOBAL(VBE_capabilities));
+
+    /* We generate our mode list in the reserved field of the info block */
+    u16 *desपंचांगode = (व्योम*)info->reserved;
+    SET_FARVAR(seg, info->video_mode, SEGOFF(seg, (u32)desपंचांगode));
+
+    /* Total memory (in 64k blocks) */
+    SET_FARVAR(seg, info->total_memory
+               , GET_GLOBAL(VBE_total_memory) / (64*1024));
+
+    SET_FARVAR(seg, info->oem_venकरोr_string,
+            SEGOFF(get_global_seg(), (u32)VBE_VENDOR_STRING));
+    SET_FARVAR(seg, info->oem_product_string,
+            SEGOFF(get_global_seg(), (u32)VBE_PRODUCT_STRING));
+    SET_FARVAR(seg, info->oem_revision_string,
+            SEGOFF(get_global_seg(), (u32)VBE_REVISION_STRING));
+
+    /* Fill list of modes */
+    u16 *last = (व्योम*)&info->reserved[माप(info->reserved)];
+    vgahw_list_modes(seg, desपंचांगode, last - 1);
+
+    regs->ax = 0x004f;
+पूर्ण
+
+अटल व्योम
+vbe_104f01(काष्ठा bregs *regs)
+अणु
+    u16 seg = regs->es;
+    काष्ठा vbe_mode_info *info = (व्योम*)(regs->di+0);
+    u16 mode = regs->cx;
+
+    dम_लिखो(1, "VBE mode info request: %x\n", mode);
+
+    काष्ठा vgamode_s *vmode_g = vgahw_find_mode(mode & ~MF_VBEFLAGS);
+    अगर (! vmode_g) अणु
+        dम_लिखो(1, "VBE mode %x not found\n", mode);
+        regs->ax = 0x014f;
+        वापस;
+    पूर्ण
+
+    स_रखो_far(seg, info, 0, माप(*info));
+
+    // Basic inक्रमmation about video controller.
+    u32 win_granularity = GET_GLOBAL(VBE_win_granularity);
+    SET_FARVAR(seg, info->winA_attributes,
+               (win_granularity ? VBE_WINDOW_ATTRIBUTE_RELOCATABLE : 0) |
+               VBE_WINDOW_ATTRIBUTE_READABLE |
+               VBE_WINDOW_ATTRIBUTE_WRITEABLE);
+    SET_FARVAR(seg, info->winB_attributes, 0);
+    SET_FARVAR(seg, info->win_granularity, win_granularity);
+    SET_FARVAR(seg, info->win_size, 64); /* Bank size 64K */
+    SET_FARVAR(seg, info->winA_seg, GET_GLOBAL(vmode_g->sstart));
+    SET_FARVAR(seg, info->winB_seg, 0x0);
+    बाह्य व्योम entry_104f05(व्योम);
+    SET_FARVAR(seg, info->win_func_ptr
+               , SEGOFF(get_global_seg(), (u32)entry_104f05));
+    // Basic inक्रमmation about mode.
+    पूर्णांक width = GET_GLOBAL(vmode_g->width);
+    पूर्णांक height = GET_GLOBAL(vmode_g->height);
+    पूर्णांक linesize = vgahw_get_linesize(vmode_g);
+    SET_FARVAR(seg, info->bytes_per_scanline, linesize);
+    SET_FARVAR(seg, info->xres, width);
+    SET_FARVAR(seg, info->yres, height);
+    SET_FARVAR(seg, info->xअक्षरsize, GET_GLOBAL(vmode_g->cwidth));
+    SET_FARVAR(seg, info->yअक्षरsize, GET_GLOBAL(vmode_g->cheight));
+    पूर्णांक depth = GET_GLOBAL(vmode_g->depth);
+    SET_FARVAR(seg, info->bits_per_pixel, depth);
+    u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
+    SET_FARVAR(seg, info->mem_model, memmodel);
+    SET_FARVAR(seg, info->reserved0, 1);
+
+    // Mode specअगरic info.
+    u16 mode_attr = VBE_MODE_ATTRIBUTE_SUPPORTED |
+                    VBE_MODE_ATTRIBUTE_EXTENDED_INFORMATION_AVAILABLE |
+                    VBE_MODE_ATTRIBUTE_COLOR_MODE |
+                    VBE_MODE_ATTRIBUTE_GRAPHICS_MODE |
+                    VBE_MODE_ATTRIBUTE_NOT_VGA_COMPATIBLE;
+    u32 framebuffer = 0;
+    पूर्णांक planes = 1, banks = 1;
+    u32 pages = GET_GLOBAL(VBE_total_memory) / ALIGN(height * linesize, 64*1024);
+    चयन (memmodel) अणु
+    हाल MM_TEXT:
+        mode_attr &= ~VBE_MODE_ATTRIBUTE_GRAPHICS_MODE;
+        mode_attr |= VBE_MODE_ATTRIBUTE_TTY_BIOS_SUPPORT;
+        अगर (GET_GLOBAL(vmode_g->sstart) == SEG_MTEXT)
+            mode_attr &= ~VBE_MODE_ATTRIBUTE_COLOR_MODE;
+        pages = 1;
+        अवरोध;
+    हाल MM_CGA:
+        pages = 1;
+        banks = 2;
+        SET_FARVAR(seg, info->bank_size, 8);
+        अवरोध;
+    हाल MM_PLANAR:
+        planes = 4;
+        pages /= 4;
+        अवरोध;
+    शेष:
+        framebuffer = GET_GLOBAL(VBE_framebuffer);
+        अगर (framebuffer)
+            mode_attr |= VBE_MODE_ATTRIBUTE_LINEAR_FRAME_BUFFER_MODE;
+        अवरोध;
+    पूर्ण
+    अगर (pages > 128)
+        pages = 128;
+    अगर (pages < 2)
+        pages++;
+    SET_FARVAR(seg, info->mode_attributes, mode_attr);
+    SET_FARVAR(seg, info->planes, planes);
+    SET_FARVAR(seg, info->pages, pages - 1);
+    SET_FARVAR(seg, info->banks, banks);
+
+    // Pixel color अवरोधकरोwn
+    u8 r_size, r_pos, g_size, g_pos, b_size, b_pos, a_size, a_pos;
+    चयन (depth) अणु
+    हाल 15: r_size = 5; r_pos = 10; g_size = 5; g_pos = 5;
+             b_size = 5; b_pos = 0; a_size = 1; a_pos = 15; अवरोध;
+    हाल 16: r_size = 5; r_pos = 11; g_size = 6; g_pos = 5;
+             b_size = 5; b_pos = 0; a_size = 0; a_pos = 0; अवरोध;
+    हाल 24: r_size = 8; r_pos = 16; g_size = 8; g_pos = 8;
+             b_size = 8; b_pos = 0; a_size = 0; a_pos = 0; अवरोध;
+    हाल 32: r_size = 8; r_pos = 16; g_size = 8; g_pos = 8;
+             b_size = 8; b_pos = 0; a_size = 8; a_pos = 24;
+             SET_FARVAR(seg, info->directcolor_info,
+                        VBE_सूचीECTCOLOR_RESERVED_BITS_AVAILABLE);
+             अवरोध;
+    शेष: r_size = 0; r_pos = 0; g_size = 0; g_pos = 0;
+             b_size = 0; b_pos = 0; a_size = 0; a_pos = 0; अवरोध;
+    पूर्ण
+    SET_FARVAR(seg, info->red_size, r_size);
+    SET_FARVAR(seg, info->red_pos, r_pos);
+    SET_FARVAR(seg, info->green_size, g_size);
+    SET_FARVAR(seg, info->green_pos, g_pos);
+    SET_FARVAR(seg, info->blue_size, b_size);
+    SET_FARVAR(seg, info->blue_pos, b_pos);
+    SET_FARVAR(seg, info->alpha_size, a_size);
+    SET_FARVAR(seg, info->alpha_pos, a_pos);
+
+    // Linear framebuffer info.
+    अगर (framebuffer) अणु
+        SET_FARVAR(seg, info->phys_base, framebuffer);
+
+        SET_FARVAR(seg, info->reserved1, 0);
+        SET_FARVAR(seg, info->reserved2, 0);
+        SET_FARVAR(seg, info->linear_bytes_per_scanline, linesize);
+        SET_FARVAR(seg, info->linear_pages, 0);
+        SET_FARVAR(seg, info->linear_red_size, r_size);
+        SET_FARVAR(seg, info->linear_red_pos, r_pos);
+        SET_FARVAR(seg, info->linear_green_size, g_size);
+        SET_FARVAR(seg, info->linear_green_pos, g_pos);
+        SET_FARVAR(seg, info->linear_blue_size, b_size);
+        SET_FARVAR(seg, info->linear_blue_pos, b_pos);
+        SET_FARVAR(seg, info->linear_alpha_size, a_size);
+        SET_FARVAR(seg, info->linear_alpha_pos, a_pos);
+    पूर्ण
+
+    regs->ax = 0x004f;
+पूर्ण
+
+अटल व्योम
+vbe_104f02(काष्ठा bregs *regs)
+अणु
+    dम_लिखो(1, "VBE mode set: %x\n", regs->bx);
+
+    पूर्णांक mode = regs->bx & ~MF_VBEFLAGS;
+    पूर्णांक flags = regs->bx & MF_VBEFLAGS;
+    पूर्णांक ret = vga_set_mode(mode, flags);
+
+    regs->ah = ret;
+    regs->al = 0x4f;
+पूर्ण
+
+अटल व्योम
+vbe_104f03(काष्ठा bregs *regs)
+अणु
+    regs->bx = GET_BDA_EXT(vbe_mode);
+    dम_लिखो(1, "VBE current mode=%x\n", regs->bx);
+    regs->ax = 0x004f;
+पूर्ण
+
+अटल व्योम
+vbe_104f04(काष्ठा bregs *regs)
+अणु
+    u16 seg = regs->es;
+    व्योम *data = (व्योम*)(regs->bx+0);
+    u16 states = regs->cx;
+    u8 cmd = regs->dl;
+    अगर (states & ~0x0f || cmd > 2)
+        जाओ fail;
+    पूर्णांक ret = vgahw_save_restore(states | (cmd<<8), seg, data);
+    अगर (ret < 0)
+        जाओ fail;
+    अगर (cmd == 0)
+        regs->bx = ret / 64;
+    regs->ax = 0x004f;
+    वापस;
+fail:
+    regs->ax = 0x014f;
+पूर्ण
+
+व्योम VISIBLE16
+vbe_104f05(काष्ठा bregs *regs)
+अणु
+    अगर (regs->bh > 1 || regs->bl > 1)
+        जाओ fail;
+    अगर (GET_BDA_EXT(vbe_mode) & MF_LINEARFB) अणु
+        regs->ah = VBE_RETURN_STATUS_INVALID;
+        वापस;
+    पूर्ण
+    काष्ठा vgamode_s *vmode_g = get_current_mode();
+    अगर (! vmode_g)
+        जाओ fail;
+    अगर (regs->bh) अणु
+        पूर्णांक ret = vgahw_get_winकरोw(vmode_g, regs->bl);
+        अगर (ret < 0)
+            जाओ fail;
+        regs->dx = ret;
+        regs->ax = 0x004f;
+        वापस;
+    पूर्ण
+    पूर्णांक ret = vgahw_set_winकरोw(vmode_g, regs->bl, regs->dx);
+    अगर (ret)
+        जाओ fail;
+    regs->ax = 0x004f;
+    वापस;
+fail:
+    regs->ax = 0x014f;
+पूर्ण
+
+अटल व्योम
+vbe_104f06(काष्ठा bregs *regs)
+अणु
+    अगर (regs->bl > 0x02)
+        जाओ fail;
+    काष्ठा vgamode_s *vmode_g = get_current_mode();
+    अगर (! vmode_g)
+        जाओ fail;
+    पूर्णांक bpp = vga_bpp(vmode_g);
+
+    अगर (regs->bl == 0x00) अणु
+        पूर्णांक ret = vgahw_set_linelength(vmode_g, DIV_ROUND_UP(regs->cx * bpp, 8));
+        अगर (ret)
+            जाओ fail;
+    पूर्ण अन्यथा अगर (regs->bl == 0x02) अणु
+        पूर्णांक ret = vgahw_set_linelength(vmode_g, regs->cx);
+        अगर (ret)
+            जाओ fail;
+    पूर्ण
+    पूर्णांक linelength = vgahw_get_linelength(vmode_g);
+    अगर (linelength < 0)
+        जाओ fail;
+
+    regs->bx = linelength;
+    regs->cx = (linelength * 8) / bpp;
+    regs->dx = GET_GLOBAL(VBE_total_memory) / linelength;
+    regs->ax = 0x004f;
+    वापस;
+fail:
+    regs->ax = 0x014f;
+पूर्ण
+
+अटल व्योम
+vbe_104f07(काष्ठा bregs *regs)
+अणु
+    काष्ठा vgamode_s *vmode_g = get_current_mode();
+    अगर (! vmode_g)
+        जाओ fail;
+    पूर्णांक bpp = vga_bpp(vmode_g);
+    पूर्णांक linelength = vgahw_get_linelength(vmode_g);
+    अगर (linelength < 0)
+        जाओ fail;
+
+    पूर्णांक ret;
+    चयन (regs->bl) अणु
+    हाल 0x80:
+    हाल 0x00:
+        ret = vgahw_set_displaystart(
+            vmode_g, DIV_ROUND_UP(regs->cx * bpp, 8) + linelength * regs->dx);
+        अगर (ret)
+            जाओ fail;
+        अवरोध;
+    हाल 0x01:
+        ret = vgahw_get_displaystart(vmode_g);
+        अगर (ret < 0)
+            जाओ fail;
+        regs->dx = ret / linelength;
+        regs->cx = (ret % linelength) * 8 / bpp;
+        अवरोध;
+    शेष:
+        जाओ fail;
+    पूर्ण
+    regs->ax = 0x004f;
+    वापस;
+fail:
+    regs->ax = 0x014f;
+पूर्ण
+
+अटल व्योम
+vbe_104f08(काष्ठा bregs *regs)
+अणु
+    काष्ठा vgamode_s *vmode_g = get_current_mode();
+    अगर (! vmode_g)
+        जाओ fail;
+    u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
+    अगर (memmodel == MM_सूचीECT || memmodel == MM_YUV) अणु
+        regs->ax = 0x034f;
+        वापस;
+    पूर्ण
+    अगर (regs->bl > 1)
+        जाओ fail;
+    अगर (regs->bl == 0) अणु
+        पूर्णांक ret = vgahw_set_dacक्रमmat(vmode_g, regs->bh);
+        अगर (ret < 0)
+            जाओ fail;
+    पूर्ण
+    पूर्णांक ret = vgahw_get_dacक्रमmat(vmode_g);
+    अगर (ret < 0)
+        जाओ fail;
+    regs->bh = ret;
+    regs->ax = 0x004f;
+    वापस;
+fail:
+    regs->ax = 0x014f;
+पूर्ण
+
+अटल व्योम
+vbe_104f0a(काष्ठा bregs *regs)
+अणु
+    debug_stub(regs);
+    regs->ax = 0x0100;
+पूर्ण
+
+अटल व्योम
+vbe_104f10(काष्ठा bregs *regs)
+अणु
+    चयन (regs->bl) अणु
+    हाल 0x00:
+        regs->bx = 0x0f30;
+        अवरोध;
+    हाल 0x01:
+        MASK_BDA_EXT(flags, BF_PM_MASK, regs->bh & BF_PM_MASK);
+        अवरोध;
+    हाल 0x02:
+        regs->bh = GET_BDA_EXT(flags) & BF_PM_MASK;
+        अवरोध;
+    शेष:
+        regs->ax = 0x014f;
+        वापस;
+    पूर्ण
+    regs->ax = 0x004f;
+पूर्ण
+
+अटल व्योम
+vbe_104f15(काष्ठा bregs *regs)
+अणु
+    पूर्णांक offset;
+
+    चयन (regs->bl) अणु
+    हाल 0x00:
+        अगर (GET_GLOBAL(VBE_edid[0]) != 0x00 ||
+            GET_GLOBAL(VBE_edid[1]) != 0xff)
+            जाओ err;
+        regs->bx = 0x0103;
+        अवरोध;
+    हाल 0x01:
+        offset = regs->dx * 128;
+        अगर (offset >= माप(VBE_edid))
+            जाओ err;
+        स_नकल_far(regs->es, (व्योम*)(regs->di+0),
+                   get_global_seg(), VBE_edid + offset,
+                   128);
+        अवरोध;
+    err:
+    शेष:
+        regs->ax = 0x014f;
+        वापस;
+    पूर्ण
+    regs->ax = 0x004f;
+पूर्ण
+
+अटल व्योम
+vbe_104fXX(काष्ठा bregs *regs)
+अणु
+    debug_stub(regs);
+    regs->ax = 0x0100;
+पूर्ण
+
+व्योम noअंतरभूत
+handle_104f(काष्ठा bregs *regs)
+अणु
+    अगर (!CONFIG_VGA_VBE) अणु
+        vbe_104fXX(regs);
+        वापस;
+    पूर्ण
+
+    चयन (regs->al) अणु
+    हाल 0x00: vbe_104f00(regs); अवरोध;
+    हाल 0x01: vbe_104f01(regs); अवरोध;
+    हाल 0x02: vbe_104f02(regs); अवरोध;
+    हाल 0x03: vbe_104f03(regs); अवरोध;
+    हाल 0x04: vbe_104f04(regs); अवरोध;
+    हाल 0x05: vbe_104f05(regs); अवरोध;
+    हाल 0x06: vbe_104f06(regs); अवरोध;
+    हाल 0x07: vbe_104f07(regs); अवरोध;
+    हाल 0x08: vbe_104f08(regs); अवरोध;
+    हाल 0x0a: vbe_104f0a(regs); अवरोध;
+    हाल 0x10: vbe_104f10(regs); अवरोध;
+    हाल 0x15: vbe_104f15(regs); अवरोध;
+    शेष:   vbe_104fXX(regs); अवरोध;
+    पूर्ण
+पूर्ण

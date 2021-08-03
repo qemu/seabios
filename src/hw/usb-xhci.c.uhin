@@ -1,0 +1,1207 @@
+<शैली गुरु>
+// Code क्रम handling XHCI "Super speed" USB controllers.
+//
+// Copyright (C) 2013  Gerd Hoffmann <kraxel@redhat.com>
+// Copyright (C) 2014  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "config.h" // CONFIG_*
+#समावेश "malloc.h" // memalign_low
+#समावेश "memmap.h" // PAGE_SIZE
+#समावेश "output.h" // dम_लिखो
+#समावेश "pcidevice.h" // क्रमeachpci
+#समावेश "pci_ids.h" // PCI_CLASS_SERIAL_USB_XHCI
+#समावेश "pci_regs.h" // PCI_BASE_ADDRESS_0
+#समावेश "string.h" // स_नकल
+#समावेश "usb.h" // काष्ठा usb_s
+#समावेश "usb-xhci.h" // काष्ठा ehci_qh
+#समावेश "util.h" // समयr_calc
+#समावेश "x86.h" // पढ़ोl
+
+// --------------------------------------------------------------
+// configuration
+
+#घोषणा XHCI_RING_ITEMS          16
+#घोषणा XHCI_RING_SIZE           (XHCI_RING_ITEMS*माप(काष्ठा xhci_trb))
+
+/*
+ *  xhci_ring काष्ठाs are allocated with XHCI_RING_SIZE alignment,
+ *  then we can get it from a trb poपूर्णांकer (provided by evt ring).
+ */
+#घोषणा XHCI_RING(_trb)          \
+    ((काष्ठा xhci_ring*)((u32)(_trb) & ~(XHCI_RING_SIZE-1)))
+
+// --------------------------------------------------------------
+// bit definitions
+
+#घोषणा XHCI_CMD_RS              (1<<0)
+#घोषणा XHCI_CMD_HCRST           (1<<1)
+#घोषणा XHCI_CMD_INTE            (1<<2)
+#घोषणा XHCI_CMD_HSEE            (1<<3)
+#घोषणा XHCI_CMD_LHCRST          (1<<7)
+#घोषणा XHCI_CMD_CSS             (1<<8)
+#घोषणा XHCI_CMD_CRS             (1<<9)
+#घोषणा XHCI_CMD_EWE             (1<<10)
+#घोषणा XHCI_CMD_EU3S            (1<<11)
+
+#घोषणा XHCI_STS_HCH             (1<<0)
+#घोषणा XHCI_STS_HSE             (1<<2)
+#घोषणा XHCI_STS_EINT            (1<<3)
+#घोषणा XHCI_STS_PCD             (1<<4)
+#घोषणा XHCI_STS_SSS             (1<<8)
+#घोषणा XHCI_STS_RSS             (1<<9)
+#घोषणा XHCI_STS_SRE             (1<<10)
+#घोषणा XHCI_STS_CNR             (1<<11)
+#घोषणा XHCI_STS_HCE             (1<<12)
+
+#घोषणा XHCI_PORTSC_CCS          (1<<0)
+#घोषणा XHCI_PORTSC_PED          (1<<1)
+#घोषणा XHCI_PORTSC_OCA          (1<<3)
+#घोषणा XHCI_PORTSC_PR           (1<<4)
+#घोषणा XHCI_PORTSC_PLS_SHIFT        5
+#घोषणा XHCI_PORTSC_PLS_MASK     0xf
+#घोषणा XHCI_PORTSC_PP           (1<<9)
+#घोषणा XHCI_PORTSC_SPEED_SHIFT      10
+#घोषणा XHCI_PORTSC_SPEED_MASK   0xf
+#घोषणा XHCI_PORTSC_SPEED_FULL   (1<<10)
+#घोषणा XHCI_PORTSC_SPEED_LOW    (2<<10)
+#घोषणा XHCI_PORTSC_SPEED_HIGH   (3<<10)
+#घोषणा XHCI_PORTSC_SPEED_SUPER  (4<<10)
+#घोषणा XHCI_PORTSC_PIC_SHIFT        14
+#घोषणा XHCI_PORTSC_PIC_MASK     0x3
+#घोषणा XHCI_PORTSC_LWS          (1<<16)
+#घोषणा XHCI_PORTSC_CSC          (1<<17)
+#घोषणा XHCI_PORTSC_PEC          (1<<18)
+#घोषणा XHCI_PORTSC_WRC          (1<<19)
+#घोषणा XHCI_PORTSC_OCC          (1<<20)
+#घोषणा XHCI_PORTSC_PRC          (1<<21)
+#घोषणा XHCI_PORTSC_PLC          (1<<22)
+#घोषणा XHCI_PORTSC_CEC          (1<<23)
+#घोषणा XHCI_PORTSC_CAS          (1<<24)
+#घोषणा XHCI_PORTSC_WCE          (1<<25)
+#घोषणा XHCI_PORTSC_WDE          (1<<26)
+#घोषणा XHCI_PORTSC_WOE          (1<<27)
+#घोषणा XHCI_PORTSC_DR           (1<<30)
+#घोषणा XHCI_PORTSC_WPR          (1<<31)
+
+#घोषणा TRB_C               (1<<0)
+#घोषणा TRB_TYPE_SHIFT          10
+#घोषणा TRB_TYPE_MASK       0x3f
+#घोषणा TRB_TYPE(t)         (((t) >> TRB_TYPE_SHIFT) & TRB_TYPE_MASK)
+
+#घोषणा TRB_EV_ED           (1<<2)
+
+#घोषणा TRB_TR_ENT          (1<<1)
+#घोषणा TRB_TR_ISP          (1<<2)
+#घोषणा TRB_TR_NS           (1<<3)
+#घोषणा TRB_TR_CH           (1<<4)
+#घोषणा TRB_TR_IOC          (1<<5)
+#घोषणा TRB_TR_IDT          (1<<6)
+#घोषणा TRB_TR_TBC_SHIFT        7
+#घोषणा TRB_TR_TBC_MASK     0x3
+#घोषणा TRB_TR_BEI          (1<<9)
+#घोषणा TRB_TR_TLBPC_SHIFT      16
+#घोषणा TRB_TR_TLBPC_MASK   0xf
+#घोषणा TRB_TR_FRAMEID_SHIFT    20
+#घोषणा TRB_TR_FRAMEID_MASK 0x7ff
+#घोषणा TRB_TR_SIA          (1<<31)
+
+#घोषणा TRB_TR_सूची          (1<<16)
+
+#घोषणा TRB_CR_SLOTID_SHIFT     24
+#घोषणा TRB_CR_SLOTID_MASK  0xff
+#घोषणा TRB_CR_EPID_SHIFT       16
+#घोषणा TRB_CR_EPID_MASK    0x1f
+
+#घोषणा TRB_CR_BSR          (1<<9)
+#घोषणा TRB_CR_DC           (1<<9)
+
+#घोषणा TRB_LK_TC           (1<<1)
+
+#घोषणा TRB_INTR_SHIFT          22
+#घोषणा TRB_INTR_MASK       0x3ff
+#घोषणा TRB_INTR(t)         (((t).status >> TRB_INTR_SHIFT) & TRB_INTR_MASK)
+
+प्रकार क्रमागत TRBType अणु
+    TRB_RESERVED = 0,
+    TR_NORMAL,
+    TR_SETUP,
+    TR_DATA,
+    TR_STATUS,
+    TR_ISOCH,
+    TR_LINK,
+    TR_EVDATA,
+    TR_NOOP,
+    CR_ENABLE_SLOT,
+    CR_DISABLE_SLOT,
+    CR_ADDRESS_DEVICE,
+    CR_CONFIGURE_ENDPOINT,
+    CR_EVALUATE_CONTEXT,
+    CR_RESET_ENDPOINT,
+    CR_STOP_ENDPOINT,
+    CR_SET_TR_DEQUEUE,
+    CR_RESET_DEVICE,
+    CR_FORCE_EVENT,
+    CR_NEGOTIATE_BW,
+    CR_SET_LATENCY_TOLERANCE,
+    CR_GET_PORT_BANDWIDTH,
+    CR_FORCE_HEADER,
+    CR_NOOP,
+    ER_TRANSFER = 32,
+    ER_COMMAND_COMPLETE,
+    ER_PORT_STATUS_CHANGE,
+    ER_BANDWIDTH_REQUEST,
+    ER_DOORBELL,
+    ER_HOST_CONTROLLER,
+    ER_DEVICE_NOTIFICATION,
+    ER_MFINDEX_WRAP,
+पूर्ण TRBType;
+
+प्रकार क्रमागत TRBCCode अणु
+    CC_INVALID = 0,
+    CC_SUCCESS,
+    CC_DATA_BUFFER_ERROR,
+    CC_BABBLE_DETECTED,
+    CC_USB_TRANSACTION_ERROR,
+    CC_TRB_ERROR,
+    CC_STALL_ERROR,
+    CC_RESOURCE_ERROR,
+    CC_BANDWIDTH_ERROR,
+    CC_NO_SLOTS_ERROR,
+    CC_INVALID_STREAM_TYPE_ERROR,
+    CC_SLOT_NOT_ENABLED_ERROR,
+    CC_EP_NOT_ENABLED_ERROR,
+    CC_SHORT_PACKET,
+    CC_RING_UNDERRUN,
+    CC_RING_OVERRUN,
+    CC_VF_ER_FULL,
+    CC_PARAMETER_ERROR,
+    CC_BANDWIDTH_OVERRUN,
+    CC_CONTEXT_STATE_ERROR,
+    CC_NO_PING_RESPONSE_ERROR,
+    CC_EVENT_RING_FULL_ERROR,
+    CC_INCOMPATIBLE_DEVICE_ERROR,
+    CC_MISSED_SERVICE_ERROR,
+    CC_COMMAND_RING_STOPPED,
+    CC_COMMAND_ABORTED,
+    CC_STOPPED,
+    CC_STOPPED_LENGTH_INVALID,
+    CC_MAX_EXIT_LATENCY_TOO_LARGE_ERROR = 29,
+    CC_ISOCH_BUFFER_OVERRUN = 31,
+    CC_EVENT_LOST_ERROR,
+    CC_UNDEFINED_ERROR,
+    CC_INVALID_STREAM_ID_ERROR,
+    CC_SECONDARY_BANDWIDTH_ERROR,
+    CC_SPLIT_TRANSACTION_ERROR
+पूर्ण TRBCCode;
+
+क्रमागत अणु
+    PLS_U0              =  0,
+    PLS_U1              =  1,
+    PLS_U2              =  2,
+    PLS_U3              =  3,
+    PLS_DISABLED        =  4,
+    PLS_RX_DETECT       =  5,
+    PLS_INACTIVE        =  6,
+    PLS_POLLING         =  7,
+    PLS_RECOVERY        =  8,
+    PLS_HOT_RESET       =  9,
+    PLS_COMPILANCE_MODE = 10,
+    PLS_TEST_MODE       = 11,
+    PLS_RESUME          = 15,
+पूर्ण;
+
+#घोषणा xhci_get_field(data, field)             \
+    (((data) >> field##_SHIFT) & field##_MASK)
+
+// --------------------------------------------------------------
+// state काष्ठाs
+
+काष्ठा xhci_ring अणु
+    काष्ठा xhci_trb      ring[XHCI_RING_ITEMS];
+    काष्ठा xhci_trb      evt;
+    u32                  eidx;
+    u32                  nidx;
+    u32                  cs;
+    काष्ठा mutex_s       lock;
+पूर्ण;
+
+काष्ठा xhci_porपंचांगap अणु
+    u8 start;
+    u8 count;
+पूर्ण;
+
+काष्ठा usb_xhci_s अणु
+    काष्ठा usb_s         usb;
+
+    /* devinfo */
+    u32                  xcap;
+    u32                  ports;
+    u32                  slots;
+    u8                   context64;
+    काष्ठा xhci_porपंचांगap  usb2;
+    काष्ठा xhci_porपंचांगap  usb3;
+
+    /* xhci रेजिस्टरs */
+    काष्ठा xhci_caps     *caps;
+    काष्ठा xhci_op       *op;
+    काष्ठा xhci_pr       *pr;
+    काष्ठा xhci_ir       *ir;
+    काष्ठा xhci_db       *db;
+
+    /* xhci data काष्ठाures */
+    काष्ठा xhci_devlist  *devs;
+    काष्ठा xhci_ring     *cmds;
+    काष्ठा xhci_ring     *evts;
+    काष्ठा xhci_er_seg   *eseg;
+पूर्ण;
+
+काष्ठा xhci_pipe अणु
+    काष्ठा xhci_ring     reqs;
+
+    काष्ठा usb_pipe      pipe;
+    u32                  slotid;
+    u32                  epid;
+    व्योम                 *buf;
+    पूर्णांक                  bufused;
+पूर्ण;
+
+// --------------------------------------------------------------
+// tables
+
+अटल स्थिर अक्षर *speed_name[16] = अणु
+    [ 0 ] = " - ",
+    [ 1 ] = "Full",
+    [ 2 ] = "Low",
+    [ 3 ] = "High",
+    [ 4 ] = "Super",
+पूर्ण;
+
+अटल स्थिर पूर्णांक speed_from_xhci[16] = अणु
+    [ 0 ] = -1,
+    [ 1 ] = USB_FULLSPEED,
+    [ 2 ] = USB_LOWSPEED,
+    [ 3 ] = USB_HIGHSPEED,
+    [ 4 ] = USB_SUPERSPEED,
+    [ 5 ... 15 ] = -1,
+पूर्ण;
+
+अटल स्थिर पूर्णांक speed_to_xhci[] = अणु
+    [ USB_FULLSPEED  ] = 1,
+    [ USB_LOWSPEED   ] = 2,
+    [ USB_HIGHSPEED  ] = 3,
+    [ USB_SUPERSPEED ] = 4,
+पूर्ण;
+
+अटल पूर्णांक रुको_bit(u32 *reg, u32 mask, पूर्णांक value, u32 समयout)
+अणु
+    u32 end = समयr_calc(समयout);
+
+    जबतक ((पढ़ोl(reg) & mask) != value) अणु
+        अगर (समयr_check(end)) अणु
+            warn_समयout();
+            वापस -1;
+        पूर्ण
+        yield();
+    पूर्ण
+    वापस 0;
+पूर्ण
+
+
+/****************************************************************
+ * Root hub
+ ****************************************************************/
+
+#घोषणा XHCI_TIME_POSTPOWER 20
+
+// Check अगर device attached to port
+अटल व्योम
+xhci_prपूर्णांक_port_state(पूर्णांक loglevel, स्थिर अक्षर *prefix, u32 port, u32 portsc)
+अणु
+    u32 pls = xhci_get_field(portsc, XHCI_PORTSC_PLS);
+    u32 speed = xhci_get_field(portsc, XHCI_PORTSC_SPEED);
+
+    dम_लिखो(loglevel, "%s port #%d: 0x%08x,%s%s pls %d, speed %d [%s]\n",
+            prefix, port + 1, portsc,
+            (portsc & XHCI_PORTSC_PP)  ? " powered," : "",
+            (portsc & XHCI_PORTSC_PED) ? " enabled," : "",
+            pls, speed, speed_name[speed]);
+पूर्ण
+
+अटल पूर्णांक
+xhci_hub_detect(काष्ठा usbhub_s *hub, u32 port)
+अणु
+    काष्ठा usb_xhci_s *xhci = container_of(hub->cntl, काष्ठा usb_xhci_s, usb);
+    u32 portsc = पढ़ोl(&xhci->pr[port].portsc);
+    वापस (portsc & XHCI_PORTSC_CCS) ? 1 : 0;
+पूर्ण
+
+// Reset device on port
+अटल पूर्णांक
+xhci_hub_reset(काष्ठा usbhub_s *hub, u32 port)
+अणु
+    काष्ठा usb_xhci_s *xhci = container_of(hub->cntl, काष्ठा usb_xhci_s, usb);
+    u32 portsc = पढ़ोl(&xhci->pr[port].portsc);
+    अगर (!(portsc & XHCI_PORTSC_CCS))
+        // Device no दीर्घer connected?!
+        वापस -1;
+
+    चयन (xhci_get_field(portsc, XHCI_PORTSC_PLS)) अणु
+    हाल PLS_U0:
+        // A USB3 port - controller स्वतःmatically perक्रमms reset
+        अवरोध;
+    हाल PLS_POLLING:
+        // A USB2 port - perक्रमm device reset
+        xhci_prपूर्णांक_port_state(3, __func__, port, portsc);
+        ग_लिखोl(&xhci->pr[port].portsc, portsc | XHCI_PORTSC_PR);
+        अवरोध;
+    शेष:
+        वापस -1;
+    पूर्ण
+
+    // Wait क्रम device to complete reset and be enabled
+    u32 end = समयr_calc(100);
+    क्रम (;;) अणु
+        portsc = पढ़ोl(&xhci->pr[port].portsc);
+        अगर (!(portsc & XHCI_PORTSC_CCS))
+            // Device disconnected during reset
+            वापस -1;
+        अगर (portsc & XHCI_PORTSC_PED)
+            // Reset complete
+            अवरोध;
+        अगर (समयr_check(end)) अणु
+            warn_समयout();
+            वापस -1;
+        पूर्ण
+        yield();
+    पूर्ण
+
+    पूर्णांक rc = speed_from_xhci[xhci_get_field(portsc, XHCI_PORTSC_SPEED)];
+    xhci_prपूर्णांक_port_state(1, "XHCI", port, portsc);
+    वापस rc;
+पूर्ण
+
+अटल पूर्णांक
+xhci_hub_porपंचांगap(काष्ठा usbhub_s *hub, u32 vport)
+अणु
+    काष्ठा usb_xhci_s *xhci = container_of(hub->cntl, काष्ठा usb_xhci_s, usb);
+    u32 pport = vport + 1;
+
+    अगर (vport + 1 >= xhci->usb3.start &&
+        vport + 1 < xhci->usb3.start + xhci->usb3.count)
+        pport = vport + 2 - xhci->usb3.start;
+
+    अगर (vport + 1 >= xhci->usb2.start &&
+        vport + 1 < xhci->usb2.start + xhci->usb2.count)
+        pport = vport + 2 - xhci->usb2.start;
+
+    वापस pport;
+पूर्ण
+
+अटल व्योम
+xhci_hub_disconnect(काष्ठा usbhub_s *hub, u32 port)
+अणु
+    // XXX - should turn the port घातer off.
+पूर्ण
+
+अटल काष्ठा usbhub_op_s xhci_hub_ops = अणु
+    .detect = xhci_hub_detect,
+    .reset = xhci_hub_reset,
+    .porपंचांगap = xhci_hub_porपंचांगap,
+    .disconnect = xhci_hub_disconnect,
+पूर्ण;
+
+// Find any devices connected to the root hub.
+अटल पूर्णांक
+xhci_check_ports(काष्ठा usb_xhci_s *xhci)
+अणु
+    // Wait क्रम port घातer to stabilize.
+    msleep(XHCI_TIME_POSTPOWER);
+
+    काष्ठा usbhub_s hub;
+    स_रखो(&hub, 0, माप(hub));
+    hub.cntl = &xhci->usb;
+    hub.portcount = xhci->ports;
+    hub.op = &xhci_hub_ops;
+    usb_क्रमागतerate(&hub);
+    वापस hub.devcount;
+पूर्ण
+
+
+/****************************************************************
+ * Setup
+ ****************************************************************/
+
+अटल व्योम
+xhci_मुक्त_pipes(काष्ठा usb_xhci_s *xhci)
+अणु
+    // XXX - should walk list of pipes and मुक्त unused pipes.
+पूर्ण
+
+अटल व्योम
+configure_xhci(व्योम *data)
+अणु
+    काष्ठा usb_xhci_s *xhci = data;
+    u32 reg;
+
+    xhci->devs = memalign_high(64, माप(*xhci->devs) * (xhci->slots + 1));
+    xhci->eseg = memalign_high(64, माप(*xhci->eseg));
+    xhci->cmds = memalign_high(XHCI_RING_SIZE, माप(*xhci->cmds));
+    xhci->evts = memalign_high(XHCI_RING_SIZE, माप(*xhci->evts));
+    अगर (!xhci->devs || !xhci->cmds || !xhci->evts || !xhci->eseg) अणु
+        warn_noalloc();
+        जाओ fail;
+    पूर्ण
+    स_रखो(xhci->devs, 0, माप(*xhci->devs) * (xhci->slots + 1));
+    स_रखो(xhci->cmds, 0, माप(*xhci->cmds));
+    स_रखो(xhci->evts, 0, माप(*xhci->evts));
+    स_रखो(xhci->eseg, 0, माप(*xhci->eseg));
+
+    reg = पढ़ोl(&xhci->op->usbcmd);
+    अगर (reg & XHCI_CMD_RS) अणु
+        reg &= ~XHCI_CMD_RS;
+        ग_लिखोl(&xhci->op->usbcmd, reg);
+        अगर (रुको_bit(&xhci->op->usbsts, XHCI_STS_HCH, XHCI_STS_HCH, 32) != 0)
+            जाओ fail;
+    पूर्ण
+
+    dम_लिखो(3, "%s: resetting\n", __func__);
+    ग_लिखोl(&xhci->op->usbcmd, XHCI_CMD_HCRST);
+    अगर (रुको_bit(&xhci->op->usbcmd, XHCI_CMD_HCRST, 0, 1000) != 0)
+        जाओ fail;
+    अगर (रुको_bit(&xhci->op->usbsts, XHCI_STS_CNR, 0, 1000) != 0)
+        जाओ fail;
+
+    ग_लिखोl(&xhci->op->config, xhci->slots);
+    ग_लिखोl(&xhci->op->dcbaap_low, (u32)xhci->devs);
+    ग_लिखोl(&xhci->op->dcbaap_high, 0);
+    ग_लिखोl(&xhci->op->crcr_low, (u32)xhci->cmds | 1);
+    ग_लिखोl(&xhci->op->crcr_high, 0);
+    xhci->cmds->cs = 1;
+
+    xhci->eseg->ptr_low = (u32)xhci->evts;
+    xhci->eseg->ptr_high = 0;
+    xhci->eseg->size = XHCI_RING_ITEMS;
+    ग_लिखोl(&xhci->ir->erstsz, 1);
+    ग_लिखोl(&xhci->ir->erdp_low, (u32)xhci->evts);
+    ग_लिखोl(&xhci->ir->erdp_high, 0);
+    ग_लिखोl(&xhci->ir->erstba_low, (u32)xhci->eseg);
+    ग_लिखोl(&xhci->ir->erstba_high, 0);
+    xhci->evts->cs = 1;
+
+    reg = पढ़ोl(&xhci->caps->hcsparams2);
+    u32 spb = (reg >> 21 & 0x1f) << 5 | reg >> 27;
+    अगर (spb) अणु
+        dम_लिखो(3, "%s: setup %d scratch pad buffers\n", __func__, spb);
+        u64 *spba = memalign_high(64, माप(*spba) * spb);
+        व्योम *pad = memalign_high(PAGE_SIZE, PAGE_SIZE * spb);
+        अगर (!spba || !pad) अणु
+            warn_noalloc();
+            मुक्त(spba);
+            मुक्त(pad);
+            जाओ fail;
+        पूर्ण
+        पूर्णांक i;
+        क्रम (i = 0; i < spb; i++)
+            spba[i] = (u32)pad + (i * PAGE_SIZE);
+        xhci->devs[0].ptr_low = (u32)spba;
+        xhci->devs[0].ptr_high = 0;
+    पूर्ण
+
+    reg = पढ़ोl(&xhci->op->usbcmd);
+    reg |= XHCI_CMD_RS;
+    ग_लिखोl(&xhci->op->usbcmd, reg);
+
+    // Find devices
+    पूर्णांक count = xhci_check_ports(xhci);
+    xhci_मुक्त_pipes(xhci);
+    अगर (count)
+        // Success
+        वापस;
+
+    // No devices found - shutकरोwn and मुक्त controller.
+    dम_लिखो(1, "XHCI no devices found\n");
+    reg = पढ़ोl(&xhci->op->usbcmd);
+    reg &= ~XHCI_CMD_RS;
+    ग_लिखोl(&xhci->op->usbcmd, reg);
+    रुको_bit(&xhci->op->usbsts, XHCI_STS_HCH, XHCI_STS_HCH, 32);
+
+fail:
+    मुक्त(xhci->eseg);
+    मुक्त(xhci->evts);
+    मुक्त(xhci->cmds);
+    मुक्त(xhci->devs);
+    मुक्त(xhci);
+पूर्ण
+
+अटल काष्ठा usb_xhci_s*
+xhci_controller_setup(व्योम *baseaddr)
+अणु
+    काष्ठा usb_xhci_s *xhci = दो_स्मृति_high(माप(*xhci));
+    अगर (!xhci) अणु
+        warn_noalloc();
+        वापस शून्य;
+    पूर्ण
+    स_रखो(xhci, 0, माप(*xhci));
+    xhci->caps  = baseaddr;
+    xhci->op    = baseaddr + पढ़ोb(&xhci->caps->caplength);
+    xhci->pr    = baseaddr + पढ़ोb(&xhci->caps->caplength) + 0x400;
+    xhci->db    = baseaddr + पढ़ोl(&xhci->caps->dboff);
+    xhci->ir    = baseaddr + पढ़ोl(&xhci->caps->rtsoff) + 0x20;
+
+    u32 hcs1 = पढ़ोl(&xhci->caps->hcsparams1);
+    u32 hcc  = पढ़ोl(&xhci->caps->hccparams);
+    xhci->ports = (hcs1 >> 24) & 0xff;
+    xhci->slots = hcs1         & 0xff;
+    xhci->xcap  = ((hcc >> 16) & 0xffff) << 2;
+    xhci->context64 = (hcc & 0x04) ? 1 : 0;
+    xhci->usb.type = USB_TYPE_XHCI;
+
+    dम_लिखो(1, "XHCI init: regs @ %p, %d ports, %d slots"
+            ", %d byte contexts\n"
+            , xhci->caps, xhci->ports, xhci->slots
+            , xhci->context64 ? 64 : 32);
+
+    अगर (xhci->xcap) अणु
+        u32 off;
+        व्योम *addr = baseaddr + xhci->xcap;
+        करो अणु
+            काष्ठा xhci_xcap *xcap = addr;
+            u32 ports, name, cap = पढ़ोl(&xcap->cap);
+            चयन (cap & 0xff) अणु
+            हाल 0x02:
+                name  = पढ़ोl(&xcap->data[0]);
+                ports = पढ़ोl(&xcap->data[1]);
+                u8 major = (cap >> 24) & 0xff;
+                u8 minor = (cap >> 16) & 0xff;
+                u8 count = (ports >> 8) & 0xff;
+                u8 start = (ports >> 0) & 0xff;
+                dम_लिखो(1, "XHCI    protocol %c%c%c%c %x.%02x"
+                        ", %d ports (offset %d), def %x\n"
+                        , (name >>  0) & 0xff
+                        , (name >>  8) & 0xff
+                        , (name >> 16) & 0xff
+                        , (name >> 24) & 0xff
+                        , major, minor
+                        , count, start
+                        , ports >> 16);
+                अगर (name == 0x20425355 /* "USB " */) अणु
+                    अगर (major == 2) अणु
+                        xhci->usb2.start = start;
+                        xhci->usb2.count = count;
+                    पूर्ण
+                    अगर (major == 3) अणु
+                        xhci->usb3.start = start;
+                        xhci->usb3.count = count;
+                    पूर्ण
+                पूर्ण
+                अवरोध;
+            शेष:
+                dम_लिखो(1, "XHCI    extcap 0x%x @ %p\n", cap & 0xff, addr);
+                अवरोध;
+            पूर्ण
+            off = (cap >> 8) & 0xff;
+            addr += off << 2;
+        पूर्ण जबतक (off > 0);
+    पूर्ण
+
+    u32 pagesize = पढ़ोl(&xhci->op->pagesize);
+    अगर (PAGE_SIZE != (pagesize<<12)) अणु
+        dम_लिखो(1, "XHCI driver does not support page size code %d\n"
+                , pagesize<<12);
+        मुक्त(xhci);
+        वापस शून्य;
+    पूर्ण
+
+    वापस xhci;
+पूर्ण
+
+अटल व्योम
+xhci_controller_setup_pci(काष्ठा pci_device *pci)
+अणु
+    काष्ठा usb_xhci_s *xhci;
+    व्योम *baseaddr;
+
+    baseaddr = pci_enable_membar(pci, PCI_BASE_ADDRESS_0);
+    अगर (!baseaddr)
+        वापस;
+
+    dम_लिखो(1, "PCI: XHCI at %pP (mmio %p)\n", pci, baseaddr);
+    pci_enable_busmaster(pci);
+
+    xhci = xhci_controller_setup(baseaddr);
+    अगर (!xhci)
+        वापस;
+
+    xhci->usb.pci = pci;
+    run_thपढ़ो(configure_xhci, xhci);
+पूर्ण
+
+अटल व्योम
+xhci_controller_setup_acpi(काष्ठा acpi_device *dev)
+अणु
+    काष्ठा usb_xhci_s *xhci;
+    u64 mem, unused;
+    व्योम *baseaddr;
+
+    अगर (acpi_dsdt_find_mem(dev, &mem, &unused) < 0)
+        वापस;
+    अगर (mem >= 0x100000000ll)
+        वापस;
+
+    baseaddr = (व्योम*)(u32)mem;
+    dम_लिखो(1, "ACPI: XHCI at mmio %p\n", baseaddr);
+
+    xhci = xhci_controller_setup(baseaddr);
+    अगर (!xhci)
+        वापस;
+
+    xhci->usb.mmio = baseaddr;
+    run_thपढ़ो(configure_xhci, xhci);
+पूर्ण
+
+व्योम
+xhci_setup(व्योम)
+अणु
+    अगर (! CONFIG_USB_XHCI)
+        वापस;
+
+    काष्ठा pci_device *pci;
+    क्रमeachpci(pci) अणु
+        अगर (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_XHCI)
+            xhci_controller_setup_pci(pci);
+    पूर्ण
+
+    u16 xhci_eisaid = 0x0d10;
+    काष्ठा acpi_device *dev;
+    क्रम (dev = acpi_dsdt_find_eisaid(शून्य, xhci_eisaid);
+         dev != शून्य;
+         dev = acpi_dsdt_find_eisaid(dev, xhci_eisaid)) अणु
+        xhci_controller_setup_acpi(dev);
+    पूर्ण
+पूर्ण
+
+
+/****************************************************************
+ * End poपूर्णांक communication
+ ****************************************************************/
+
+// Signal the hardware to process events on a TRB ring
+अटल व्योम xhci_करोorbell(काष्ठा usb_xhci_s *xhci, u32 slotid, u32 value)
+अणु
+    dम_लिखो(5, "%s: slotid %d, epid %d\n", __func__, slotid, value);
+    काष्ठा xhci_db *db = xhci->db;
+    व्योम *addr = &db[slotid].करोorbell;
+    ग_लिखोl(addr, value);
+पूर्ण
+
+// Dequeue events on the XHCI command ring generated by the hardware
+अटल व्योम xhci_process_events(काष्ठा usb_xhci_s *xhci)
+अणु
+    काष्ठा xhci_ring *evts = xhci->evts;
+
+    क्रम (;;) अणु
+        /* check क्रम event */
+        u32 nidx = evts->nidx;
+        u32 cs = evts->cs;
+        काष्ठा xhci_trb *etrb = evts->ring + nidx;
+        u32 control = etrb->control;
+        अगर ((control & TRB_C) != (cs ? 1 : 0))
+            वापस;
+
+        /* process event */
+        u32 evt_type = TRB_TYPE(control);
+        u32 evt_cc = (etrb->status >> 24) & 0xff;
+        चयन (evt_type) अणु
+        हाल ER_TRANSFER:
+        हाल ER_COMMAND_COMPLETE:
+        अणु
+            काष्ठा xhci_trb  *rtrb = (व्योम*)etrb->ptr_low;
+            काष्ठा xhci_ring *ring = XHCI_RING(rtrb);
+            काष्ठा xhci_trb  *evt = &ring->evt;
+            u32 eidx = rtrb - ring->ring + 1;
+            dम_लिखो(5, "%s: ring %p [trb %p, evt %p, type %d, eidx %d, cc %d]\n",
+                    __func__, ring, rtrb, evt, evt_type, eidx, evt_cc);
+            स_नकल(evt, etrb, माप(*etrb));
+            ring->eidx = eidx;
+            अवरोध;
+        पूर्ण
+        हाल ER_PORT_STATUS_CHANGE:
+        अणु
+            u32 port = ((etrb->ptr_low >> 24) & 0xff) - 1;
+            // Read status, and clear port status change bits
+            u32 portsc = पढ़ोl(&xhci->pr[port].portsc);
+            u32 pclear = (((portsc & ~(XHCI_PORTSC_PED|XHCI_PORTSC_PR))
+                           & ~(XHCI_PORTSC_PLS_MASK<<XHCI_PORTSC_PLS_SHIFT))
+                          | (1<<XHCI_PORTSC_PLS_SHIFT));
+            ग_लिखोl(&xhci->pr[port].portsc, pclear);
+
+            xhci_prपूर्णांक_port_state(3, __func__, port, portsc);
+            अवरोध;
+        पूर्ण
+        शेष:
+            dम_लिखो(1, "%s: unknown event, type %d, cc %d\n",
+                    __func__, evt_type, evt_cc);
+            अवरोध;
+        पूर्ण
+
+        /* move ring index, notअगरy xhci */
+        nidx++;
+        अगर (nidx == XHCI_RING_ITEMS) अणु
+            nidx = 0;
+            cs = cs ? 0 : 1;
+            evts->cs = cs;
+        पूर्ण
+        evts->nidx = nidx;
+        काष्ठा xhci_ir *ir = xhci->ir;
+        u32 erdp = (u32)(evts->ring + nidx);
+        ग_लिखोl(&ir->erdp_low, erdp);
+        ग_लिखोl(&ir->erdp_high, 0);
+    पूर्ण
+पूर्ण
+
+// Check अगर a ring has any pending TRBs
+अटल पूर्णांक xhci_ring_busy(काष्ठा xhci_ring *ring)
+अणु
+    u32 eidx = ring->eidx;
+    u32 nidx = ring->nidx;
+    वापस (eidx != nidx);
+पूर्ण
+
+// Wait क्रम a ring to empty (all TRBs processed by hardware)
+अटल पूर्णांक xhci_event_रुको(काष्ठा usb_xhci_s *xhci,
+                           काष्ठा xhci_ring *ring,
+                           u32 समयout)
+अणु
+    u32 end = समयr_calc(समयout);
+
+    क्रम (;;) अणु
+        xhci_process_events(xhci);
+        अगर (!xhci_ring_busy(ring)) अणु
+            u32 status = ring->evt.status;
+            वापस (status >> 24) & 0xff;
+        पूर्ण
+        अगर (समयr_check(end)) अणु
+            warn_समयout();
+            वापस -1;
+        पूर्ण
+        yield();
+    पूर्ण
+पूर्ण
+
+// Add a TRB to the given ring
+अटल व्योम xhci_trb_fill(काष्ठा xhci_ring *ring
+                          , व्योम *data, u32 xferlen, u32 flags)
+अणु
+    काष्ठा xhci_trb *dst = &ring->ring[ring->nidx];
+    अगर (flags & TRB_TR_IDT) अणु
+        स_नकल(&dst->ptr_low, data, xferlen);
+    पूर्ण अन्यथा अणु
+        dst->ptr_low = (u32)data;
+        dst->ptr_high = 0;
+    पूर्ण
+    dst->status = xferlen;
+    dst->control = flags | (ring->cs ? TRB_C : 0);
+पूर्ण
+
+// Queue a TRB onto a ring, wrapping ring as needed
+अटल व्योम xhci_trb_queue(काष्ठा xhci_ring *ring,
+                           व्योम *data, u32 xferlen, u32 flags)
+अणु
+    अगर (ring->nidx >= ARRAY_SIZE(ring->ring) - 1) अणु
+        xhci_trb_fill(ring, ring->ring, 0, (TR_LINK << 10) | TRB_LK_TC);
+        ring->nidx = 0;
+        ring->cs ^= 1;
+        dम_लिखो(5, "%s: ring %p [linked]\n", __func__, ring);
+    पूर्ण
+
+    xhci_trb_fill(ring, data, xferlen, flags);
+    ring->nidx++;
+    dम_लिखो(5, "%s: ring %p [nidx %d, len %d]\n",
+            __func__, ring, ring->nidx, xferlen);
+पूर्ण
+
+// Submit a command to the xhci controller ring
+अटल पूर्णांक xhci_cmd_submit(काष्ठा usb_xhci_s *xhci, काष्ठा xhci_inctx *inctx
+                           , u32 flags)
+अणु
+    अगर (inctx) अणु
+        काष्ठा xhci_slotctx *slot = (व्योम*)&inctx[1 << xhci->context64];
+        u32 port = ((slot->ctx[1] >> 16) & 0xff) - 1;
+        u32 portsc = पढ़ोl(&xhci->pr[port].portsc);
+        अगर (!(portsc & XHCI_PORTSC_CCS)) अणु
+            // Device no दीर्घer connected?!
+            xhci_prपूर्णांक_port_state(1, __func__, port, portsc);
+            वापस -1;
+        पूर्ण
+    पूर्ण
+
+    mutex_lock(&xhci->cmds->lock);
+    xhci_trb_queue(xhci->cmds, inctx, 0, flags);
+    xhci_करोorbell(xhci, 0, 0);
+    पूर्णांक rc = xhci_event_रुको(xhci, xhci->cmds, 1000);
+    mutex_unlock(&xhci->cmds->lock);
+    वापस rc;
+पूर्ण
+
+अटल पूर्णांक xhci_cmd_enable_slot(काष्ठा usb_xhci_s *xhci)
+अणु
+    dम_लिखो(3, "%s:\n", __func__);
+    पूर्णांक cc = xhci_cmd_submit(xhci, शून्य, CR_ENABLE_SLOT << 10);
+    अगर (cc != CC_SUCCESS)
+        वापस -1;
+    वापस (xhci->cmds->evt.control >> 24) & 0xff;
+पूर्ण
+
+अटल पूर्णांक xhci_cmd_disable_slot(काष्ठा usb_xhci_s *xhci, u32 slotid)
+अणु
+    dम_लिखो(3, "%s: slotid %d\n", __func__, slotid);
+    वापस xhci_cmd_submit(xhci, शून्य, (CR_DISABLE_SLOT << 10) | (slotid << 24));
+पूर्ण
+
+अटल पूर्णांक xhci_cmd_address_device(काष्ठा usb_xhci_s *xhci, u32 slotid
+                                   , काष्ठा xhci_inctx *inctx)
+अणु
+    dम_लिखो(3, "%s: slotid %d\n", __func__, slotid);
+    वापस xhci_cmd_submit(xhci, inctx
+                           , (CR_ADDRESS_DEVICE << 10) | (slotid << 24));
+पूर्ण
+
+अटल पूर्णांक xhci_cmd_configure_endpoपूर्णांक(काष्ठा usb_xhci_s *xhci, u32 slotid
+                                       , काष्ठा xhci_inctx *inctx)
+अणु
+    dम_लिखो(3, "%s: slotid %d, add 0x%x, del 0x%x\n", __func__,
+            slotid, inctx->add, inctx->del);
+    वापस xhci_cmd_submit(xhci, inctx
+                           , (CR_CONFIGURE_ENDPOINT << 10) | (slotid << 24));
+पूर्ण
+
+अटल पूर्णांक xhci_cmd_evaluate_context(काष्ठा usb_xhci_s *xhci, u32 slotid
+                                     , काष्ठा xhci_inctx *inctx)
+अणु
+    dम_लिखो(3, "%s: slotid %d, add 0x%x, del 0x%x\n", __func__,
+            slotid, inctx->add, inctx->del);
+    वापस xhci_cmd_submit(xhci, inctx
+                           , (CR_EVALUATE_CONTEXT << 10) | (slotid << 24));
+पूर्ण
+
+अटल काष्ठा xhci_inctx *
+xhci_alloc_inctx(काष्ठा usbdevice_s *usbdev, पूर्णांक maxepid)
+अणु
+    काष्ठा usb_xhci_s *xhci = container_of(
+        usbdev->hub->cntl, काष्ठा usb_xhci_s, usb);
+    पूर्णांक size = (माप(काष्ठा xhci_inctx) * 33) << xhci->context64;
+    काष्ठा xhci_inctx *in = memalign_पंचांगphigh(2048 << xhci->context64, size);
+    अगर (!in) अणु
+        warn_noalloc();
+        वापस शून्य;
+    पूर्ण
+    स_रखो(in, 0, size);
+
+    काष्ठा xhci_slotctx *slot = (व्योम*)&in[1 << xhci->context64];
+    slot->ctx[0]    |= maxepid << 27; // context entries
+    slot->ctx[0]    |= speed_to_xhci[usbdev->speed] << 20;
+
+    // Set high-speed hub flags.
+    काष्ठा usbdevice_s *hubdev = usbdev->hub->usbdev;
+    अगर (hubdev) अणु
+        अगर (usbdev->speed == USB_LOWSPEED || usbdev->speed == USB_FULLSPEED) अणु
+            काष्ठा xhci_pipe *hpipe = container_of(
+                hubdev->defpipe, काष्ठा xhci_pipe, pipe);
+            अगर (hubdev->speed == USB_HIGHSPEED) अणु
+                slot->ctx[2] |= hpipe->slotid;
+                slot->ctx[2] |= (usbdev->port+1) << 8;
+            पूर्ण अन्यथा अणु
+                काष्ठा xhci_slotctx *hslot = (व्योम*)xhci->devs[hpipe->slotid].ptr_low;
+                slot->ctx[2] = hslot->ctx[2];
+            पूर्ण
+        पूर्ण
+        u32 route = 0;
+        जबतक (usbdev->hub->usbdev) अणु
+            route <<= 4;
+            route |= (usbdev->port+1) & 0xf;
+            usbdev = usbdev->hub->usbdev;
+        पूर्ण
+        slot->ctx[0]    |= route;
+    पूर्ण
+
+    slot->ctx[1]    |= (usbdev->port+1) << 16;
+
+    वापस in;
+पूर्ण
+
+अटल पूर्णांक xhci_config_hub(काष्ठा usbhub_s *hub)
+अणु
+    काष्ठा usb_xhci_s *xhci = container_of(
+        hub->cntl, काष्ठा usb_xhci_s, usb);
+    काष्ठा xhci_pipe *pipe = container_of(
+        hub->usbdev->defpipe, काष्ठा xhci_pipe, pipe);
+    काष्ठा xhci_slotctx *hdslot = (व्योम*)xhci->devs[pipe->slotid].ptr_low;
+    अगर ((hdslot->ctx[3] >> 27) == 3)
+        // Alपढ़ोy configured
+        वापस 0;
+    काष्ठा xhci_inctx *in = xhci_alloc_inctx(hub->usbdev, 1);
+    अगर (!in)
+        वापस -1;
+    in->add = 0x01;
+    काष्ठा xhci_slotctx *slot = (व्योम*)&in[1 << xhci->context64];
+    slot->ctx[0] |= 1 << 26;
+    slot->ctx[1] |= hub->portcount << 24;
+
+    पूर्णांक cc = xhci_cmd_configure_endpoपूर्णांक(xhci, pipe->slotid, in);
+    मुक्त(in);
+    अगर (cc != CC_SUCCESS) अणु
+        dम_लिखो(1, "%s: configure hub: failed (cc %d)\n", __func__, cc);
+        वापस -1;
+    पूर्ण
+    वापस 0;
+पूर्ण
+
+अटल काष्ठा usb_pipe *
+xhci_alloc_pipe(काष्ठा usbdevice_s *usbdev
+                , काष्ठा usb_endpoपूर्णांक_descriptor *epdesc)
+अणु
+    u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+    काष्ठा usb_xhci_s *xhci = container_of(
+        usbdev->hub->cntl, काष्ठा usb_xhci_s, usb);
+    काष्ठा xhci_pipe *pipe;
+    u32 epid;
+
+    अगर (epdesc->bEndpoपूर्णांकAddress == 0) अणु
+        epid = 1;
+    पूर्ण अन्यथा अणु
+        epid = (epdesc->bEndpoपूर्णांकAddress & 0x0f) * 2;
+        epid += (epdesc->bEndpoपूर्णांकAddress & USB_सूची_IN) ? 1 : 0;
+    पूर्ण
+
+    अगर (eptype == USB_ENDPOINT_XFER_CONTROL)
+        pipe = memalign_high(XHCI_RING_SIZE, माप(*pipe));
+    अन्यथा
+        pipe = memalign_low(XHCI_RING_SIZE, माप(*pipe));
+    अगर (!pipe) अणु
+        warn_noalloc();
+        वापस शून्य;
+    पूर्ण
+    स_रखो(pipe, 0, माप(*pipe));
+
+    usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
+    pipe->epid = epid;
+    pipe->reqs.cs = 1;
+    अगर (eptype == USB_ENDPOINT_XFER_INT) अणु
+        pipe->buf = दो_स्मृति_high(pipe->pipe.maxpacket);
+        अगर (!pipe->buf) अणु
+            warn_noalloc();
+            मुक्त(pipe);
+            वापस शून्य;
+        पूर्ण
+    पूर्ण
+
+    // Allocate input context and initialize endpoपूर्णांक info.
+    काष्ठा xhci_inctx *in = xhci_alloc_inctx(usbdev, epid);
+    अगर (!in)
+        जाओ fail;
+    in->add = 0x01 | (1 << epid);
+    काष्ठा xhci_epctx *ep = (व्योम*)&in[(pipe->epid+1) << xhci->context64];
+    अगर (eptype == USB_ENDPOINT_XFER_INT)
+        ep->ctx[0] = (usb_get_period(usbdev, epdesc) + 3) << 16;
+    ep->ctx[1]   |= eptype << 3;
+    अगर (epdesc->bEndpoपूर्णांकAddress & USB_सूची_IN
+        || eptype == USB_ENDPOINT_XFER_CONTROL)
+        ep->ctx[1] |= 1 << 5;
+    ep->ctx[1]   |= pipe->pipe.maxpacket << 16;
+    ep->deq_low  = (u32)&pipe->reqs.ring[0];
+    ep->deq_low  |= 1;         // dcs
+    ep->length   = pipe->pipe.maxpacket;
+
+    dम_लिखो(3, "%s: usbdev %p, ring %p, slotid %d, epid %d\n", __func__,
+            usbdev, &pipe->reqs, pipe->slotid, pipe->epid);
+    अगर (pipe->epid == 1) अणु
+        अगर (usbdev->hub->usbdev) अणु
+            // Make sure parent hub is configured.
+            पूर्णांक ret = xhci_config_hub(usbdev->hub);
+            अगर (ret)
+                जाओ fail;
+        पूर्ण
+        // Enable slot.
+        u32 size = (माप(काष्ठा xhci_slotctx) * 32) << xhci->context64;
+        काष्ठा xhci_slotctx *dev = memalign_high(1024 << xhci->context64, size);
+        अगर (!dev) अणु
+            warn_noalloc();
+            जाओ fail;
+        पूर्ण
+        पूर्णांक slotid = xhci_cmd_enable_slot(xhci);
+        अगर (slotid < 0) अणु
+            dम_लिखो(1, "%s: enable slot: failed\n", __func__);
+            मुक्त(dev);
+            जाओ fail;
+        पूर्ण
+        dम_लिखो(3, "%s: enable slot: got slotid %d\n", __func__, slotid);
+        स_रखो(dev, 0, size);
+        xhci->devs[slotid].ptr_low = (u32)dev;
+        xhci->devs[slotid].ptr_high = 0;
+
+        // Send set_address command.
+        पूर्णांक cc = xhci_cmd_address_device(xhci, slotid, in);
+        अगर (cc != CC_SUCCESS) अणु
+            dम_लिखो(1, "%s: address device: failed (cc %d)\n", __func__, cc);
+            cc = xhci_cmd_disable_slot(xhci, slotid);
+            अगर (cc != CC_SUCCESS) अणु
+                dम_लिखो(1, "%s: disable failed (cc %d)\n", __func__, cc);
+                जाओ fail;
+            पूर्ण
+            xhci->devs[slotid].ptr_low = 0;
+            मुक्त(dev);
+            जाओ fail;
+        पूर्ण
+        pipe->slotid = slotid;
+    पूर्ण अन्यथा अणु
+        काष्ठा xhci_pipe *defpipe = container_of(
+            usbdev->defpipe, काष्ठा xhci_pipe, pipe);
+        pipe->slotid = defpipe->slotid;
+        // Send configure command.
+        पूर्णांक cc = xhci_cmd_configure_endpoपूर्णांक(xhci, pipe->slotid, in);
+        अगर (cc != CC_SUCCESS) अणु
+            dम_लिखो(1, "%s: configure endpoint: failed (cc %d)\n", __func__, cc);
+            जाओ fail;
+        पूर्ण
+    पूर्ण
+    मुक्त(in);
+    वापस &pipe->pipe;
+
+fail:
+    मुक्त(pipe->buf);
+    मुक्त(pipe);
+    मुक्त(in);
+    वापस शून्य;
+पूर्ण
+
+काष्ठा usb_pipe *
+xhci_पुनः_स्मृति_pipe(काष्ठा usbdevice_s *usbdev, काष्ठा usb_pipe *upipe
+                  , काष्ठा usb_endpoपूर्णांक_descriptor *epdesc)
+अणु
+    अगर (!CONFIG_USB_XHCI)
+        वापस शून्य;
+    अगर (!epdesc) अणु
+        usb_add_मुक्तlist(upipe);
+        वापस शून्य;
+    पूर्ण
+    अगर (!upipe)
+        वापस xhci_alloc_pipe(usbdev, epdesc);
+    u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+    पूर्णांक oldmaxpacket = upipe->maxpacket;
+    usb_desc2pipe(upipe, usbdev, epdesc);
+    काष्ठा xhci_pipe *pipe = container_of(upipe, काष्ठा xhci_pipe, pipe);
+    काष्ठा usb_xhci_s *xhci = container_of(
+        pipe->pipe.cntl, काष्ठा usb_xhci_s, usb);
+    dम_लिखो(3, "%s: usbdev %p, ring %p, slotid %d, epid %d\n", __func__,
+            usbdev, &pipe->reqs, pipe->slotid, pipe->epid);
+    अगर (eptype != USB_ENDPOINT_XFER_CONTROL || upipe->maxpacket == oldmaxpacket)
+        वापस upipe;
+
+    // maxpacket has changed on control endpoपूर्णांक - update controller.
+    dम_लिखो(1, "%s: reconf ctl endpoint pkt size: %d -> %d\n",
+            __func__, oldmaxpacket, pipe->pipe.maxpacket);
+    काष्ठा xhci_inctx *in = xhci_alloc_inctx(usbdev, 1);
+    अगर (!in)
+        वापस upipe;
+    in->add = (1 << 1);
+    काष्ठा xhci_epctx *ep = (व्योम*)&in[2 << xhci->context64];
+    ep->ctx[1] |= (pipe->pipe.maxpacket << 16);
+    पूर्णांक cc = xhci_cmd_evaluate_context(xhci, pipe->slotid, in);
+    अगर (cc != CC_SUCCESS) अणु
+        dम_लिखो(1, "%s: reconf ctl endpoint: failed (cc %d)\n",
+                __func__, cc);
+    पूर्ण
+    मुक्त(in);
+
+    वापस upipe;
+पूर्ण
+
+// Submit a USB "setup" message request to the pipe's ring
+अटल व्योम xhci_xfer_setup(काष्ठा xhci_pipe *pipe, पूर्णांक dir, व्योम *cmd
+                            , व्योम *data, पूर्णांक datalen)
+अणु
+    काष्ठा usb_xhci_s *xhci = container_of(
+        pipe->pipe.cntl, काष्ठा usb_xhci_s, usb);
+    xhci_trb_queue(&pipe->reqs, cmd, USB_CONTROL_SETUP_SIZE
+                   , (TR_SETUP << 10) | TRB_TR_IDT
+                   | ((datalen ? (dir ? 3 : 2) : 0) << 16));
+    अगर (datalen)
+        xhci_trb_queue(&pipe->reqs, data, datalen, (TR_DATA << 10)
+                       | ((dir ? 1 : 0) << 16));
+    xhci_trb_queue(&pipe->reqs, शून्य, 0, (TR_STATUS << 10) | TRB_TR_IOC
+                   | ((dir ? 0 : 1) << 16));
+    xhci_करोorbell(xhci, pipe->slotid, pipe->epid);
+पूर्ण
+
+// Submit a USB transfer request to the pipe's ring
+अटल व्योम xhci_xfer_normal(काष्ठा xhci_pipe *pipe,
+                             व्योम *data, पूर्णांक datalen)
+अणु
+    काष्ठा usb_xhci_s *xhci = container_of(
+        pipe->pipe.cntl, काष्ठा usb_xhci_s, usb);
+    xhci_trb_queue(&pipe->reqs, data, datalen, (TR_NORMAL << 10) | TRB_TR_IOC);
+    xhci_करोorbell(xhci, pipe->slotid, pipe->epid);
+पूर्ण
+
+पूर्णांक
+xhci_send_pipe(काष्ठा usb_pipe *p, पूर्णांक dir, स्थिर व्योम *cmd
+               , व्योम *data, पूर्णांक datalen)
+अणु
+    अगर (!CONFIG_USB_XHCI)
+        वापस -1;
+    काष्ठा xhci_pipe *pipe = container_of(p, काष्ठा xhci_pipe, pipe);
+    काष्ठा usb_xhci_s *xhci = container_of(
+        pipe->pipe.cntl, काष्ठा usb_xhci_s, usb);
+
+    अगर (cmd) अणु
+        स्थिर काष्ठा usb_ctrlrequest *req = cmd;
+        अगर (req->bRequest == USB_REQ_SET_ADDRESS)
+            // Set address command sent during xhci_alloc_pipe.
+            वापस 0;
+        xhci_xfer_setup(pipe, dir, (व्योम*)req, data, datalen);
+    पूर्ण अन्यथा अणु
+        xhci_xfer_normal(pipe, data, datalen);
+    पूर्ण
+
+    पूर्णांक cc = xhci_event_रुको(xhci, &pipe->reqs, usb_xfer_समय(p, datalen));
+    अगर (cc != CC_SUCCESS) अणु
+        dम_लिखो(1, "%s: xfer failed (cc %d)\n", __func__, cc);
+        वापस -1;
+    पूर्ण
+
+    वापस 0;
+पूर्ण
+
+पूर्णांक VISIBLE32FLAT
+xhci_poll_पूर्णांकr(काष्ठा usb_pipe *p, व्योम *data)
+अणु
+    अगर (!CONFIG_USB_XHCI)
+        वापस -1;
+
+    काष्ठा xhci_pipe *pipe = container_of(p, काष्ठा xhci_pipe, pipe);
+    काष्ठा usb_xhci_s *xhci = container_of(
+        pipe->pipe.cntl, काष्ठा usb_xhci_s, usb);
+    u32 len = pipe->pipe.maxpacket;
+    व्योम *buf = pipe->buf;
+    पूर्णांक bufused = pipe->bufused;
+
+    अगर (!bufused) अणु
+        xhci_xfer_normal(pipe, buf, len);
+        bufused = 1;
+        pipe->bufused = bufused;
+        वापस -1;
+    पूर्ण
+
+    xhci_process_events(xhci);
+    अगर (xhci_ring_busy(&pipe->reqs))
+        वापस -1;
+    dम_लिखो(5, "%s: st %x ct %x [ %p <= %p / %d ]\n", __func__,
+            pipe->reqs.evt.status,
+            pipe->reqs.evt.control,
+            data, buf, len);
+    स_नकल(data, buf, len);
+    xhci_xfer_normal(pipe, buf, len);
+    वापस 0;
+पूर्ण

@@ -1,0 +1,590 @@
+<शैली गुरु>
+// smbios table generation (on emulators)
+// DO NOT ADD NEW FEATURES HERE.  (See paravirt.c / biostables.c instead.)
+//
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2006 Fabrice Bellard
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "config.h" // CONFIG_*
+#समावेश "malloc.h" // मुक्त
+#समावेश "output.h" // dम_लिखो
+#समावेश "paravirt.h" // RamSize
+#समावेश "romfile.h" // romfile_findprefix
+#समावेश "std/smbios.h" // काष्ठा smbios_entry_poपूर्णांक
+#समावेश "string.h" // स_रखो
+#समावेश "util.h" // MaxCountCPUs
+#समावेश "x86.h" // cpuid
+
+अटल व्योम
+smbios_entry_poपूर्णांक_setup(u16 max_काष्ठाure_size,
+                         u16 काष्ठाure_table_length,
+                         व्योम *काष्ठाure_table_address,
+                         u16 number_of_काष्ठाures)
+अणु
+    व्योम *finaltable;
+    अगर (काष्ठाure_table_length <= BUILD_MAX_SMBIOS_FSEG)
+        // Table is small enough क्रम f-seg - allocate there.  This
+        // works around a bug in JunOS (at least क्रम small SMBIOS tables).
+        finaltable = दो_स्मृति_fseg(काष्ठाure_table_length);
+    अन्यथा
+        finaltable = दो_स्मृति_high(काष्ठाure_table_length);
+    अगर (!finaltable) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    स_नकल(finaltable, काष्ठाure_table_address, काष्ठाure_table_length);
+
+    काष्ठा smbios_entry_poपूर्णांक ep;
+    स_रखो(&ep, 0, माप(ep));
+    ep.signature = SMBIOS_SIGNATURE;
+    ep.length = 0x1f;
+    ep.smbios_major_version = 2;
+    ep.smbios_minor_version = 4;
+    ep.max_काष्ठाure_size = max_काष्ठाure_size;
+    स_नकल(ep.पूर्णांकermediate_anchor_string, "_DMI_", 5);
+
+    ep.काष्ठाure_table_length = काष्ठाure_table_length;
+    ep.काष्ठाure_table_address = (u32)finaltable;
+    ep.number_of_काष्ठाures = number_of_काष्ठाures;
+    ep.smbios_bcd_revision = 0x24;
+
+    ep.checksum -= checksum(&ep, 0x10);
+
+    ep.पूर्णांकermediate_checksum -= checksum((व्योम*)&ep + 0x10, ep.length - 0x10);
+
+    copy_smbios(&ep);
+पूर्ण
+
+अटल पूर्णांक
+get_field(पूर्णांक type, पूर्णांक offset, व्योम *dest)
+अणु
+    अक्षर name[128];
+    snम_लिखो(name, माप(name), "smbios/field%d-%d", type, offset);
+    काष्ठा romfile_s *file = romfile_find(name);
+    अगर (!file)
+        वापस 0;
+    file->copy(file, dest, file->size);
+    वापस file->size;
+पूर्ण
+
+अटल पूर्णांक
+get_बाह्यal(पूर्णांक type, अक्षर **p, अचिन्हित *nr_काष्ठाs,
+             अचिन्हित *max_काष्ठा_size, अक्षर *end)
+अणु
+    अटल u64 used_biपंचांगap[4] = अणु 0 पूर्ण;
+    अक्षर *start = *p;
+
+    /* Check अगर we've alपढ़ोy reported these tables */
+    अगर (used_biपंचांगap[(type >> 6) & 0x3] & (1ULL << (type & 0x3f)))
+        वापस 1;
+
+    /* Don't पूर्णांकroduce spurious end markers */
+    अगर (type == 127)
+        वापस 0;
+
+    अक्षर prefix[128];
+    snम_लिखो(prefix, माप(prefix), "smbios/table%d-", type);
+    काष्ठा romfile_s *file = शून्य;
+    क्रम (;;) अणु
+        file = romfile_findprefix(prefix, file);
+        अगर (!file)
+            अवरोध;
+
+        अगर (end - *p < file->size) अणु
+            warn_noalloc();
+            अवरोध;
+        पूर्ण
+
+        काष्ठा smbios_काष्ठाure_header *header = (व्योम*)*p;
+        file->copy(file, header, file->size);
+        *p += file->size;
+
+        /* Entries end with a द्विगुन शून्य अक्षर, अगर there's a string at
+         * the end (length is greater than क्रमmatted length), the string
+         * terminator provides the first शून्य. */
+        *((u8*)*p) = 0;
+        (*p)++;
+        अगर (header->length >= file->size) अणु
+            *((u8*)*p) = 0;
+            (*p)++;
+        पूर्ण
+
+        (*nr_काष्ठाs)++;
+        अगर (*p - (अक्षर*)header > *max_काष्ठा_size)
+            *max_काष्ठा_size = *p - (अक्षर*)header;
+    पूर्ण
+
+    अगर (start == *p)
+        वापस 0;
+
+    /* Mark that we've reported on this type */
+    used_biपंचांगap[(type >> 6) & 0x3] |= (1ULL << (type & 0x3f));
+    वापस 1;
+पूर्ण
+
+#घोषणा load_str_field_with_शेष(type, field, def)                   \
+    करो अणु                                                                \
+        size = get_field(type, दुरत्व(काष्ठा smbios_type_##type,      \
+                                        field), end);                   \
+        अगर (size == 1) अणु                                                \
+            /* zero-length string, skip to aव्योम bogus end marker */    \
+            p->field = 0;                                               \
+        पूर्ण अन्यथा अगर (size > 1) अणु                                          \
+            end += size;                                                \
+            p->field = ++str_index;                                     \
+        पूर्ण अन्यथा अणु                                                        \
+            स_नकल(end, def, माप(def));                              \
+            end += माप(def);                                         \
+            p->field = ++str_index;                                     \
+        पूर्ण                                                               \
+    पूर्ण जबतक (0)
+
+#घोषणा load_str_field_or_skip(type, field)                             \
+    करो अणु                                                                \
+        size = get_field(type, दुरत्व(काष्ठा smbios_type_##type,      \
+                                        field), end);                   \
+        अगर (size > 1) अणु                                                 \
+            end += size;                                                \
+            p->field = ++str_index;                                     \
+        पूर्ण अन्यथा अणु                                                        \
+            p->field = 0;                                               \
+        पूर्ण                                                               \
+    पूर्ण जबतक (0)
+
+#घोषणा set_field_with_शेष(type, field, def)                        \
+    करो अणु                                                                \
+        अगर (!get_field(type, दुरत्व(काष्ठा smbios_type_##type,        \
+                                      field), &p->field)) अणु             \
+            p->field = def;                                             \
+        पूर्ण                                                               \
+    पूर्ण जबतक (0)
+
+/* Type 0 -- BIOS Inक्रमmation */
+#घोषणा RELEASE_DATE_STR "01/01/2011"
+अटल व्योम *
+smbios_init_type_0(व्योम *start)
+अणु
+    काष्ठा smbios_type_0 *p = (काष्ठा smbios_type_0 *)start;
+    अक्षर *end = (अक्षर *)start + माप(काष्ठा smbios_type_0);
+    माप_प्रकार size;
+    पूर्णांक str_index = 0;
+
+    p->header.type = 0;
+    p->header.length = माप(काष्ठा smbios_type_0);
+    p->header.handle = 0;
+
+    load_str_field_with_शेष(0, venकरोr_str, BUILD_APPNAME);
+    load_str_field_with_शेष(0, bios_version_str, BUILD_APPNAME);
+
+    p->bios_starting_address_segment = 0xe800;
+
+    load_str_field_with_शेष(0, bios_release_date_str, RELEASE_DATE_STR);
+
+    p->bios_rom_size = 0; /* FIXME */
+
+    अगर (!get_field(0, दुरत्व(काष्ठा smbios_type_0, bios_अक्षरacteristics),
+                   &p->bios_अक्षरacteristics)) अणु
+        स_रखो(p->bios_अक्षरacteristics, 0, 8);
+        /* BIOS अक्षरacteristics not supported */
+        p->bios_अक्षरacteristics[0] = 0x08;
+    पूर्ण
+
+    अगर (!get_field(0, दुरत्व(काष्ठा smbios_type_0,
+                               bios_अक्षरacteristics_extension_bytes),
+                   &p->bios_अक्षरacteristics_extension_bytes)) अणु
+        p->bios_अक्षरacteristics_extension_bytes[0] = 0;
+        /* Enable targeted content distribution. Needed क्रम SVVP */
+        p->bios_अक्षरacteristics_extension_bytes[1] = 4;
+    पूर्ण
+
+    set_field_with_शेष(0, प्रणाली_bios_major_release, 1);
+    set_field_with_शेष(0, प्रणाली_bios_minor_release, 0);
+    set_field_with_शेष(0, embedded_controller_major_release, 0xff);
+    set_field_with_शेष(0, embedded_controller_minor_release, 0xff);
+
+    *end = 0;
+    end++;
+    अगर (!str_index) अणु
+        *end = 0;
+        end++;
+    पूर्ण
+
+    वापस end;
+पूर्ण
+
+/* Type 1 -- System Inक्रमmation */
+अटल व्योम *
+smbios_init_type_1(व्योम *start)
+अणु
+    काष्ठा smbios_type_1 *p = (काष्ठा smbios_type_1 *)start;
+    अक्षर *end = (अक्षर *)start + माप(काष्ठा smbios_type_1);
+    माप_प्रकार size;
+    पूर्णांक str_index = 0;
+
+    p->header.type = 1;
+    p->header.length = माप(काष्ठा smbios_type_1);
+    p->header.handle = 0x100;
+
+    load_str_field_with_शेष(1, manufacturer_str, BUILD_APPNAME);
+    load_str_field_with_शेष(1, product_name_str, BUILD_APPNAME);
+    load_str_field_or_skip(1, version_str);
+    load_str_field_or_skip(1, serial_number_str);
+
+    अगर (!get_field(1, दुरत्व(काष्ठा smbios_type_1, uuid), &p->uuid))
+        स_रखो(p->uuid, 0, 16);
+
+    set_field_with_शेष(1, wake_up_type, 0x06); /* घातer चयन */
+
+    load_str_field_or_skip(1, sku_number_str);
+    load_str_field_or_skip(1, family_str);
+
+    *end = 0;
+    end++;
+    अगर (!str_index) अणु
+        *end = 0;
+        end++;
+    पूर्ण
+
+    वापस end;
+पूर्ण
+
+/* Type 3 -- System Enclosure */
+अटल व्योम *
+smbios_init_type_3(व्योम *start)
+अणु
+    काष्ठा smbios_type_3 *p = (काष्ठा smbios_type_3 *)start;
+    अक्षर *end = (अक्षर *)start + माप(काष्ठा smbios_type_3);
+    माप_प्रकार size;
+    पूर्णांक str_index = 0;
+
+    p->header.type = 3;
+    p->header.length = माप(काष्ठा smbios_type_3);
+    p->header.handle = 0x300;
+
+    load_str_field_with_शेष(3, manufacturer_str, BUILD_APPNAME);
+    set_field_with_शेष(3, type, 0x01); /* other */
+
+    load_str_field_or_skip(3, version_str);
+    load_str_field_or_skip(3, serial_number_str);
+    load_str_field_or_skip(3, asset_tag_number_str);
+
+    set_field_with_शेष(3, boot_up_state, 0x03); /* safe */
+    set_field_with_शेष(3, घातer_supply_state, 0x03); /* safe */
+    set_field_with_शेष(3, thermal_state, 0x03); /* safe */
+    set_field_with_शेष(3, security_status, 0x02); /* unknown */
+
+    set_field_with_शेष(3, oem_defined, 0);
+    set_field_with_शेष(3, height, 0);
+    set_field_with_शेष(3, number_of_घातer_cords, 0);
+    set_field_with_शेष(3, contained_element_count, 0);
+
+    *end = 0;
+    end++;
+    अगर (!str_index) अणु
+        *end = 0;
+        end++;
+    पूर्ण
+
+    वापस end;
+पूर्ण
+
+/* Type 4 -- Processor Inक्रमmation */
+अटल व्योम *
+smbios_init_type_4(व्योम *start, अचिन्हित पूर्णांक cpu_number)
+अणु
+    काष्ठा smbios_type_4 *p = (काष्ठा smbios_type_4 *)start;
+    अक्षर *end = (अक्षर *)start + माप(काष्ठा smbios_type_4);
+    माप_प्रकार size;
+    पूर्णांक str_index = 0;
+    अक्षर name[1024];
+
+    p->header.type = 4;
+    p->header.length = माप(काष्ठा smbios_type_4);
+    p->header.handle = 0x400 + cpu_number;
+
+    size = get_field(4, दुरत्व(काष्ठा smbios_type_4, socket_designation_str),
+                     name);
+    अगर (size)
+        snम_लिखो(name + size - 1, माप(name) - size, "%2x", cpu_number);
+    अन्यथा
+        snम_लिखो(name, माप(name), "CPU%2x", cpu_number);
+
+    स_नकल(end, name, म_माप(name) + 1);
+    end += म_माप(name) + 1;
+    p->socket_designation_str = ++str_index;
+
+    set_field_with_शेष(4, processor_type, 0x03); /* CPU */
+    set_field_with_शेष(4, processor_family, 0x01); /* other */
+
+    load_str_field_with_शेष(4, processor_manufacturer_str, BUILD_APPNAME);
+
+    अगर (!get_field(4, दुरत्व(काष्ठा smbios_type_4, processor_id)
+                   , p->processor_id)) अणु
+        u32 cpuid_signature, ebx, ecx, cpuid_features;
+        cpuid(1, &cpuid_signature, &ebx, &ecx, &cpuid_features);
+        p->processor_id[0] = cpuid_signature;
+        p->processor_id[1] = cpuid_features;
+    पूर्ण
+
+    load_str_field_or_skip(4, processor_version_str);
+    set_field_with_शेष(4, voltage, 0);
+    set_field_with_शेष(4, बाह्यal_घड़ी, 0);
+
+    set_field_with_शेष(4, max_speed, 2000);
+    set_field_with_शेष(4, current_speed, 2000);
+
+    set_field_with_शेष(4, status, 0x41); /* socket populated, CPU enabled */
+    set_field_with_शेष(4, processor_upgrade, 0x01); /* other */
+
+    /* cache inक्रमmation काष्ठाure not provided */
+    p->l1_cache_handle =  0xffff;
+    p->l2_cache_handle =  0xffff;
+    p->l3_cache_handle =  0xffff;
+
+    *end = 0;
+    end++;
+    अगर (!str_index) अणु
+        *end = 0;
+        end++;
+    पूर्ण
+
+    वापस end;
+पूर्ण
+
+/* Type 16 -- Physical Memory Array */
+अटल व्योम *
+smbios_init_type_16(व्योम *start, u32 memory_size_mb, पूर्णांक nr_mem_devs)
+अणु
+    काष्ठा smbios_type_16 *p = (काष्ठा smbios_type_16*)start;
+
+    p->header.type = 16;
+    p->header.length = माप(काष्ठा smbios_type_16);
+    p->header.handle = 0x1000;
+
+    set_field_with_शेष(16, location, 0x01); /* other */
+    set_field_with_शेष(16, use, 0x03); /* प्रणाली memory */
+    /* Multi-bit ECC to make Microsoft happy */
+    set_field_with_शेष(16, error_correction, 0x06);
+    /* 0x80000000 = unknown, accept sizes < 2TB - TODO multiple arrays */
+    p->maximum_capacity = memory_size_mb < 2 << 20 ?
+                          memory_size_mb << 10 : 0x80000000;
+    p->memory_error_inक्रमmation_handle = 0xfffe; /* none provided */
+    p->number_of_memory_devices = nr_mem_devs;
+
+    start += माप(काष्ठा smbios_type_16);
+    *((u16 *)start) = 0;
+
+    वापस start + 2;
+पूर्ण
+
+/* Type 17 -- Memory Device */
+अटल व्योम *
+smbios_init_type_17(व्योम *start, u32 size_mb, पूर्णांक instance)
+अणु
+    काष्ठा smbios_type_17 *p = (काष्ठा smbios_type_17 *)start;
+    अक्षर *end = (अक्षर *)start + माप(काष्ठा smbios_type_17);
+    माप_प्रकार size;
+    पूर्णांक str_index = 0;
+    अक्षर name[1024];
+
+    p->header.type = 17;
+    p->header.length = माप(काष्ठा smbios_type_17);
+    p->header.handle = 0x1100 + instance;
+
+    p->physical_memory_array_handle = 0x1000;
+    set_field_with_शेष(17, total_width, 64);
+    set_field_with_शेष(17, data_width, 64);
+/* TODO: should निश्चित in हाल something is wrong   ASSERT((memory_size_mb & ~0x7fff) == 0); */
+    p->size = size_mb;
+    set_field_with_शेष(17, क्रमm_factor, 0x09); /* DIMM */
+    p->device_set = 0;
+
+    size = get_field(17, दुरत्व(काष्ठा smbios_type_17, device_locator_str),
+                     name);
+    अगर (size)
+        snम_लिखो(name + size - 1, माप(name) - size, "%d", instance);
+    अन्यथा
+        snम_लिखो(name, माप(name), "DIMM %d", instance);
+
+    स_नकल(end, name, म_माप(name) + 1);
+    end += म_माप(name) + 1;
+    p->device_locator_str = ++str_index;
+
+    load_str_field_or_skip(17, bank_locator_str);
+    set_field_with_शेष(17, memory_type, 0x07); /* RAM */
+    set_field_with_शेष(17, type_detail, 0);
+
+    *end = 0;
+    end++;
+    अगर (!str_index) अणु
+        *end = 0;
+        end++;
+    पूर्ण
+
+    वापस end;
+पूर्ण
+
+/* Type 19 -- Memory Array Mapped Address */
+अटल व्योम *
+smbios_init_type_19(व्योम *start, u32 start_mb, u32 size_mb, पूर्णांक instance)
+अणु
+    काष्ठा smbios_type_19 *p = (काष्ठा smbios_type_19 *)start;
+
+    p->header.type = 19;
+    p->header.length = माप(काष्ठा smbios_type_19);
+    p->header.handle = 0x1300 + instance;
+
+    p->starting_address = start_mb << 10;
+    p->ending_address = p->starting_address + (size_mb << 10) - 1;
+    p->memory_array_handle = 0x1000;
+    p->partition_width = 1;
+
+    start += माप(काष्ठा smbios_type_19);
+    *((u16 *)start) = 0;
+
+    वापस start + 2;
+पूर्ण
+
+/* Type 20 -- Memory Device Mapped Address */
+अटल व्योम *
+smbios_init_type_20(व्योम *start, u32 start_mb, u32 size_mb, पूर्णांक instance,
+                    पूर्णांक dev_handle, पूर्णांक array_handle)
+अणु
+    काष्ठा smbios_type_20 *p = (काष्ठा smbios_type_20 *)start;
+
+    p->header.type = 20;
+    p->header.length = माप(काष्ठा smbios_type_20);
+    p->header.handle = 0x1400 + instance;
+
+    p->starting_address = start_mb << 10;
+    p->ending_address = p->starting_address + (size_mb << 10) - 1;
+    p->memory_device_handle = 0x1100 + dev_handle;
+    p->memory_array_mapped_address_handle = 0x1300 + array_handle;
+    p->partition_row_position = 1;
+    p->पूर्णांकerleave_position = 0;
+    p->पूर्णांकerleaved_data_depth = 0;
+
+    start += माप(काष्ठा smbios_type_20);
+
+    *((u16 *)start) = 0;
+    वापस start+2;
+पूर्ण
+
+/* Type 32 -- System Boot Inक्रमmation */
+अटल व्योम *
+smbios_init_type_32(व्योम *start)
+अणु
+    काष्ठा smbios_type_32 *p = (काष्ठा smbios_type_32 *)start;
+
+    p->header.type = 32;
+    p->header.length = माप(काष्ठा smbios_type_32);
+    p->header.handle = 0x2000;
+    स_रखो(p->reserved, 0, 6);
+    set_field_with_शेष(32, boot_status, 0); /* no errors detected */
+
+    start += माप(काष्ठा smbios_type_32);
+    *((u16 *)start) = 0;
+
+    वापस start+2;
+पूर्ण
+
+/* Type 127 -- End of Table */
+अटल व्योम *
+smbios_init_type_127(व्योम *start)
+अणु
+    काष्ठा smbios_type_127 *p = (काष्ठा smbios_type_127 *)start;
+
+    p->header.type = 127;
+    p->header.length = माप(काष्ठा smbios_type_127);
+    p->header.handle = 0x7f00;
+
+    start += माप(काष्ठा smbios_type_127);
+    *((u16 *)start) = 0;
+
+    वापस start + 2;
+पूर्ण
+
+#घोषणा TEMPSMBIOSSIZE (32 * 1024)
+
+व्योम
+smbios_legacy_setup(व्योम)
+अणु
+    अगर (! CONFIG_SMBIOS)
+        वापस;
+
+    dम_लिखो(3, "init SMBIOS tables\n");
+
+    अक्षर *start = दो_स्मृति_पंचांगphigh(TEMPSMBIOSSIZE);
+    अगर (! start) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    स_रखो(start, 0, TEMPSMBIOSSIZE);
+
+    u32 nr_काष्ठाs = 0, max_काष्ठा_size = 0;
+    अक्षर *q, *p = start;
+    अक्षर *end = start + TEMPSMBIOSSIZE - माप(काष्ठा smbios_type_127);
+
+#घोषणा add_काष्ठा(type, args...)                                       \
+    करो अणु                                                                \
+        अगर (!get_बाह्यal(type, &p, &nr_काष्ठाs, &max_काष्ठा_size, end)) अणु \
+            q = smbios_init_type_##type(args);                          \
+            nr_काष्ठाs++;                                               \
+            अगर ((q - p) > max_काष्ठा_size)                              \
+                max_काष्ठा_size = q - p;                                \
+            p = q;                                                      \
+        पूर्ण                                                               \
+    पूर्ण जबतक (0)
+
+    add_काष्ठा(0, p);
+    add_काष्ठा(1, p);
+    add_काष्ठा(3, p);
+
+    पूर्णांक cpu_num;
+    क्रम (cpu_num = 1; cpu_num <= MaxCountCPUs; cpu_num++)
+        add_काष्ठा(4, p, cpu_num);
+
+    पूर्णांक ram_mb = (RamSize + RamSizeOver4G) >> 20;
+    पूर्णांक nr_mem_devs = (ram_mb + 0x3fff) >> 14;
+    add_काष्ठा(16, p, ram_mb, nr_mem_devs);
+
+    पूर्णांक i, j;
+    क्रम (i = 0; i < nr_mem_devs; i++) अणु
+        u32 dev_mb = ((i == (nr_mem_devs - 1))
+                      ? (((ram_mb - 1) & 0x3fff) + 1)
+                      : 16384);
+        add_काष्ठा(17, p, dev_mb, i);
+    पूर्ण
+
+    add_काष्ठा(19, p, 0, RamSize >> 20, 0);
+    अगर (RamSizeOver4G)
+        add_काष्ठा(19, p, 4096, RamSizeOver4G >> 20, 1);
+
+    add_काष्ठा(20, p, 0, RamSize >> 20, 0, 0, 0);
+    अगर (RamSizeOver4G) अणु
+        u32 start_mb = 4096;
+        क्रम (j = 1, i = 0; i < nr_mem_devs; i++, j++) अणु
+            u32 dev_mb = ((i == (nr_mem_devs - 1))
+                               ? (((ram_mb - 1) & 0x3fff) + 1)
+                               : 16384);
+            अगर (i == 0)
+                dev_mb -= RamSize >> 20;
+
+            add_काष्ठा(20, p, start_mb, dev_mb, j, i, 1);
+            start_mb += dev_mb;
+        पूर्ण
+    पूर्ण
+
+    add_काष्ठा(32, p);
+    /* Add any reमुख्यing provided entries beक्रमe the end marker */
+    क्रम (i = 0; i < 256; i++)
+        get_बाह्यal(i, &p, &nr_काष्ठाs, &max_काष्ठा_size, end);
+    add_काष्ठा(127, p);
+
+#अघोषित add_काष्ठा
+
+    smbios_entry_poपूर्णांक_setup(max_काष्ठा_size, p - start, start, nr_काष्ठाs);
+    मुक्त(start);
+पूर्ण

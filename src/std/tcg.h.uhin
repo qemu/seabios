@@ -1,0 +1,581 @@
+<शैली गुरु>
+#अगर_अघोषित STD_TCG_H
+#घोषणा STD_TCG_H
+
+#समावेश "types.h"
+
+#घोषणा SHA1_बफ_मानE                20
+#घोषणा SHA256_बफ_मानE              32
+#घोषणा SHA384_बफ_मानE              48
+#घोषणा SHA512_बफ_मानE              64
+#घोषणा SM3_256_बफ_मानE             32
+#घोषणा SHA3_256_बफ_मानE            32
+#घोषणा SHA3_384_बफ_मानE            48
+#घोषणा SHA3_512_बफ_मानE            64
+
+
+/****************************************************************
+ * 16bit BIOS पूर्णांकerface
+ ****************************************************************/
+
+/* Define क्रम section 12.3 */
+#घोषणा TCG_PC_OK                       0x0
+#घोषणा TCG_PC_TPMERROR                 0x1
+#घोषणा TCG_PC_LOGOVERFLOW              0x2
+#घोषणा TCG_PC_UNSUPPORTED              0x3
+
+#घोषणा TPM_ALG_SHA                     0x4
+
+#घोषणा TCG_MAGIC                       0x41504354L
+#घोषणा TCG_VERSION_MAJOR               1
+#घोषणा TCG_VERSION_MINOR               2
+
+#घोषणा TPM_OK                          0x0
+#घोषणा TPM_RET_BASE                    0x1
+#घोषणा TCG_GENERAL_ERROR               (TPM_RET_BASE + 0x0)
+#घोषणा TCG_TPM_IS_LOCKED               (TPM_RET_BASE + 0x1)
+#घोषणा TCG_NO_RESPONSE                 (TPM_RET_BASE + 0x2)
+#घोषणा TCG_INVALID_RESPONSE            (TPM_RET_BASE + 0x3)
+#घोषणा TCG_INVALID_ACCESS_REQUEST      (TPM_RET_BASE + 0x4)
+#घोषणा TCG_FIRMWARE_ERROR              (TPM_RET_BASE + 0x5)
+#घोषणा TCG_INTEGRITY_CHECK_FAILED      (TPM_RET_BASE + 0x6)
+#घोषणा TCG_INVALID_DEVICE_ID           (TPM_RET_BASE + 0x7)
+#घोषणा TCG_INVALID_VENDOR_ID           (TPM_RET_BASE + 0x8)
+#घोषणा TCG_UNABLE_TO_OPEN              (TPM_RET_BASE + 0x9)
+#घोषणा TCG_UNABLE_TO_CLOSE             (TPM_RET_BASE + 0xa)
+#घोषणा TCG_RESPONSE_TIMEOUT            (TPM_RET_BASE + 0xb)
+#घोषणा TCG_INVALID_COM_REQUEST         (TPM_RET_BASE + 0xc)
+#घोषणा TCG_INVALID_ADR_REQUEST         (TPM_RET_BASE + 0xd)
+#घोषणा TCG_WRITE_BYTE_ERROR            (TPM_RET_BASE + 0xe)
+#घोषणा TCG_READ_BYTE_ERROR             (TPM_RET_BASE + 0xf)
+#घोषणा TCG_BLOCK_WRITE_TIMEOUT         (TPM_RET_BASE + 0x10)
+#घोषणा TCG_CHAR_WRITE_TIMEOUT          (TPM_RET_BASE + 0x11)
+#घोषणा TCG_CHAR_READ_TIMEOUT           (TPM_RET_BASE + 0x12)
+#घोषणा TCG_BLOCK_READ_TIMEOUT          (TPM_RET_BASE + 0x13)
+#घोषणा TCG_TRANSFER_ABORT              (TPM_RET_BASE + 0x14)
+#घोषणा TCG_INVALID_DRV_FUNCTION        (TPM_RET_BASE + 0x15)
+#घोषणा TCG_OUTPUT_BUFFER_TOO_SHORT     (TPM_RET_BASE + 0x16)
+#घोषणा TCG_FATAL_COM_ERROR             (TPM_RET_BASE + 0x17)
+#घोषणा TCG_INVALID_INPUT_PARA          (TPM_RET_BASE + 0x18)
+#घोषणा TCG_TCG_COMMAND_ERROR           (TPM_RET_BASE + 0x19)
+#घोषणा TCG_INTERFACE_SHUTDOWN          (TPM_RET_BASE + 0x20)
+//define TCG_PC_UNSUPPORTED             (TPM_RET_BASE + 0x21)
+#घोषणा TCG_PC_TPM_NOT_PRESENT          (TPM_RET_BASE + 0x22)
+#घोषणा TCG_PC_TPM_DEACTIVATED          (TPM_RET_BASE + 0x23)
+
+/* पूर्णांकerrupt identअगरiers (al रेजिस्टर) */
+क्रमागत irq_ids अणु
+    TCG_StatusCheck = 0,
+    TCG_HashLogExtendEvent = 1,
+    TCG_PassThroughToTPM = 2,
+    TCG_ShutकरोwnPreBootInterface = 3,
+    TCG_HashLogEvent = 4,
+    TCG_HashAll = 5,
+    TCG_TSS = 6,
+    TCG_CompactHashLogExtendEvent = 7,
+पूर्ण;
+
+/* Input and Output blocks क्रम the TCG BIOS commands */
+
+काष्ठा hleei_लघु
+अणु
+    u16   ipblength;
+    u16   reserved;
+    स्थिर व्योम *hashdataptr;
+    u32   hashdatalen;
+    u32   pcrindex;
+    स्थिर व्योम *logdataptr;
+    u32   logdatalen;
+पूर्ण PACKED;
+
+काष्ठा hleei_दीर्घ
+अणु
+    u16   ipblength;
+    u16   reserved;
+    व्योम *hashdataptr;
+    u32   hashdatalen;
+    u32   pcrindex;
+    u32   reserved2;
+    व्योम *logdataptr;
+    u32   logdatalen;
+पूर्ण PACKED;
+
+काष्ठा hleeo
+अणु
+    u16    opblength;
+    u16    reserved;
+    u32    eventnumber;
+    u8     digest[SHA1_बफ_मानE];
+पूर्ण PACKED;
+
+काष्ठा pttti
+अणु
+    u16    ipblength;
+    u16    reserved;
+    u16    opblength;
+    u16    reserved2;
+    u8     tpmopin[0];
+पूर्ण PACKED;
+
+काष्ठा pttto
+अणु
+    u16    opblength;
+    u16    reserved;
+    u8     tpmopout[0];
+पूर्ण;
+
+काष्ठा hlei
+अणु
+    u16    ipblength;
+    u16    reserved;
+    स्थिर व्योम  *hashdataptr;
+    u32    hashdatalen;
+    u32    pcrindex;
+    u32    logeventtype;
+    स्थिर व्योम  *logdataptr;
+    u32    logdatalen;
+पूर्ण PACKED;
+
+काष्ठा hleo
+अणु
+    u16    opblength;
+    u16    reserved;
+    u32    eventnumber;
+पूर्ण PACKED;
+
+काष्ठा hai
+अणु
+    u16    ipblength;
+    u16    reserved;
+    स्थिर व्योम  *hashdataptr;
+    u32    hashdatalen;
+    u32    algorithmid;
+पूर्ण PACKED;
+
+काष्ठा ti
+अणु
+    u16    ipblength;
+    u16    reserved;
+    u16    opblength;
+    u16    reserved2;
+    u8     tssopeअक्रमin[0];
+पूर्ण PACKED;
+
+काष्ठा to
+अणु
+    u16    opblength;
+    u16    reserved;
+    u8     tssopeअक्रमout[0];
+पूर्ण PACKED;
+
+काष्ठा pcpes
+अणु
+    u32    pcrindex;
+    u32    eventtype;
+    u8     digest[SHA1_बफ_मानE];
+    u32    eventdatasize;
+    u8     event[0];
+पूर्ण PACKED;
+
+
+/****************************************************************
+ * TPM v1.2 hardware commands
+ ****************************************************************/
+
+#घोषणा TPM_ORD_SelfTestFull             0x00000050
+#घोषणा TPM_ORD_ForceClear               0x0000005d
+#घोषणा TPM_ORD_GetCapability            0x00000065
+#घोषणा TPM_ORD_PhysicalEnable           0x0000006f
+#घोषणा TPM_ORD_PhysicalDisable          0x00000070
+#घोषणा TPM_ORD_SetOwnerInstall          0x00000071
+#घोषणा TPM_ORD_PhysicalSetDeactivated   0x00000072
+#घोषणा TPM_ORD_SetTempDeactivated       0x00000073
+#घोषणा TPM_ORD_Startup                  0x00000099
+#घोषणा TPM_ORD_PhysicalPresence         0x4000000a
+#घोषणा TPM_ORD_Extend                   0x00000014
+#घोषणा TSC_ORD_ResetEstablishmentBit    0x4000000b
+
+#घोषणा TPM_ST_CLEAR                     0x0001
+#घोषणा TPM_ST_STATE                     0x0002
+#घोषणा TPM_ST_DEACTIVATED               0x0003
+
+#घोषणा TPM_PP_CMD_ENABLE                0x0020
+#घोषणा TPM_PP_PRESENT                   0x0008
+#घोषणा TPM_PP_NOT_PRESENT_LOCK          0x0014
+
+/* TPM command error codes */
+#घोषणा TPM_INVALID_POSTINIT             0x26
+#घोषणा TPM_BAD_LOCALITY                 0x3d
+
+/* TPM command tags */
+#घोषणा TPM_TAG_RQU_CMD                  0x00c1
+#घोषणा TPM_TAG_RQU_AUTH1_CMD            0x00c2
+#घोषणा TPM_TAG_RQU_AUTH2_CMD            0x00c3
+
+काष्ठा tpm_req_header अणु
+    u16    tag;
+    u32    totlen;
+    u32    ordinal;
+पूर्ण PACKED;
+
+काष्ठा tpm_rsp_header अणु
+    u16    tag;
+    u32    totlen;
+    u32    errcode;
+पूर्ण PACKED;
+
+काष्ठा tpm_req_extend अणु
+    काष्ठा tpm_req_header hdr;
+    u32    pcrindex;
+    u8     digest[SHA1_बफ_मानE];
+पूर्ण PACKED;
+
+काष्ठा tpm_rsp_extend अणु
+    काष्ठा tpm_rsp_header hdr;
+    u8     digest[SHA1_बफ_मानE];
+पूर्ण PACKED;
+
+काष्ठा tpm_req_अ_लोap अणु
+    काष्ठा tpm_req_header hdr;
+    u32    capArea;
+    u32    subCapSize;
+    u32    subCap;
+पूर्ण PACKED;
+
+#घोषणा TPM_CAP_FLAG     0x04
+#घोषणा TPM_CAP_PROPERTY 0x05
+#घोषणा TPM_CAP_FLAG_PERMANENT   0x108
+#घोषणा TPM_CAP_FLAG_VOLATILE    0x109
+#घोषणा TPM_CAP_PROP_OWNER       0x111
+#घोषणा TPM_CAP_PROP_TIS_TIMEOUT 0x115
+#घोषणा TPM_CAP_PROP_DURATION    0x120
+
+काष्ठा tpm_permanent_flags अणु
+    u16    tag;
+    u8     flags[20];
+पूर्ण PACKED;
+
+क्रमागत permFlagsIndex अणु
+    PERM_FLAG_IDX_DISABLE = 0,
+    PERM_FLAG_IDX_OWNERSHIP,
+    PERM_FLAG_IDX_DEACTIVATED,
+    PERM_FLAG_IDX_READPUBEK,
+    PERM_FLAG_IDX_DISABLEOWNERCLEAR,
+    PERM_FLAG_IDX_ALLOW_MAINTEन_अंकCE,
+    PERM_FLAG_IDX_PHYSICAL_PRESENCE_LIFETIME_LOCK,
+    PERM_FLAG_IDX_PHYSICAL_PRESENCE_HW_ENABLE,
+    PERM_FLAG_IDX_PHYSICAL_PRESENCE_CMD_ENABLE,
+पूर्ण;
+
+काष्ठा tpm_res_अ_लोap_perm_flags अणु
+    काष्ठा tpm_rsp_header hdr;
+    u32    size;
+    काष्ठा tpm_permanent_flags perm_flags;
+पूर्ण PACKED;
+
+काष्ठा tpm_stclear_flags अणु
+    u16    tag;
+    u8     flags[5];
+पूर्ण PACKED;
+
+#घोषणा STCLEAR_FLAG_IDX_DEACTIVATED 0
+#घोषणा STCLEAR_FLAG_IDX_DISABLE_FORCE_CLEAR 1
+#घोषणा STCLEAR_FLAG_IDX_PHYSICAL_PRESENCE 2
+#घोषणा STCLEAR_FLAG_IDX_PHYSICAL_PRESENCE_LOCK 3
+#घोषणा STCLEAR_FLAG_IDX_GLOBAL_LOCK 4
+
+काष्ठा tpm_res_अ_लोap_stclear_flags अणु
+    काष्ठा tpm_rsp_header hdr;
+    u32    size;
+    काष्ठा tpm_stclear_flags stclear_flags;
+पूर्ण PACKED;
+
+काष्ठा tpm_res_अ_लोap_ownerauth अणु
+    काष्ठा tpm_rsp_header hdr;
+    u32    size;
+    u8     flag;
+पूर्ण PACKED;
+
+काष्ठा tpm_res_अ_लोap_समयouts अणु
+    काष्ठा tpm_rsp_header hdr;
+    u32    size;
+    u32    समयouts[4];
+पूर्ण PACKED;
+
+काष्ठा tpm_res_अ_लोap_durations अणु
+    काष्ठा tpm_rsp_header hdr;
+    u32    size;
+    u32    durations[3];
+पूर्ण PACKED;
+
+काष्ठा tpm_res_sha1start अणु
+    काष्ठा tpm_rsp_header hdr;
+    u32    max_num_bytes;
+पूर्ण PACKED;
+
+काष्ठा tpm_res_sha1complete अणु
+    काष्ठा tpm_rsp_header hdr;
+    u8     hash[20];
+पूर्ण PACKED;
+
+
+/****************************************************************
+ * TPM v2.0 hardware commands
+ ****************************************************************/
+
+#घोषणा TPM2_NO                     0
+#घोषणा TPM2_YES                    1
+
+#घोषणा TPM2_SU_CLEAR               0x0000
+#घोषणा TPM2_SU_STATE               0x0001
+
+#घोषणा TPM2_RH_OWNER               0x40000001
+#घोषणा TPM2_RS_PW                  0x40000009
+#घोषणा TPM2_RH_ENDORSEMENT         0x4000000b
+#घोषणा TPM2_RH_PLATFORM            0x4000000c
+
+#घोषणा TPM2_ALG_SHA1               0x0004
+#घोषणा TPM2_ALG_SHA256             0x000b
+#घोषणा TPM2_ALG_SHA384             0x000c
+#घोषणा TPM2_ALG_SHA512             0x000d
+#घोषणा TPM2_ALG_SM3_256            0x0012
+#घोषणा TPM2_ALG_SHA3_256           0x0027
+#घोषणा TPM2_ALG_SHA3_384           0x0028
+#घोषणा TPM2_ALG_SHA3_512           0x0029
+
+#घोषणा TPM2_ALG_SHA1_FLAG          (1 << 0)
+#घोषणा TPM2_ALG_SHA256_FLAG        (1 << 1)
+#घोषणा TPM2_ALG_SHA384_FLAG        (1 << 2)
+#घोषणा TPM2_ALG_SHA512_FLAG        (1 << 3)
+#घोषणा TPM2_ALG_SM3_256_FLAG       (1 << 4)
+#घोषणा TPM2_ALG_SHA3_256_FLAG      (1 << 5)
+#घोषणा TPM2_ALG_SHA3_384_FLAG      (1 << 6)
+#घोषणा TPM2_ALG_SHA3_512_FLAG      (1 << 7)
+
+/* TPM 2 command tags */
+#घोषणा TPM2_ST_NO_SESSIONS         0x8001
+#घोषणा TPM2_ST_SESSIONS            0x8002
+
+/* TPM 2 commands */
+#घोषणा TPM2_CC_HierarchyControl    0x121
+#घोषणा TPM2_CC_Clear               0x126
+#घोषणा TPM2_CC_ClearControl        0x127
+#घोषणा TPM2_CC_HierarchyChangeAuth 0x129
+#घोषणा TPM2_CC_PCR_Allocate        0x12b
+#घोषणा TPM2_CC_SelfTest            0x143
+#घोषणा TPM2_CC_Startup             0x144
+#घोषणा TPM2_CC_Shutकरोwn            0x145
+#घोषणा TPM2_CC_StirRanकरोm          0x146
+#घोषणा TPM2_CC_GetCapability       0x17a
+#घोषणा TPM2_CC_GetRanकरोm           0x17b
+#घोषणा TPM2_CC_PCR_Extend          0x182
+
+/* TPM 2 error codes */
+#घोषणा TPM2_RC_INITIALIZE          0x100
+
+/* TPM 2 Capabilities */
+#घोषणा TPM2_CAP_PCRS               0x00000005
+
+/* TPM 2 data काष्ठाures */
+
+काष्ठा tpm2_req_stirअक्रमom अणु
+    काष्ठा tpm_req_header hdr;
+    u16 size;
+    u64 stir;
+पूर्ण PACKED;
+
+काष्ठा tpm2_req_getअक्रमom अणु
+    काष्ठा tpm_req_header hdr;
+    u16 bytesRequested;
+पूर्ण PACKED;
+
+काष्ठा tpm2b_20 अणु
+    u16 size;
+    u8 buffer[20];
+पूर्ण PACKED;
+
+काष्ठा tpm2_res_getअक्रमom अणु
+    काष्ठा tpm_rsp_header hdr;
+    काष्ठा tpm2b_20 rnd;
+पूर्ण PACKED;
+
+काष्ठा tpm2_authblock अणु
+    u32 handle;
+    u16 noncesize;  /* always 0 */
+    u8 contsession; /* always TPM2_YES */
+    u16 pwdsize;    /* always 0 */
+पूर्ण PACKED;
+
+काष्ठा tpm2_req_hierarchychangeauth अणु
+    काष्ठा tpm_req_header hdr;
+    u32 authhandle;
+    u32 authblocksize;
+    काष्ठा tpm2_authblock authblock;
+    काष्ठा tpm2b_20 newAuth;
+पूर्ण PACKED;
+
+काष्ठा tpm2_req_extend अणु
+    काष्ठा tpm_req_header hdr;
+    u32 pcrindex;
+    u32 authblocksize;
+    काष्ठा tpm2_authblock authblock;
+    u8 digest[0];
+पूर्ण PACKED;
+
+काष्ठा tpm2_req_clearcontrol अणु
+    काष्ठा tpm_req_header hdr;
+    u32 authhandle;
+    u32 authblocksize;
+    काष्ठा tpm2_authblock authblock;
+    u8 disable;
+पूर्ण PACKED;
+
+काष्ठा tpm2_req_clear अणु
+    काष्ठा tpm_req_header hdr;
+    u32 authhandle;
+    u32 authblocksize;
+    काष्ठा tpm2_authblock authblock;
+पूर्ण PACKED;
+
+काष्ठा tpm2_req_hierarchycontrol अणु
+    काष्ठा tpm_req_header hdr;
+    u32 authhandle;
+    u32 authblocksize;
+    काष्ठा tpm2_authblock authblock;
+    u32 enable;
+    u8 state;
+पूर्ण PACKED;
+
+काष्ठा tpm2_req_अ_लोapability अणु
+    काष्ठा tpm_req_header hdr;
+    u32 capability;
+    u32 property;
+    u32 propertycount;
+पूर्ण PACKED;
+
+काष्ठा tpm2_res_अ_लोapability अणु
+    काष्ठा tpm_rsp_header hdr;
+    u8 moreData;
+    u32 capability;
+    u8 data[0]; /* capability dependent data */
+पूर्ण PACKED;
+
+काष्ठा tpm2_req_pcr_allocate अणु
+    काष्ठा tpm_req_header hdr;
+    u32 authhandle;
+    u32 authblocksize;
+    काष्ठा tpm2_authblock authblock;
+    u32 count;
+    u8 tpms_pcr_selections[4];
+पूर्ण PACKED;
+
+काष्ठा tpms_pcr_selection अणु
+    u16 hashAlg;
+    u8 sizeOfSelect;
+    u8 pcrSelect[0];
+पूर्ण PACKED;
+
+काष्ठा tpml_pcr_selection अणु
+    u32 count;
+    काष्ठा tpms_pcr_selection selections[0];
+पूर्ण PACKED;
+
+
+/****************************************************************
+ * ACPI TCPA table पूर्णांकerface
+ ****************************************************************/
+
+/* event types: 10.4.1 / table 11 */
+#घोषणा EV_POST_CODE             1
+#घोषणा EV_NO_ACTION             3
+#घोषणा EV_SEPARATOR             4
+#घोषणा EV_ACTION                5
+#घोषणा EV_EVENT_TAG             6
+#घोषणा EV_COMPACT_HASH         12
+#घोषणा EV_IPL                  13
+#घोषणा EV_IPL_PARTITION_DATA   14
+
+काष्ठा tpm2_digest_value अणु
+    u16 hashAlg;
+    u8 hash[0]; /* size depends on hashAlg */
+पूर्ण PACKED;
+
+काष्ठा tpm2_digest_values अणु
+    u32 count;
+    काष्ठा tpm2_digest_value digest[0];
+पूर्ण PACKED;
+
+// Each entry in the TPM log contains: a tpm_log_header, a variable
+// length digest, a tpm_log_trailer, and a variable length event.  The
+// 'digest' matches what is sent to the TPM hardware via the Extend
+// command.  On TPM1.2 the digest is a SHA1 hash; on TPM2.0 the digest
+// contains a tpm2_digest_values काष्ठा followed by a variable number
+// of tpm2_digest_value काष्ठाs (as specअगरied by the hardware via the
+// TPM2_CAP_PCRS request).
+काष्ठा tpm_log_header अणु
+    u32 pcrindex;
+    u32 eventtype;
+    u8 digest[0];
+पूर्ण PACKED;
+
+काष्ठा tpm_log_trailer अणु
+    u32 eventdatasize;
+    u8 event[0];
+पूर्ण PACKED;
+
+काष्ठा TCG_EfiSpecIdEventStruct अणु
+    u8 signature[16];
+    u32 platक्रमmClass;
+    u8 specVersionMinor;
+    u8 specVersionMajor;
+    u8 specErrata;
+    u8 uपूर्णांकnSize;
+    u32 numberOfAlgorithms;
+    काष्ठा TCG_EfiSpecIdEventAlgorithmSize अणु
+        u16 algorithmId;
+        u16 digestSize;
+    पूर्ण digestSizes[];
+    /*
+    u8 venकरोrInfoSize;
+    u8 venकरोrInfo[0];
+    */
+पूर्ण PACKED;
+
+#घोषणा TPM_TCPA_ACPI_CLASS_CLIENT 0
+
+काष्ठा pcctes
+अणु
+    u32 eventid;
+    u32 eventdatasize;
+    u8  digest[SHA1_बफ_मानE];
+पूर्ण PACKED;
+
+काष्ठा pcctes_romex
+अणु
+    u32 eventid;
+    u32 eventdatasize;
+    u16 reserved;
+    u16 pfa;
+    u8  digest[SHA1_बफ_मानE];
+पूर्ण PACKED;
+
+
+/****************************************************************
+ * Physical presence पूर्णांकerface
+ ****************************************************************/
+
+#घोषणा TPM_STATE_ENABLED 1
+#घोषणा TPM_STATE_ACTIVE 2
+#घोषणा TPM_STATE_OWNED 4
+#घोषणा TPM_STATE_OWNERINSTALL 8
+
+#घोषणा TPM_PPI_OP_NOOP 0
+#घोषणा TPM_PPI_OP_ENABLE 1
+#घोषणा TPM_PPI_OP_DISABLE 2
+#घोषणा TPM_PPI_OP_ACTIVATE 3
+#घोषणा TPM_PPI_OP_DEACTIVATE 4
+#घोषणा TPM_PPI_OP_CLEAR 5
+#घोषणा TPM_PPI_OP_SET_OWNERINSTALL_TRUE 8
+#घोषणा TPM_PPI_OP_SET_OWNERINSTALL_FALSE 9
+
+#पूर्ण_अगर // tcg.h

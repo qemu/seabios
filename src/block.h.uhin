@@ -1,0 +1,123 @@
+<शैली गुरु>
+#अगर_अघोषित __BLOCK_H
+#घोषणा __BLOCK_H
+
+#समावेश "types.h" // u32
+
+
+/****************************************************************
+ * Disk command request
+ ****************************************************************/
+
+काष्ठा disk_op_s अणु
+    व्योम *buf_fl;
+    काष्ठा drive_s *drive_fl;
+    u8 command;
+    u16 count;
+    जोड़ अणु
+        // Commands: READ, WRITE, VERIFY, SEEK, FORMAT
+        u64 lba;
+        // Commands: SCSI
+        काष्ठा अणु
+            u16 blocksize;
+            व्योम *cdbcmd;
+        पूर्ण;
+    पूर्ण;
+पूर्ण;
+
+#घोषणा CMD_RESET   0x00
+#घोषणा CMD_READ    0x02
+#घोषणा CMD_WRITE   0x03
+#घोषणा CMD_VERIFY  0x04
+#घोषणा CMD_FORMAT  0x05
+#घोषणा CMD_SEEK    0x07
+#घोषणा CMD_ISREADY 0x10
+#घोषणा CMD_SCSI    0x20
+
+
+/****************************************************************
+ * Global storage
+ ****************************************************************/
+
+काष्ठा chs_s अणु
+    u16 head;
+    u16 cylinder;
+    u16 sector;
+    u16 pad;
+पूर्ण;
+
+काष्ठा drive_s अणु
+    u8 type;            // Driver type (DTYPE_*)
+    u8 floppy_type;     // Type of floppy (only क्रम floppy drives).
+    काष्ठा chs_s lchs;  // Logical CHS
+    u64 sectors;        // Total sectors count
+    u32 cntl_id;        // Unique id क्रम a given driver type.
+    u8 removable;       // Is media removable (currently unused)
+
+    // Info क्रम EDD calls
+    u8 translation;     // type of translation
+    u16 blksize;        // block size
+    काष्ठा chs_s pchs;  // Physical CHS
+पूर्ण;
+
+#घोषणा DISK_SECTOR_SIZE  512
+#घोषणा CDROM_SECTOR_SIZE 2048
+
+#घोषणा DTYPE_NONE         0x00
+#घोषणा DTYPE_FLOPPY       0x10
+#घोषणा DTYPE_ATA          0x20
+#घोषणा DTYPE_ATA_ATAPI    0x21
+#घोषणा DTYPE_RAMDISK      0x30
+#घोषणा DTYPE_CDEMU        0x40
+#घोषणा DTYPE_AHCI         0x50
+#घोषणा DTYPE_AHCI_ATAPI   0x51
+#घोषणा DTYPE_VIRTIO_SCSI  0x60
+#घोषणा DTYPE_VIRTIO_BLK   0x61
+#घोषणा DTYPE_USB          0x70
+#घोषणा DTYPE_USB_32       0x71
+#घोषणा DTYPE_UAS          0x72
+#घोषणा DTYPE_UAS_32       0x73
+#घोषणा DTYPE_LSI_SCSI     0x80
+#घोषणा DTYPE_ESP_SCSI     0x81
+#घोषणा DTYPE_MEGASAS      0x82
+#घोषणा DTYPE_PVSCSI       0x83
+#घोषणा DTYPE_MPT_SCSI     0x84
+#घोषणा DTYPE_SDCARD       0x90
+#घोषणा DTYPE_NVME         0x91
+
+#घोषणा MAXDESCSIZE 80
+
+#घोषणा TRANSLATION_NONE  0
+#घोषणा TRANSLATION_LBA   1
+#घोषणा TRANSLATION_LARGE 2
+#घोषणा TRANSLATION_RECHS 3
+#घोषणा TRANSLATION_HOST 4
+
+#घोषणा EXTTYPE_FLOPPY 0
+#घोषणा EXTTYPE_HD 1
+#घोषणा EXTTYPE_CD 2
+
+#घोषणा EXTSTART_HD 0x80
+#घोषणा EXTSTART_CD 0xE0
+
+
+/****************************************************************
+ * Function defs
+ ****************************************************************/
+
+// block.c
+बाह्य u8 FloppyCount, CDCount;
+बाह्य u8 *bounce_buf_fl;
+काष्ठा drive_s *getDrive(u8 exttype, u8 extdriveoffset);
+पूर्णांक getDriveId(u8 exttype, काष्ठा drive_s *drive);
+व्योम map_floppy_drive(काष्ठा drive_s *drive);
+व्योम map_hd_drive(काष्ठा drive_s *drive);
+व्योम map_cd_drive(काष्ठा drive_s *drive);
+काष्ठा पूर्णांक13dpt_s;
+पूर्णांक fill_edd(काष्ठा segoff_s edd, काष्ठा drive_s *drive_fl);
+व्योम block_setup(व्योम);
+पूर्णांक शेष_process_op(काष्ठा disk_op_s *op);
+पूर्णांक process_op(काष्ठा disk_op_s *op);
+पूर्णांक create_bounce_buf(व्योम);
+
+#पूर्ण_अगर // block.h

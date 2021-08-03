@@ -1,0 +1,242 @@
+<शैली गुरु>
+// PCI BIOS (पूर्णांक 1a/b1) calls
+//
+// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2002  MandrakeSoft S.A.
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_GLOBAL
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "hw/pci.h" // pci_config_पढ़ोl
+#समावेश "hw/pcidevice.h" // MaxPCIBus
+#समावेश "hw/pci_regs.h" // PCI_VENDOR_ID
+#समावेश "output.h" // dम_लिखो
+#समावेश "std/pirtable.h" // काष्ठा pir_header
+#समावेश "string.h" // checksum
+#समावेश "util.h" // handle_1ab1
+
+// romlayout.S
+बाह्य व्योम entry_bios32(व्योम);
+बाह्य व्योम entry_pcibios32(व्योम);
+
+#घोषणा RET_FUNC_NOT_SUPPORTED 0x81
+#घोषणा RET_BAD_VENDOR_ID      0x83
+#घोषणा RET_DEVICE_NOT_FOUND   0x86
+#घोषणा RET_BUFFER_TOO_SMALL   0x89
+
+// installation check
+अटल व्योम
+handle_1ab101(काष्ठा bregs *regs)
+अणु
+    regs->al = 0x01; // Flags - "Config Mechanism #1" supported.
+    regs->bx = 0x0210; // PCI version 2.10
+    regs->cl = GET_GLOBAL(MaxPCIBus);
+    regs->edx = 0x20494350; // "PCI "
+    regs->edi = (u32)entry_pcibios32 + BUILD_BIOS_ADDR;
+    set_code_success(regs);
+पूर्ण
+
+// find pci device
+अटल व्योम
+handle_1ab102(काष्ठा bregs *regs)
+अणु
+    u32 id = (regs->cx << 16) | regs->dx;
+    पूर्णांक count = regs->si;
+    पूर्णांक bus = -1;
+    जबतक (bus < GET_GLOBAL(MaxPCIBus)) अणु
+        bus++;
+        पूर्णांक bdf;
+        क्रमeachbdf(bdf, bus) अणु
+            u32 v = pci_config_पढ़ोl(bdf, PCI_VENDOR_ID);
+            अगर (v != id)
+                जारी;
+            अगर (count--)
+                जारी;
+            regs->bx = bdf;
+            set_code_success(regs);
+            वापस;
+        पूर्ण
+    पूर्ण
+    set_code_invalid(regs, RET_DEVICE_NOT_FOUND);
+पूर्ण
+
+// find class code
+अटल व्योम
+handle_1ab103(काष्ठा bregs *regs)
+अणु
+    पूर्णांक count = regs->si;
+    u32 classprog = regs->ecx;
+    पूर्णांक bus = -1;
+    जबतक (bus < GET_GLOBAL(MaxPCIBus)) अणु
+        bus++;
+        पूर्णांक bdf;
+        क्रमeachbdf(bdf, bus) अणु
+            u32 v = pci_config_पढ़ोl(bdf, PCI_CLASS_REVISION);
+            अगर ((v>>8) != classprog)
+                जारी;
+            अगर (count--)
+                जारी;
+            regs->bx = bdf;
+            set_code_success(regs);
+            वापस;
+        पूर्ण
+    पूर्ण
+    set_code_invalid(regs, RET_DEVICE_NOT_FOUND);
+पूर्ण
+
+// पढ़ो configuration byte
+अटल व्योम
+handle_1ab108(काष्ठा bregs *regs)
+अणु
+    regs->cl = pci_config_पढ़ोb(regs->bx, regs->di);
+    set_code_success(regs);
+पूर्ण
+
+// पढ़ो configuration word
+अटल व्योम
+handle_1ab109(काष्ठा bregs *regs)
+अणु
+    regs->cx = pci_config_पढ़ोw(regs->bx, regs->di);
+    set_code_success(regs);
+पूर्ण
+
+// पढ़ो configuration dword
+अटल व्योम
+handle_1ab10a(काष्ठा bregs *regs)
+अणु
+    regs->ecx = pci_config_पढ़ोl(regs->bx, regs->di);
+    set_code_success(regs);
+पूर्ण
+
+// ग_लिखो configuration byte
+अटल व्योम
+handle_1ab10b(काष्ठा bregs *regs)
+अणु
+    pci_config_ग_लिखोb(regs->bx, regs->di, regs->cl);
+    set_code_success(regs);
+पूर्ण
+
+// ग_लिखो configuration word
+अटल व्योम
+handle_1ab10c(काष्ठा bregs *regs)
+अणु
+    pci_config_ग_लिखोw(regs->bx, regs->di, regs->cx);
+    set_code_success(regs);
+पूर्ण
+
+// ग_लिखो configuration dword
+अटल व्योम
+handle_1ab10d(काष्ठा bregs *regs)
+अणु
+    pci_config_ग_लिखोl(regs->bx, regs->di, regs->ecx);
+    set_code_success(regs);
+पूर्ण
+
+// get irq routing options
+अटल व्योम
+handle_1ab10e(काष्ठा bregs *regs)
+अणु
+    काष्ठा pir_header *pirtable_gf = GET_GLOBAL(PirAddr);
+    अगर (! pirtable_gf) अणु
+        set_code_invalid(regs, RET_FUNC_NOT_SUPPORTED);
+        वापस;
+    पूर्ण
+    काष्ठा pir_header *pirtable_g = GLOBALFLAT2GLOBAL(pirtable_gf);
+
+    काष्ठा param_s अणु
+        u16 size;
+        u16 buf_off;
+        u16 buf_seg;
+    पूर्ण *param_far = (व्योम*)(regs->di+0);
+
+    // Validate and update size.
+    u16 bufsize = GET_FARVAR(regs->es, param_far->size);
+    u16 pirsize = GET_GLOBAL(pirtable_g->size) - माप(काष्ठा pir_header);
+    SET_FARVAR(regs->es, param_far->size, pirsize);
+    अगर (bufsize < pirsize) अणु
+        set_code_invalid(regs, RET_BUFFER_TOO_SMALL);
+        वापस;
+    पूर्ण
+
+    // Get dest buffer.
+    व्योम *buf_far = (व्योम*)(GET_FARVAR(regs->es, param_far->buf_off)+0);
+    u16 buf_seg = GET_FARVAR(regs->es, param_far->buf_seg);
+
+    // Memcpy pir table slots to dest buffer.
+    स_नकल_far(buf_seg, buf_far
+               , get_global_seg()
+               , (व्योम*)(pirtable_g->slots) + get_global_offset()
+               , pirsize);
+
+    // XXX - bochs bios sets bx to (1 << 9) | (1 << 11)
+    regs->bx = GET_GLOBAL(pirtable_g->exclusive_irqs);
+    set_code_success(regs);
+पूर्ण
+
+अटल व्योम
+handle_1ab1XX(काष्ठा bregs *regs)
+अणु
+    set_code_unimplemented(regs, RET_FUNC_NOT_SUPPORTED);
+पूर्ण
+
+व्योम
+handle_1ab1(काष्ठा bregs *regs)
+अणु
+    //debug_stub(regs);
+
+    अगर (! CONFIG_PCIBIOS) अणु
+        set_invalid(regs);
+        वापस;
+    पूर्ण
+
+    चयन (regs->al) अणु
+    हाल 0x01: handle_1ab101(regs); अवरोध;
+    हाल 0x02: handle_1ab102(regs); अवरोध;
+    हाल 0x03: handle_1ab103(regs); अवरोध;
+    हाल 0x08: handle_1ab108(regs); अवरोध;
+    हाल 0x09: handle_1ab109(regs); अवरोध;
+    हाल 0x0a: handle_1ab10a(regs); अवरोध;
+    हाल 0x0b: handle_1ab10b(regs); अवरोध;
+    हाल 0x0c: handle_1ab10c(regs); अवरोध;
+    हाल 0x0d: handle_1ab10d(regs); अवरोध;
+    हाल 0x0e: handle_1ab10e(regs); अवरोध;
+    शेष:   handle_1ab1XX(regs); अवरोध;
+    पूर्ण
+पूर्ण
+
+// Entry poपूर्णांक क्रम pci bios functions.
+व्योम VISIBLE16 VISIBLE32SEG
+handle_pcibios(काष्ठा bregs *regs)
+अणु
+    debug_enter(regs, DEBUG_HDL_pcibios);
+    handle_1ab1(regs);
+पूर्ण
+
+
+/****************************************************************
+ * 32bit पूर्णांकerface
+ ****************************************************************/
+
+काष्ठा bios32_s अणु
+    u32 signature;
+    u32 entry;
+    u8 version;
+    u8 length;
+    u8 checksum;
+    u8 reserved[5];
+पूर्ण PACKED;
+
+काष्ठा bios32_s BIOS32HEADER __aligned(16) VARFSEG = अणु
+    .signature = 0x5f32335f, // _32_
+    .length = माप(BIOS32HEADER) / 16,
+पूर्ण;
+
+व्योम
+bios32_init(व्योम)
+अणु
+    dम_लिखो(3, "init bios32\n");
+
+    BIOS32HEADER.entry = (u32)entry_bios32;
+    BIOS32HEADER.checksum -= checksum(&BIOS32HEADER, माप(BIOS32HEADER));
+पूर्ण

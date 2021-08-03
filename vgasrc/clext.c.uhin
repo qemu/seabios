@@ -1,0 +1,628 @@
+<शैली गुरु>
+//  QEMU Cirrus CLGD 54xx VGABIOS Extension.
+//
+// Copyright (C) 2009  Kevin O'Connor <kevin@koconnor.net>
+//  Copyright (c) 2004 Makoto Suzuki (suzu)
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_GLOBAL
+#समावेश "bregs.h" // काष्ठा bregs
+#समावेश "hw/pci.h" // pci_config_पढ़ोl
+#समावेश "hw/pci_regs.h" // PCI_BASE_ADDRESS_0
+#समावेश "output.h" // dम_लिखो
+#समावेश "stdvga.h" // VGAREG_SEQU_ADDRESS
+#समावेश "string.h" // स_रखो16_far
+#समावेश "vgabios.h" // SET_VGA
+#समावेश "vgautil.h" // VBE_total_memory
+
+
+/****************************************************************
+ * Cirrus mode tables
+ ****************************************************************/
+
+/* VGA */
+अटल u16 cseq_vga[] VAR16 = अणु0x0007,0xffffपूर्ण;
+अटल u16 cgraph_vga[] VAR16 = अणु0x0009,0x000a,0x000b,0xffffपूर्ण;
+अटल u16 ccrtc_vga[] VAR16 = अणु0x001a,0x001b,0x001d,0xffffपूर्ण;
+
+/* extensions */
+अटल u16 cgraph_svgacolor[] VAR16 = अणु
+    0x0000,0x0001,0x0002,0x0003,0x0004,0x4005,0x0506,0x0f07,0xff08,
+    0x0009,0x000a,0x000b,
+    0xffff
+पूर्ण;
+/* 640x480x8 */
+अटल u16 cseq_640x480x8[] VAR16 = अणु
+    0x0300,0x2101,0x0f02,0x0003,0x0e04,0x1107,
+    0x580b,0x580c,0x580d,0x580e,
+    0x0412,0x0013,0x2017,
+    0x331b,0x331c,0x331d,0x331e,
+    0xffff
+पूर्ण;
+अटल u16 ccrtc_640x480x8[] VAR16 = अणु
+    0x2c11,
+    0x5f00,0x4f01,0x4f02,0x8003,0x5204,0x1e05,0x0b06,0x3e07,
+    0x4009,0x000c,0x000d,
+    0xea10,0xdf12,0x5013,0x4014,0xdf15,0x0b16,0xc317,0xff18,
+    0x001a,0x221b,0x001d,
+    0xffff
+पूर्ण;
+/* 640x480x16 */
+अटल u16 cseq_640x480x16[] VAR16 = अणु
+    0x0300,0x2101,0x0f02,0x0003,0x0e04,0x1707,
+    0x580b,0x580c,0x580d,0x580e,
+    0x0412,0x0013,0x2017,
+    0x331b,0x331c,0x331d,0x331e,
+    0xffff
+पूर्ण;
+अटल u16 ccrtc_640x480x16[] VAR16 = अणु
+    0x2c11,
+    0x5f00,0x4f01,0x4f02,0x8003,0x5204,0x1e05,0x0b06,0x3e07,
+    0x4009,0x000c,0x000d,
+    0xea10,0xdf12,0xa013,0x4014,0xdf15,0x0b16,0xc317,0xff18,
+    0x001a,0x221b,0x001d,
+    0xffff
+पूर्ण;
+/* 640x480x24 */
+अटल u16 cseq_640x480x24[] VAR16 = अणु
+    0x0300,0x2101,0x0f02,0x0003,0x0e04,0x1507,
+    0x580b,0x580c,0x580d,0x580e,
+    0x0412,0x0013,0x2017,
+    0x331b,0x331c,0x331d,0x331e,
+    0xffff
+पूर्ण;
+अटल u16 ccrtc_640x480x24[] VAR16 = अणु
+    0x2c11,
+    0x5f00,0x4f01,0x4f02,0x8003,0x5204,0x1e05,0x0b06,0x3e07,
+    0x4009,0x000c,0x000d,
+    0xea10,0xdf12,0xf013,0x4014,0xdf15,0x0b16,0xc317,0xff18,
+    0x001a,0x221b,0x001d,
+    0xffff
+पूर्ण;
+/* 800x600x8 */
+अटल u16 cseq_800x600x8[] VAR16 = अणु
+    0x0300,0x2101,0x0f02,0x0003,0x0e04,0x1107,
+    0x230b,0x230c,0x230d,0x230e,
+    0x0412,0x0013,0x2017,
+    0x141b,0x141c,0x141d,0x141e,
+    0xffff
+पूर्ण;
+अटल u16 ccrtc_800x600x8[] VAR16 = अणु
+    0x2311,0x7d00,0x6301,0x6302,0x8003,0x6b04,0x1a05,0x9806,0xf007,
+    0x6009,0x000c,0x000d,
+    0x7d10,0x5712,0x6413,0x4014,0x5715,0x9816,0xc317,0xff18,
+    0x001a,0x221b,0x001d,
+    0xffff
+पूर्ण;
+/* 800x600x16 */
+अटल u16 cseq_800x600x16[] VAR16 = अणु
+    0x0300,0x2101,0x0f02,0x0003,0x0e04,0x1707,
+    0x230b,0x230c,0x230d,0x230e,
+    0x0412,0x0013,0x2017,
+    0x141b,0x141c,0x141d,0x141e,
+    0xffff
+पूर्ण;
+अटल u16 ccrtc_800x600x16[] VAR16 = अणु
+    0x2311,0x7d00,0x6301,0x6302,0x8003,0x6b04,0x1a05,0x9806,0xf007,
+    0x6009,0x000c,0x000d,
+    0x7d10,0x5712,0xc813,0x4014,0x5715,0x9816,0xc317,0xff18,
+    0x001a,0x221b,0x001d,
+    0xffff
+पूर्ण;
+/* 800x600x24 */
+अटल u16 cseq_800x600x24[] VAR16 = अणु
+    0x0300,0x2101,0x0f02,0x0003,0x0e04,0x1507,
+    0x230b,0x230c,0x230d,0x230e,
+    0x0412,0x0013,0x2017,
+    0x141b,0x141c,0x141d,0x141e,
+    0xffff
+पूर्ण;
+अटल u16 ccrtc_800x600x24[] VAR16 = अणु
+    0x2311,0x7d00,0x6301,0x6302,0x8003,0x6b04,0x1a05,0x9806,0xf007,
+    0x6009,0x000c,0x000d,
+    0x7d10,0x5712,0x2c13,0x4014,0x5715,0x9816,0xc317,0xff18,
+    0x001a,0x321b,0x001d,
+    0xffff
+पूर्ण;
+/* 1024x768x8 */
+अटल u16 cseq_1024x768x8[] VAR16 = अणु
+    0x0300,0x2101,0x0f02,0x0003,0x0e04,0x1107,
+    0x760b,0x760c,0x760d,0x760e,
+    0x0412,0x0013,0x2017,
+    0x341b,0x341c,0x341d,0x341e,
+    0xffff
+पूर्ण;
+अटल u16 ccrtc_1024x768x8[] VAR16 = अणु
+    0x2911,0xa300,0x7f01,0x7f02,0x8603,0x8304,0x9405,0x2406,0xf507,
+    0x6009,0x000c,0x000d,
+    0x0310,0xff12,0x8013,0x4014,0xff15,0x2416,0xc317,0xff18,
+    0x001a,0x221b,0x001d,
+    0xffff
+पूर्ण;
+/* 1024x768x16 */
+अटल u16 cseq_1024x768x16[] VAR16 = अणु
+    0x0300,0x2101,0x0f02,0x0003,0x0e04,0x1707,
+    0x760b,0x760c,0x760d,0x760e,
+    0x0412,0x0013,0x2017,
+    0x341b,0x341c,0x341d,0x341e,
+    0xffff
+पूर्ण;
+अटल u16 ccrtc_1024x768x16[] VAR16 = अणु
+    0x2911,0xa300,0x7f01,0x7f02,0x8603,0x8304,0x9405,0x2406,0xf507,
+    0x6009,0x000c,0x000d,
+    0x0310,0xff12,0x0013,0x4014,0xff15,0x2416,0xc317,0xff18,
+    0x001a,0x321b,0x001d,
+    0xffff
+पूर्ण;
+/* 1024x768x24 */
+अटल u16 cseq_1024x768x24[] VAR16 = अणु
+    0x0300,0x2101,0x0f02,0x0003,0x0e04,0x1507,
+    0x760b,0x760c,0x760d,0x760e,
+    0x0412,0x0013,0x2017,
+    0x341b,0x341c,0x341d,0x341e,
+    0xffff
+पूर्ण;
+अटल u16 ccrtc_1024x768x24[] VAR16 = अणु
+    0x2911,0xa300,0x7f01,0x7f02,0x8603,0x8304,0x9405,0x2406,0xf507,
+    0x6009,0x000c,0x000d,
+    0x0310,0xff12,0x8013,0x4014,0xff15,0x2416,0xc317,0xff18,
+    0x001a,0x321b,0x001d,
+    0xffff
+पूर्ण;
+/* 1280x1024x8 */
+अटल u16 cseq_1280x1024x8[] VAR16 = अणु
+    0x0300,0x2101,0x0f02,0x0003,0x0e04,0x1107,
+    0x760b,0x760c,0x760d,0x760e,
+    0x0412,0x0013,0x2017,
+    0x341b,0x341c,0x341d,0x341e,
+    0xffff
+पूर्ण;
+अटल u16 ccrtc_1280x1024x8[] VAR16 = अणु
+    0x2911,0xc300,0x9f01,0x9f02,0x8603,0x8304,0x9405,0x2406,0xf707,
+    0x6009,0x000c,0x000d,
+    0x0310,0xff12,0xa013,0x4014,0xff15,0x2416,0xc317,0xff18,
+    0x001a,0x221b,0x001d,
+    0xffff
+पूर्ण;
+/* 1280x1024x16 */
+अटल u16 cseq_1280x1024x16[] VAR16 = अणु
+    0x0300,0x2101,0x0f02,0x0003,0x0e04,0x1707,
+    0x760b,0x760c,0x760d,0x760e,
+    0x0412,0x0013,0x2017,
+    0x341b,0x341c,0x341d,0x341e,
+    0xffff
+पूर्ण;
+अटल u16 ccrtc_1280x1024x16[] VAR16 = अणु
+    0x2911,0xc300,0x9f01,0x9f02,0x8603,0x8304,0x9405,0x2406,0xf707,
+    0x6009,0x000c,0x000d,
+    0x0310,0xff12,0x4013,0x4014,0xff15,0x2416,0xc317,0xff18,
+    0x001a,0x321b,0x001d,
+    0xffff
+पूर्ण;
+
+/* 1600x1200x8 */
+अटल u16 cseq_1600x1200x8[] VAR16 = अणु
+    0x0300,0x2101,0x0f02,0x0003,0x0e04,0x1107,
+    0x760b,0x760c,0x760d,0x760e,
+    0x0412,0x0013,0x2017,
+    0x341b,0x341c,0x341d,0x341e,
+    0xffff
+पूर्ण;
+अटल u16 ccrtc_1600x1200x8[] VAR16 = अणु
+    0x2911,0xc300,0x9f01,0x9f02,0x8603,0x8304,0x9405,0x2406,0xf707,
+    0x6009,0x000c,0x000d,
+    0x0310,0xff12,0xc813,0x4014,0xff15,0x2416,0xc317,0xff18,
+    0x001a,0x221b,0x001d,
+    0xffff
+पूर्ण;
+
+काष्ठा cirrus_mode_s अणु
+    u16 mode, vesamode;
+    काष्ठा vgamode_s info;
+
+    u16 hidden_dac; /* 0x3c6 */
+    u16 *seq; /* 0x3c4 */
+    u16 *graph; /* 0x3ce */
+    u16 *crtc; /* 0x3d4 */
+पूर्ण;
+
+अटल काष्ठा cirrus_mode_s cirrus_modes[] VAR16 = अणु
+    अणु0x5f,0x101,अणुMM_PACKED,640,480,8,8,16,SEG_GRAPHपूर्ण,0x00,
+     cseq_640x480x8,cgraph_svgacolor,ccrtc_640x480x8पूर्ण,
+    अणु0x64,0x111,अणुMM_सूचीECT,640,480,16,8,16,SEG_GRAPHपूर्ण,0xe1,
+     cseq_640x480x16,cgraph_svgacolor,ccrtc_640x480x16पूर्ण,
+    अणु0x66,0x110,अणुMM_सूचीECT,640,480,15,8,16,SEG_GRAPHपूर्ण,0xf0,
+     cseq_640x480x16,cgraph_svgacolor,ccrtc_640x480x16पूर्ण,
+    अणु0x71,0x112,अणुMM_सूचीECT,640,480,24,8,16,SEG_GRAPHपूर्ण,0xe5,
+     cseq_640x480x24,cgraph_svgacolor,ccrtc_640x480x24पूर्ण,
+
+    अणु0x5c,0x103,अणुMM_PACKED,800,600,8,8,16,SEG_GRAPHपूर्ण,0x00,
+     cseq_800x600x8,cgraph_svgacolor,ccrtc_800x600x8पूर्ण,
+    अणु0x65,0x114,अणुMM_सूचीECT,800,600,16,8,16,SEG_GRAPHपूर्ण,0xe1,
+     cseq_800x600x16,cgraph_svgacolor,ccrtc_800x600x16पूर्ण,
+    अणु0x67,0x113,अणुMM_सूचीECT,800,600,15,8,16,SEG_GRAPHपूर्ण,0xf0,
+     cseq_800x600x16,cgraph_svgacolor,ccrtc_800x600x16पूर्ण,
+
+    अणु0x60,0x105,अणुMM_PACKED,1024,768,8,8,16,SEG_GRAPHपूर्ण,0x00,
+     cseq_1024x768x8,cgraph_svgacolor,ccrtc_1024x768x8पूर्ण,
+    अणु0x74,0x117,अणुMM_सूचीECT,1024,768,16,8,16,SEG_GRAPHपूर्ण,0xe1,
+     cseq_1024x768x16,cgraph_svgacolor,ccrtc_1024x768x16पूर्ण,
+    अणु0x68,0x116,अणुMM_सूचीECT,1024,768,15,8,16,SEG_GRAPHपूर्ण,0xf0,
+     cseq_1024x768x16,cgraph_svgacolor,ccrtc_1024x768x16पूर्ण,
+
+    अणु0x78,0x115,अणुMM_सूचीECT,800,600,24,8,16,SEG_GRAPHपूर्ण,0xe5,
+     cseq_800x600x24,cgraph_svgacolor,ccrtc_800x600x24पूर्ण,
+    अणु0x79,0x118,अणुMM_सूचीECT,1024,768,24,8,16,SEG_GRAPHपूर्ण,0xe5,
+     cseq_1024x768x24,cgraph_svgacolor,ccrtc_1024x768x24पूर्ण,
+
+    अणु0x6d,0x107,अणुMM_PACKED,1280,1024,8,8,16,SEG_GRAPHपूर्ण,0x00,
+     cseq_1280x1024x8,cgraph_svgacolor,ccrtc_1280x1024x8पूर्ण,
+    अणु0x69,0x119,अणुMM_सूचीECT,1280,1024,15,8,16,SEG_GRAPHपूर्ण,0xf0,
+     cseq_1280x1024x16,cgraph_svgacolor,ccrtc_1280x1024x16पूर्ण,
+    अणु0x75,0x11a,अणुMM_सूचीECT,1280,1024,16,8,16,SEG_GRAPHपूर्ण,0xe1,
+     cseq_1280x1024x16,cgraph_svgacolor,ccrtc_1280x1024x16पूर्ण,
+
+    अणु0x7b,0xffff,अणुMM_PACKED,1600,1200,8,8,16,SEG_GRAPHपूर्ण,0x00,
+     cseq_1600x1200x8,cgraph_svgacolor,ccrtc_1600x1200x8पूर्ण,
+पूर्ण;
+
+अटल काष्ठा cirrus_mode_s mode_चयनback VAR16 =
+    अणु0xfe,0xffff,अणु0xffपूर्ण,0,cseq_vga,cgraph_vga,ccrtc_vgaपूर्ण;
+
+पूर्णांक
+is_cirrus_mode(काष्ठा vgamode_s *vmode_g)
+अणु
+    वापस (vmode_g >= &cirrus_modes[0].info
+            && vmode_g <= &cirrus_modes[ARRAY_SIZE(cirrus_modes)-1].info);
+पूर्ण
+
+काष्ठा vgamode_s *
+clext_find_mode(पूर्णांक mode)
+अणु
+    काष्ठा cirrus_mode_s *table_g = cirrus_modes;
+    जबतक (table_g < &cirrus_modes[ARRAY_SIZE(cirrus_modes)]) अणु
+        अगर (GET_GLOBAL(table_g->mode) == mode
+            || GET_GLOBAL(table_g->vesamode) == mode)
+            वापस &table_g->info;
+        table_g++;
+    पूर्ण
+    वापस stdvga_find_mode(mode);
+पूर्ण
+
+व्योम
+clext_list_modes(u16 seg, u16 *dest, u16 *last)
+अणु
+    पूर्णांक i;
+    क्रम (i=0; i<ARRAY_SIZE(cirrus_modes) && dest<last; i++) अणु
+        u16 mode = GET_GLOBAL(cirrus_modes[i].vesamode);
+        अगर (mode == 0xffff)
+            जारी;
+        SET_FARVAR(seg, *dest, mode);
+        dest++;
+    पूर्ण
+    stdvga_list_modes(seg, dest, last);
+पूर्ण
+
+
+/****************************************************************
+ * helper functions
+ ****************************************************************/
+
+पूर्णांक
+clext_get_winकरोw(काष्ठा vgamode_s *vmode_g, पूर्णांक winकरोw)
+अणु
+    वापस stdvga_grdc_पढ़ो(winकरोw + 9);
+पूर्ण
+
+पूर्णांक
+clext_set_winकरोw(काष्ठा vgamode_s *vmode_g, पूर्णांक winकरोw, पूर्णांक val)
+अणु
+    अगर (val >= 0x100)
+        वापस -1;
+    stdvga_grdc_ग_लिखो(winकरोw + 9, val);
+    वापस 0;
+पूर्ण
+
+पूर्णांक
+clext_get_linelength(काष्ठा vgamode_s *vmode_g)
+अणु
+    u16 crtc_addr = stdvga_get_crtc();
+    u8 reg13 = stdvga_crtc_पढ़ो(crtc_addr, 0x13);
+    u8 reg1b = stdvga_crtc_पढ़ो(crtc_addr, 0x1b);
+    वापस (((reg1b & 0x10) << 4) + reg13) * 8 / stdvga_vram_ratio(vmode_g);
+पूर्ण
+
+पूर्णांक
+clext_set_linelength(काष्ठा vgamode_s *vmode_g, पूर्णांक val)
+अणु
+    u16 crtc_addr = stdvga_get_crtc();
+    val = DIV_ROUND_UP(val * stdvga_vram_ratio(vmode_g), 8);
+    stdvga_crtc_ग_लिखो(crtc_addr, 0x13, val);
+    stdvga_crtc_mask(crtc_addr, 0x1b, 0x10, (val & 0x100) >> 4);
+    वापस 0;
+पूर्ण
+
+पूर्णांक
+clext_get_displaystart(काष्ठा vgamode_s *vmode_g)
+अणु
+    u16 crtc_addr = stdvga_get_crtc();
+    u8 b2 = stdvga_crtc_पढ़ो(crtc_addr, 0x0c);
+    u8 b1 = stdvga_crtc_पढ़ो(crtc_addr, 0x0d);
+    u8 b3 = stdvga_crtc_पढ़ो(crtc_addr, 0x1b);
+    u8 b4 = stdvga_crtc_पढ़ो(crtc_addr, 0x1d);
+    पूर्णांक val = (b1 | (b2<<8) | ((b3 & 0x01) << 16) | ((b3 & 0x0c) << 15)
+               | ((b4 & 0x80) << 12));
+    वापस val * 4 / stdvga_vram_ratio(vmode_g);
+पूर्ण
+
+पूर्णांक
+clext_set_displaystart(काष्ठा vgamode_s *vmode_g, पूर्णांक val)
+अणु
+    u16 crtc_addr = stdvga_get_crtc();
+    val = val * stdvga_vram_ratio(vmode_g) / 4;
+    stdvga_crtc_ग_लिखो(crtc_addr, 0x0d, val);
+    stdvga_crtc_ग_लिखो(crtc_addr, 0x0c, val >> 8);
+    stdvga_crtc_mask(crtc_addr, 0x1d, 0x80, (val & 0x0800) >> 4);
+    stdvga_crtc_mask(crtc_addr, 0x1b, 0x0d
+                     , ((val & 0x0100) >> 8) | ((val & 0x0600) >> 7));
+    वापस 0;
+पूर्ण
+
+पूर्णांक
+clext_save_restore(पूर्णांक cmd, u16 seg, व्योम *data)
+अणु
+    अगर (cmd & SR_REGISTERS)
+        वापस -1;
+    वापस stdvga_save_restore(cmd, seg, data);
+पूर्ण
+
+
+/****************************************************************
+ * Mode setting
+ ****************************************************************/
+
+अटल व्योम
+cirrus_चयन_mode_setregs(u16 *data, u16 port)
+अणु
+    क्रम (;;) अणु
+        u16 val = GET_GLOBAL(*data);
+        अगर (val == 0xffff)
+            वापस;
+        outw(val, port);
+        data++;
+    पूर्ण
+पूर्ण
+
+अटल व्योम
+cirrus_चयन_mode(काष्ठा cirrus_mode_s *table)
+अणु
+    // Unlock cirrus special
+    stdvga_sequ_ग_लिखो(0x06, 0x12);
+    cirrus_चयन_mode_setregs(GET_GLOBAL(table->seq), VGAREG_SEQU_ADDRESS);
+    cirrus_चयन_mode_setregs(GET_GLOBAL(table->graph), VGAREG_GRDC_ADDRESS);
+    cirrus_चयन_mode_setregs(GET_GLOBAL(table->crtc), stdvga_get_crtc());
+
+    stdvga_pelmask_ग_लिखो(0x00);
+    stdvga_pelmask_पढ़ो();
+    stdvga_pelmask_पढ़ो();
+    stdvga_pelmask_पढ़ो();
+    stdvga_pelmask_पढ़ो();
+    stdvga_pelmask_ग_लिखो(GET_GLOBAL(table->hidden_dac));
+    stdvga_pelmask_ग_लिखो(0xff);
+
+    u8 memmodel = GET_GLOBAL(table->info.memmodel);
+    u8 on = 0;
+    अगर (memmodel == MM_PLANAR)
+        on = 0x41;
+    अन्यथा अगर (memmodel != MM_TEXT)
+        on = 0x01;
+    stdvga_attr_mask(0x10, 0x01, on);
+    stdvga_attrindex_ग_लिखो(0x20);
+पूर्ण
+
+अटल व्योम
+cirrus_enable_16k_granularity(व्योम)
+अणु
+    stdvga_grdc_mask(0x0b, 0x00, 0x20);
+पूर्ण
+
+अटल व्योम
+cirrus_clear_vram(u16 fill)
+अणु
+    cirrus_enable_16k_granularity();
+    पूर्णांक count = GET_GLOBAL(VBE_total_memory) / (16 * 1024);
+    पूर्णांक i;
+    क्रम (i=0; i<count; i++) अणु
+        stdvga_grdc_ग_लिखो(0x09, i);
+        स_रखो16_far(SEG_GRAPH, 0, fill, 16 * 1024);
+    पूर्ण
+    stdvga_grdc_ग_लिखो(0x09, 0x00);
+पूर्ण
+
+पूर्णांक
+clext_set_mode(काष्ठा vgamode_s *vmode_g, पूर्णांक flags)
+अणु
+    अगर (!is_cirrus_mode(vmode_g)) अणु
+        cirrus_चयन_mode(&mode_चयनback);
+        dम_लिखो(1, "cirrus mode switch regular\n");
+        वापस stdvga_set_mode(vmode_g, flags);
+    पूर्ण
+    काष्ठा cirrus_mode_s *table_g = container_of(
+        vmode_g, काष्ठा cirrus_mode_s, info);
+    cirrus_चयन_mode(table_g);
+    अगर (GET_GLOBAL(vmode_g->memmodel) == MM_PACKED && !(flags & MF_NOPALETTE))
+        stdvga_set_packed_palette();
+    अगर (!(flags & MF_LINEARFB))
+        cirrus_enable_16k_granularity();
+    अगर (!(flags & MF_NOCLEARMEM))
+        // fill with 0xff to keep win 2K happy
+        cirrus_clear_vram(flags & MF_LEGACY ? 0xffff : 0x0000);
+    वापस 0;
+पूर्ण
+
+
+/****************************************************************
+ * extbios
+ ****************************************************************/
+
+अटल व्योम
+clext_101280(काष्ठा bregs *regs)
+अणु
+    u8 v = stdvga_crtc_पढ़ो(stdvga_get_crtc(), 0x27);
+    अगर (v == 0xa0)
+        // 5430
+        regs->ax = 0x0032;
+    अन्यथा अगर (v == 0xb8)
+        // 5446
+        regs->ax = 0x0039;
+    अन्यथा
+        regs->ax = 0x00ff;
+    regs->bx = 0x00;
+    वापस;
+पूर्ण
+
+अटल व्योम
+clext_101281(काष्ठा bregs *regs)
+अणु
+    // XXX
+    regs->ax = 0x0100;
+पूर्ण
+
+अटल व्योम
+clext_101282(काष्ठा bregs *regs)
+अणु
+    regs->al = stdvga_crtc_पढ़ो(stdvga_get_crtc(), 0x27) & 0x03;
+    regs->ah = 0xAF;
+पूर्ण
+
+अटल व्योम
+clext_101285(काष्ठा bregs *regs)
+अणु
+    regs->al = GET_GLOBAL(VBE_total_memory) / (64*1024);
+पूर्ण
+
+अटल व्योम
+clext_10129a(काष्ठा bregs *regs)
+अणु
+    regs->ax = 0x4060;
+    regs->cx = 0x1132;
+पूर्ण
+
+बाह्य व्योम a0h_callback(व्योम);
+ASM16(
+    // fatal: not implemented yet
+    "a0h_callback:"
+    "cli\n"
+    "hlt\n"
+    "lretw");
+
+अटल व्योम
+clext_1012a0(काष्ठा bregs *regs)
+अणु
+    काष्ठा vgamode_s *table_g = clext_find_mode(regs->al & 0x7f);
+    regs->ah = (table_g ? 1 : 0);
+    regs->bx = (u32)a0h_callback;
+    regs->ds = regs->si = regs->es = regs->di = 0xffff;
+पूर्ण
+
+अटल व्योम
+clext_1012a1(काष्ठा bregs *regs)
+अणु
+    regs->bx = 0x0e00; // IBM 8512/8513, color
+पूर्ण
+
+अटल व्योम
+clext_1012a2(काष्ठा bregs *regs)
+अणु
+    regs->al = 0x07; // HSync 31.5 - 64.0 kHz
+पूर्ण
+
+अटल व्योम
+clext_1012ae(काष्ठा bregs *regs)
+अणु
+    regs->al = 0x01; // High Refresh 75Hz
+पूर्ण
+
+अटल व्योम
+clext_1012XX(काष्ठा bregs *regs)
+अणु
+    debug_stub(regs);
+पूर्ण
+
+व्योम
+clext_1012(काष्ठा bregs *regs)
+अणु
+    चयन (regs->bl) अणु
+    हाल 0x80: clext_101280(regs); अवरोध;
+    हाल 0x81: clext_101281(regs); अवरोध;
+    हाल 0x82: clext_101282(regs); अवरोध;
+    हाल 0x85: clext_101285(regs); अवरोध;
+    हाल 0x9a: clext_10129a(regs); अवरोध;
+    हाल 0xa0: clext_1012a0(regs); अवरोध;
+    हाल 0xa1: clext_1012a1(regs); अवरोध;
+    हाल 0xa2: clext_1012a2(regs); अवरोध;
+    हाल 0xae: clext_1012ae(regs); अवरोध;
+    शेष:   clext_1012XX(regs); अवरोध;
+    पूर्ण
+पूर्ण
+
+
+/****************************************************************
+ * init
+ ****************************************************************/
+
+अटल पूर्णांक
+cirrus_check(व्योम)
+अणु
+    stdvga_sequ_ग_लिखो(0x06, 0x92);
+    वापस stdvga_sequ_पढ़ो(0x06) == 0x12;
+पूर्ण
+
+अटल u8
+cirrus_get_memsize(व्योम)
+अणु
+    // get DRAM band width
+    u8 v = stdvga_sequ_पढ़ो(0x0f);
+    u8 x = (v >> 3) & 0x03;
+    अगर (x == 0x03 && v & 0x80)
+        // 4MB
+        वापस 0x40;
+    वापस 0x04 << x;
+पूर्ण
+
+पूर्णांक
+clext_setup(व्योम)
+अणु
+    पूर्णांक ret = stdvga_setup();
+    अगर (ret)
+        वापस ret;
+
+    dम_लिखो(1, "cirrus init\n");
+    अगर (! cirrus_check())
+        वापस -1;
+    dम_लिखो(1, "cirrus init 2\n");
+
+    // memory setup
+    stdvga_sequ_ग_लिखो(0x0a, stdvga_sequ_पढ़ो(0x0f) & 0x18);
+    // set vga mode
+    stdvga_sequ_ग_लिखो(0x07, 0x00);
+    // reset bitblt
+    stdvga_grdc_ग_लिखो(0x31, 0x04);
+    stdvga_grdc_ग_लिखो(0x31, 0x00);
+
+    अगर (GET_GLOBAL(HaveRunInit))
+        वापस 0;
+
+    u32 lfb_addr = 0;
+    पूर्णांक bdf = GET_GLOBAL(VgaBDF);
+    अगर (CONFIG_VGA_PCI && bdf >= 0)
+        lfb_addr = (pci_config_पढ़ोl(bdf, PCI_BASE_ADDRESS_0)
+                    & PCI_BASE_ADDRESS_MEM_MASK);
+    SET_VGA(VBE_framebuffer, lfb_addr);
+    u16 totalmem = cirrus_get_memsize();
+    SET_VGA(VBE_total_memory, totalmem * 64 * 1024);
+    SET_VGA(VBE_win_granularity, 16);
+
+    वापस 0;
+पूर्ण

@@ -1,0 +1,20 @@
+<शैली गुरु>
+// Tool क्रम building defपूर्णांकions accessible from assembler code.  This
+// is based on code from the Linux Kernel.
+#अगर_अघोषित __GEN_DEFS_H
+#घोषणा __GEN_DEFS_H
+
+
+#घोषणा DEFINE(sym, val) \
+    यंत्र अस्थिर("\n->" #sym " %0 " #val : : "i" (val))
+
+#घोषणा BLANK() \
+    यंत्र अस्थिर("\n->" : : )
+
+#घोषणा OFFSET(sym, str, mem) \
+    DEFINE(sym, दुरत्व(काष्ठा str, mem))
+
+#घोषणा COMMENT(x) \
+    यंत्र अस्थिर("\n->#" x)
+
+#पूर्ण_अगर // gen-defs.h

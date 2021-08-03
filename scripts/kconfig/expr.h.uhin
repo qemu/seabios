@@ -1,0 +1,242 @@
+<शैली गुरु>
+/*
+ * Copyright (C) 2002 Roman Zippel <zippel@linux-m68k.org>
+ * Released under the terms of the GNU GPL v2.0.
+ */
+
+#अगर_अघोषित EXPR_H
+#घोषणा EXPR_H
+
+#अगर_घोषित __cplusplus
+बाह्य "C" अणु
+#पूर्ण_अगर
+
+#समावेश <निश्चित.स>
+#समावेश <मानकपन.स>
+#समावेश "list.h"
+#अगर_अघोषित __cplusplus
+#समावेश <stdbool.h>
+#पूर्ण_अगर
+
+काष्ठा file अणु
+	काष्ठा file *next;
+	काष्ठा file *parent;
+	स्थिर अक्षर *name;
+	पूर्णांक lineno;
+पूर्ण;
+
+प्रकार क्रमागत tristate अणु
+	no, mod, yes
+पूर्ण tristate;
+
+क्रमागत expr_type अणु
+	E_NONE, E_OR, E_AND, E_NOT, E_EQUAL, E_UNEQUAL, E_LIST, E_SYMBOL, E_RANGE
+पूर्ण;
+
+जोड़ expr_data अणु
+	काष्ठा expr *expr;
+	काष्ठा symbol *sym;
+पूर्ण;
+
+काष्ठा expr अणु
+	क्रमागत expr_type type;
+	जोड़ expr_data left, right;
+पूर्ण;
+
+#घोषणा EXPR_OR(dep1, dep2)	(((dep1)>(dep2))?(dep1):(dep2))
+#घोषणा EXPR_AND(dep1, dep2)	(((dep1)<(dep2))?(dep1):(dep2))
+#घोषणा EXPR_NOT(dep)		(2-(dep))
+
+#घोषणा expr_list_क्रम_each_sym(l, e, s) \
+	क्रम (e = (l); e && (s = e->right.sym); e = e->left.expr)
+
+काष्ठा expr_value अणु
+	काष्ठा expr *expr;
+	tristate tri;
+पूर्ण;
+
+काष्ठा symbol_value अणु
+	व्योम *val;
+	tristate tri;
+पूर्ण;
+
+क्रमागत symbol_type अणु
+	S_UNKNOWN, S_BOOLEAN, S_TRISTATE, S_INT, S_HEX, S_STRING, S_OTHER
+पूर्ण;
+
+/* क्रमागत values are used as index to symbol.def[] */
+क्रमागत अणु
+	S_DEF_USER,		/* मुख्य user value */
+	S_DEF_AUTO,		/* values पढ़ो from स्वतः.conf */
+	S_DEF_DEF3,		/* Reserved क्रम UI usage */
+	S_DEF_DEF4,		/* Reserved क्रम UI usage */
+	S_DEF_COUNT
+पूर्ण;
+
+काष्ठा symbol अणु
+	काष्ठा symbol *next;
+	अक्षर *name;
+	क्रमागत symbol_type type;
+	काष्ठा symbol_value curr;
+	काष्ठा symbol_value def[S_DEF_COUNT];
+	tristate visible;
+	पूर्णांक flags;
+	काष्ठा property *prop;
+	काष्ठा expr_value dir_dep;
+	काष्ठा expr_value rev_dep;
+पूर्ण;
+
+#घोषणा क्रम_all_symbols(i, sym) क्रम (i = 0; i < SYMBOL_HASHSIZE; i++) क्रम (sym = symbol_hash[i]; sym; sym = sym->next) अगर (sym->type != S_OTHER)
+
+#घोषणा SYMBOL_CONST      0x0001  /* symbol is स्थिर */
+#घोषणा SYMBOL_CHECK      0x0008  /* used during dependency checking */
+#घोषणा SYMBOL_CHOICE     0x0010  /* start of a choice block (null name) */
+#घोषणा SYMBOL_CHOICEVAL  0x0020  /* used as a value in a choice block */
+#घोषणा SYMBOL_VALID      0x0080  /* set when symbol.curr is calculated */
+#घोषणा SYMBOL_OPTIONAL   0x0100  /* choice is optional - values can be 'n' */
+#घोषणा SYMBOL_WRITE      0x0200  /* ग_लिखो symbol to file (KCONFIG_CONFIG) */
+#घोषणा SYMBOL_CHANGED    0x0400  /* ? */
+#घोषणा SYMBOL_AUTO       0x1000  /* value from environment variable */
+#घोषणा SYMBOL_CHECKED    0x2000  /* used during dependency checking */
+#घोषणा SYMBOL_WARNED     0x8000  /* warning has been issued */
+
+/* Set when symbol.def[] is used */
+#घोषणा SYMBOL_DEF        0x10000  /* First bit of SYMBOL_DEF */
+#घोषणा SYMBOL_DEF_USER   0x10000  /* symbol.def[S_DEF_USER] is valid */
+#घोषणा SYMBOL_DEF_AUTO   0x20000  /* symbol.def[S_DEF_AUTO] is valid */
+#घोषणा SYMBOL_DEF3       0x40000  /* symbol.def[S_DEF_3] is valid */
+#घोषणा SYMBOL_DEF4       0x80000  /* symbol.def[S_DEF_4] is valid */
+
+/* choice values need to be set beक्रमe calculating this symbol value */
+#घोषणा SYMBOL_NEED_SET_CHOICE_VALUES  0x100000
+
+/* Set symbol to y अगर allnoconfig; used क्रम symbols that hide others */
+#घोषणा SYMBOL_ALLNOCONFIG_Y 0x200000
+
+#घोषणा SYMBOL_MAXLENGTH	256
+#घोषणा SYMBOL_HASHSIZE		9973
+
+/* A property represent the config options that can be associated
+ * with a config "symbol".
+ * Sample:
+ * config FOO
+ *         शेष y
+ *         prompt "foo prompt"
+ *         select BAR
+ * config BAZ
+ *         पूर्णांक "BAZ Value"
+ *         range 1..255
+ */
+क्रमागत prop_type अणु
+	P_UNKNOWN,
+	P_PROMPT,   /* prompt "foo prompt" or "BAZ Value" */
+	P_COMMENT,  /* text associated with a comment */
+	P_MENU,     /* prompt associated with a menuconfig option */
+	P_DEFAULT,  /* शेष y */
+	P_CHOICE,   /* choice value */
+	P_SELECT,   /* select BAR */
+	P_RANGE,    /* range 7..100 (क्रम a symbol) */
+	P_ENV,      /* value from environment variable */
+	P_SYMBOL,   /* where a symbol is defined */
+पूर्ण;
+
+काष्ठा property अणु
+	काष्ठा property *next;     /* next property - null अगर last */
+	काष्ठा symbol *sym;        /* the symbol क्रम which the property is associated */
+	क्रमागत prop_type type;       /* type of property */
+	स्थिर अक्षर *text;          /* the prompt value - P_PROMPT, P_MENU, P_COMMENT */
+	काष्ठा expr_value visible;
+	काष्ठा expr *expr;         /* the optional conditional part of the property */
+	काष्ठा menu *menu;         /* the menu the property are associated with
+	                            * valid क्रम: P_SELECT, P_RANGE, P_CHOICE,
+	                            * P_PROMPT, P_DEFAULT, P_MENU, P_COMMENT */
+	काष्ठा file *file;         /* what file was this property defined */
+	पूर्णांक lineno;                /* what lineno was this property defined */
+पूर्ण;
+
+#घोषणा क्रम_all_properties(sym, st, tok) \
+	क्रम (st = sym->prop; st; st = st->next) \
+		अगर (st->type == (tok))
+#घोषणा क्रम_all_शेषs(sym, st) क्रम_all_properties(sym, st, P_DEFAULT)
+#घोषणा क्रम_all_choices(sym, st) क्रम_all_properties(sym, st, P_CHOICE)
+#घोषणा क्रम_all_prompts(sym, st) \
+	क्रम (st = sym->prop; st; st = st->next) \
+		अगर (st->text)
+
+काष्ठा menu अणु
+	काष्ठा menu *next;
+	काष्ठा menu *parent;
+	काष्ठा menu *list;
+	काष्ठा symbol *sym;
+	काष्ठा property *prompt;
+	काष्ठा expr *visibility;
+	काष्ठा expr *dep;
+	अचिन्हित पूर्णांक flags;
+	अक्षर *help;
+	काष्ठा file *file;
+	पूर्णांक lineno;
+	व्योम *data;
+पूर्ण;
+
+#घोषणा MENU_CHANGED		0x0001
+#घोषणा MENU_ROOT		0x0002
+
+काष्ठा jump_key अणु
+	काष्ठा list_head entries;
+	माप_प्रकार offset;
+	काष्ठा menu *target;
+	पूर्णांक index;
+पूर्ण;
+
+#घोषणा JUMP_NB			9
+
+बाह्य काष्ठा file *file_list;
+बाह्य काष्ठा file *current_file;
+काष्ठा file *lookup_file(स्थिर अक्षर *name);
+
+बाह्य काष्ठा symbol symbol_yes, symbol_no, symbol_mod;
+बाह्य काष्ठा symbol *modules_sym;
+बाह्य काष्ठा symbol *sym_defconfig_list;
+बाह्य पूर्णांक cdebug;
+काष्ठा expr *expr_alloc_symbol(काष्ठा symbol *sym);
+काष्ठा expr *expr_alloc_one(क्रमागत expr_type type, काष्ठा expr *ce);
+काष्ठा expr *expr_alloc_two(क्रमागत expr_type type, काष्ठा expr *e1, काष्ठा expr *e2);
+काष्ठा expr *expr_alloc_comp(क्रमागत expr_type type, काष्ठा symbol *s1, काष्ठा symbol *s2);
+काष्ठा expr *expr_alloc_and(काष्ठा expr *e1, काष्ठा expr *e2);
+काष्ठा expr *expr_alloc_or(काष्ठा expr *e1, काष्ठा expr *e2);
+काष्ठा expr *expr_copy(स्थिर काष्ठा expr *org);
+व्योम expr_मुक्त(काष्ठा expr *e);
+पूर्णांक expr_eq(काष्ठा expr *e1, काष्ठा expr *e2);
+व्योम expr_eliminate_eq(काष्ठा expr **ep1, काष्ठा expr **ep2);
+tristate expr_calc_value(काष्ठा expr *e);
+काष्ठा expr *expr_eliminate_yn(काष्ठा expr *e);
+काष्ठा expr *expr_trans_bool(काष्ठा expr *e);
+काष्ठा expr *expr_eliminate_dups(काष्ठा expr *e);
+काष्ठा expr *expr_transक्रमm(काष्ठा expr *e);
+पूर्णांक expr_contains_symbol(काष्ठा expr *dep, काष्ठा symbol *sym);
+bool expr_depends_symbol(काष्ठा expr *dep, काष्ठा symbol *sym);
+काष्ठा expr *expr_extract_eq_and(काष्ठा expr **ep1, काष्ठा expr **ep2);
+काष्ठा expr *expr_extract_eq_or(काष्ठा expr **ep1, काष्ठा expr **ep2);
+व्योम expr_extract_eq(क्रमागत expr_type type, काष्ठा expr **ep, काष्ठा expr **ep1, काष्ठा expr **ep2);
+काष्ठा expr *expr_trans_compare(काष्ठा expr *e, क्रमागत expr_type type, काष्ठा symbol *sym);
+काष्ठा expr *expr_simplअगरy_unmet_dep(काष्ठा expr *e1, काष्ठा expr *e2);
+
+व्योम expr_fprपूर्णांक(काष्ठा expr *e, खाता *out);
+काष्ठा gstr; /* क्रमward */
+व्योम expr_gstr_prपूर्णांक(काष्ठा expr *e, काष्ठा gstr *gs);
+
+अटल अंतरभूत पूर्णांक expr_is_yes(काष्ठा expr *e)
+अणु
+	वापस !e || (e->type == E_SYMBOL && e->left.sym == &symbol_yes);
+पूर्ण
+
+अटल अंतरभूत पूर्णांक expr_is_no(काष्ठा expr *e)
+अणु
+	वापस e && (e->type == E_SYMBOL && e->left.sym == &symbol_no);
+पूर्ण
+
+#अगर_घोषित __cplusplus
+पूर्ण
+#पूर्ण_अगर
+
+#पूर्ण_अगर /* EXPR_H */

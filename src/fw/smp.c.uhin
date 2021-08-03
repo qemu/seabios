@@ -1,0 +1,195 @@
+<शैली गुरु>
+// QEMU multi-CPU initialization code
+//
+// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2006 Fabrice Bellard
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "config.h" // CONFIG_*
+#समावेश "hw/rtc.h" // CMOS_BIOS_SMP_COUNT
+#समावेश "output.h" // dम_लिखो
+#समावेश "romfile.h" // romfile_loadपूर्णांक
+#समावेश "stacks.h" // yield
+#समावेश "util.h" // smp_setup, msr_feature_control_setup
+#समावेश "x86.h" // wrmsr
+#समावेश "paravirt.h" // qemu_*_present_cpus_count
+
+#घोषणा APIC_ICR_LOW ((u8*)BUILD_APIC_ADDR + 0x300)
+#घोषणा APIC_SVR     ((u8*)BUILD_APIC_ADDR + 0x0F0)
+#घोषणा APIC_LINT0   ((u8*)BUILD_APIC_ADDR + 0x350)
+#घोषणा APIC_LINT1   ((u8*)BUILD_APIC_ADDR + 0x360)
+
+#घोषणा APIC_ENABLED 0x0100
+#घोषणा MSR_IA32_APIC_BASE 0x01B
+#घोषणा MSR_LOCAL_APIC_ID 0x802
+#घोषणा MSR_IA32_APICBASE_EXTD (1ULL << 10) /* Enable x2APIC mode */
+
+अटल काष्ठा अणु u32 index; u64 val; पूर्ण smp_msr[32];
+अटल u32 smp_msr_count;
+
+व्योम
+wrmsr_smp(u32 index, u64 val)
+अणु
+    wrmsr(index, val);
+    अगर (smp_msr_count >= ARRAY_SIZE(smp_msr)) अणु
+        warn_noalloc();
+        वापस;
+    पूर्ण
+    smp_msr[smp_msr_count].index = index;
+    smp_msr[smp_msr_count].val = val;
+    smp_msr_count++;
+पूर्ण
+
+अटल व्योम
+smp_ग_लिखो_msrs(व्योम)
+अणु
+    // MTRR and MSR_IA32_FEATURE_CONTROL setup
+    पूर्णांक i;
+    क्रम (i=0; i<smp_msr_count; i++)
+        wrmsr(smp_msr[i].index, smp_msr[i].val);
+पूर्ण
+
+u32 MaxCountCPUs;
+अटल u32 CountCPUs;
+// 256 bits क्रम the found APIC IDs
+अटल u32 FoundAPICIDs[256/32];
+
+पूर्णांक apic_id_is_present(u8 apic_id)
+अणु
+    वापस !!(FoundAPICIDs[apic_id/32] & (1ul << (apic_id % 32)));
+पूर्ण
+
+अटल पूर्णांक
+apic_id_init(व्योम)
+अणु
+    u32 eax, ebx, ecx, cpuid_features;
+    cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
+    u32 apic_id = ebx>>24;
+    अगर (MaxCountCPUs < 256) अणु // xAPIC mode
+        // Track found apic id क्रम use in legacy पूर्णांकernal bios tables
+        FoundAPICIDs[apic_id/32] |= 1 << (apic_id % 32);
+    पूर्ण अन्यथा अगर (ecx & CPUID_X2APIC) अणु
+        // चयन to x2APIC mode
+        u64 apic_base = rdmsr(MSR_IA32_APIC_BASE);
+        wrmsr(MSR_IA32_APIC_BASE, apic_base | MSR_IA32_APICBASE_EXTD);
+        apic_id = rdmsr(MSR_LOCAL_APIC_ID);
+    पूर्ण अन्यथा अणु
+        // x2APIC is masked by CPUID
+        apic_id = -1;
+    पूर्ण
+    वापस apic_id;
+पूर्ण
+
+व्योम VISIBLE32FLAT
+handle_smp(व्योम)
+अणु
+    अगर (!CONFIG_QEMU)
+        वापस;
+
+    // Track this CPU and detect the apic_id
+    पूर्णांक apic_id = apic_id_init();
+    dम_लिखो(DEBUG_HDL_smp, "handle_smp: apic_id=0x%x\n", apic_id);
+
+    smp_ग_लिखो_msrs();
+
+    CountCPUs++;
+पूर्ण
+
+// Atomic lock क्रम shared stack across processors.
+u32 SMPLock __VISIBLE;
+u32 SMPStack __VISIBLE;
+
+// find and initialize the CPUs by launching a SIPI to them
+अटल व्योम
+smp_scan(व्योम)
+अणु
+    ASSERT32FLAT();
+    u32 eax, ebx, ecx, cpuid_features;
+    cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
+    अगर (eax < 1 || !(cpuid_features & CPUID_APIC)) अणु
+        // No apic - only the मुख्य cpu is present.
+        dम_लिखो(1, "No apic - only the main cpu is present.\n");
+        CountCPUs= 1;
+        वापस;
+    पूर्ण
+
+    // mark the BSP initial APIC ID as found, too:
+    CountCPUs = 1;
+
+    // Setup jump trampoline to counter code.
+    u64 old = *(u64*)BUILD_AP_BOOT_ADDR;
+    // ljmpw $SEG_BIOS, $(entry_smp - BUILD_BIOS_ADDR)
+    बाह्य व्योम entry_smp(व्योम);
+    u64 new = (0xea | ((u64)SEG_BIOS<<24)
+               | (((u32)entry_smp - BUILD_BIOS_ADDR) << 8));
+    *(u64*)BUILD_AP_BOOT_ADDR = new;
+
+    // enable local APIC
+    u32 val = पढ़ोl(APIC_SVR);
+    ग_लिखोl(APIC_SVR, val | APIC_ENABLED);
+
+    /* Set LINT0 as Ext_INT, level triggered */
+    ग_लिखोl(APIC_LINT0, 0x8700);
+
+    /* Set LINT1 as NMI, level triggered */
+    ग_लिखोl(APIC_LINT1, 0x8400);
+
+    // Init the lock.
+    ग_लिखोl(&SMPLock, 1);
+
+    // broadcast SIPI
+    barrier();
+    ग_लिखोl(APIC_ICR_LOW, 0x000C4500);
+    u32 sipi_vector = BUILD_AP_BOOT_ADDR >> 12;
+    ग_लिखोl(APIC_ICR_LOW, 0x000C4600 | sipi_vector);
+
+    // चयन to x2APIC mode after sending SIPI so that
+    // x2APIC and xAPIC mode could share AP wake up code
+    apic_id_init();
+
+    // Wait क्रम other CPUs to process the SIPI.
+    u16 expected_cpus_count = qemu_get_present_cpus_count();
+    जबतक (expected_cpus_count != CountCPUs)
+        यंत्र अस्थिर(
+            // Release lock and allow other processors to use the stack.
+            "  movl %%esp, %1\n"
+            "  movl $0, %0\n"
+            // Reacquire lock and take back ownership of stack.
+            "1:rep ; nop\n"
+            "  lock btsl $0, %0\n"
+            "  jc 1b\n"
+            : "+m" (SMPLock), "+m" (SMPStack)
+            : : "cc", "memory");
+    yield();
+
+    // Restore memory.
+    *(u64*)BUILD_AP_BOOT_ADDR = old;
+
+    dम_लिखो(1, "Found %d cpu(s) max supported %d cpu(s)\n", CountCPUs,
+            MaxCountCPUs);
+पूर्ण
+
+व्योम
+smp_setup(व्योम)
+अणु
+    अगर (!CONFIG_QEMU)
+        वापस;
+
+    MaxCountCPUs = romfile_loadपूर्णांक("etc/max-cpus", 0);
+    u16 smp_count = qemu_get_present_cpus_count();
+    अगर (MaxCountCPUs < smp_count)
+        MaxCountCPUs = smp_count;
+
+    smp_scan();
+पूर्ण
+
+व्योम
+smp_resume(व्योम)
+अणु
+    अगर (!CONFIG_QEMU)
+        वापस;
+
+    smp_ग_लिखो_msrs();
+    smp_scan();
+पूर्ण

@@ -1,0 +1,80 @@
+<शैली गुरु>
+// Simple framebuffer vgabios क्रम use with qemu bochs-display device
+//
+// Copyright (C) 2019 Gerd Hoffmann <kraxel@redhat.com>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
+#समावेश "biosvar.h" // GET_BDA
+#समावेश "output.h" // dम_लिखो
+#समावेश "string.h" // स_रखो16_far
+#समावेश "bochsvga.h" // VBE_BOCHS_*
+#समावेश "hw/pci.h" // pci_config_पढ़ोl
+#समावेश "hw/pci_regs.h" // PCI_BASE_ADDRESS_0
+#समावेश "vgabios.h" // SET_VGA
+#समावेश "vgautil.h" // VBE_total_memory
+
+#घोषणा FRAMEBUFFER_WIDTH      1024
+#घोषणा FRAMEBUFFER_HEIGHT     768
+#घोषणा FRAMEBUFFER_BPP        4
+
+पूर्णांक
+bochs_display_setup(व्योम)
+अणु
+    dम_लिखो(1, "bochs-display: setup called\n");
+
+    अगर (GET_GLOBAL(HaveRunInit))
+        वापस 0;
+
+    पूर्णांक bdf = GET_GLOBAL(VgaBDF);
+    अगर (bdf == 0)
+        वापस 0;
+
+    u32 bar = pci_config_पढ़ोl(bdf, PCI_BASE_ADDRESS_0);
+    u32 lfb_addr = bar & PCI_BASE_ADDRESS_MEM_MASK;
+    bar = pci_config_पढ़ोl(bdf, PCI_BASE_ADDRESS_2);
+    u32 io_addr = bar & PCI_BASE_ADDRESS_IO_MASK;
+    dम_लिखो(1, "bochs-display: bdf %02x:%02x.%x, bar 0 at 0x%x, bar 1 at 0x%x\n"
+            , pci_bdf_to_bus(bdf) , pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf),
+            lfb_addr, io_addr);
+
+    u16 *dispi = (व्योम*)(io_addr + 0x500);
+    u8 *vga = (व्योम*)(io_addr + 0x400);
+    u16 id = पढ़ोw(dispi + VBE_DISPI_INDEX_ID);
+    dम_लिखो(1, "bochs-display: id is 0x%x, %s\n", id
+            , id == VBE_DISPI_ID5 ? "good" : "FAIL");
+    अगर (id != VBE_DISPI_ID5)
+        वापस -1;
+
+    पूर्णांक i;
+    u8 *edid = (व्योम*)(io_addr);
+    क्रम (i = 0; i < माप(VBE_edid); i++)
+        SET_VGA(VBE_edid[i], पढ़ोb(edid + i));
+
+    पूर्णांक fb_width  = FRAMEBUFFER_WIDTH;
+    पूर्णांक fb_height = FRAMEBUFFER_HEIGHT;
+    अगर (GET_GLOBAL(VBE_edid[0]) == 0x00 &&
+        GET_GLOBAL(VBE_edid[1]) == 0xff) अणु
+        fb_width = GET_GLOBAL(VBE_edid[54 + 2]);
+        fb_width |= (GET_GLOBAL(VBE_edid[54 + 4]) & 0xf0) << 4;
+        fb_height = GET_GLOBAL(VBE_edid[54 + 5]);
+        fb_height |= (GET_GLOBAL(VBE_edid[54 + 7]) & 0xf0) << 4;
+    पूर्ण
+    पूर्णांक fb_stride = FRAMEBUFFER_BPP * fb_width;
+
+    dम_लिखो(1, "bochs-display: using %dx%d, %d bpp (%d stride)\n"
+            , fb_width, fb_height
+            , FRAMEBUFFER_BPP * 8, fb_stride);
+
+    cbvga_setup_modes(lfb_addr, FRAMEBUFFER_BPP * 8,
+                      fb_width, fb_height, fb_stride);
+
+    ग_लिखोw(dispi + VBE_DISPI_INDEX_XRES,   fb_width);
+    ग_लिखोw(dispi + VBE_DISPI_INDEX_YRES,   fb_height);
+    ग_लिखोw(dispi + VBE_DISPI_INDEX_BPP,    FRAMEBUFFER_BPP * 8);
+    ग_लिखोw(dispi + VBE_DISPI_INDEX_ENABLE, VBE_DISPI_ENABLED);
+
+    ग_लिखोb(vga, 0x20); /* unblank (क्रम qemu -device VGA) */
+
+    वापस 0;
+पूर्ण

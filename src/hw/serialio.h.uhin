@@ -1,0 +1,31 @@
+<शैली गुरु>
+#अगर_अघोषित __SERIALIO_H
+#घोषणा __SERIALIO_H
+
+#समावेश "types.h" // u16
+
+#घोषणा PORT_LPT2              0x0278
+#घोषणा PORT_SERIAL4           0x02e8
+#घोषणा PORT_SERIAL2           0x02f8
+#घोषणा PORT_LPT1              0x0378
+#घोषणा PORT_SERIAL3           0x03e8
+#घोषणा PORT_SERIAL1           0x03f8
+
+// Serial port offsets
+#घोषणा SEROFF_DATA    0
+#घोषणा SEROFF_DLL     0
+#घोषणा SEROFF_IER     1
+#घोषणा SEROFF_DLH     1
+#घोषणा SEROFF_IIR     2
+#घोषणा SEROFF_LCR     3
+#घोषणा SEROFF_LSR     5
+#घोषणा SEROFF_MSR     6
+
+व्योम serial_debug_preinit(व्योम);
+व्योम serial_debug_अ_दो(अक्षर c);
+व्योम serial_debug_flush(व्योम);
+बाह्य u16 DebugOutputPort;
+व्योम qemu_debug_preinit(व्योम);
+व्योम qemu_debug_अ_दो(अक्षर c);
+
+#पूर्ण_अगर // serialपन.स

@@ -1,0 +1,339 @@
+<शैली गुरु>
+/*
+ * Copyright (C) 2002 Roman Zippel <zippel@linux-m68k.org>
+ * Released under the terms of the GNU GPL v2.0.
+ */
+
+#अगर QT_VERSION < 0x040000
+#समावेश <qlistview.h>
+#अन्यथा
+#समावेश <q3listview.h>
+#पूर्ण_अगर
+#समावेश <qsettings.h>
+
+#अगर QT_VERSION < 0x040000
+#घोषणा Q3ValueList             QValueList
+#घोषणा Q3PopupMenu             QPopupMenu
+#घोषणा Q3ListView              QListView
+#घोषणा Q3ListViewItem          QListViewItem
+#घोषणा Q3VBox                  QVBox
+#घोषणा Q3TextBrowser           QTextBrowser
+#घोषणा Q3MainWinकरोw            QMainWinकरोw
+#घोषणा Q3Action                QAction
+#घोषणा Q3ToolBar               QToolBar
+#घोषणा Q3ListViewItemIterator  QListViewItemIterator
+#घोषणा Q3FileDialog            QFileDialog
+#पूर्ण_अगर
+
+class ConfigView;
+class ConfigList;
+class ConfigItem;
+class ConfigLineEdit;
+class ConfigMainWinकरोw;
+
+class ConfigSettings : खुला QSettings अणु
+खुला:
+	ConfigSettings();
+	Q3ValueList<पूर्णांक> पढ़ोSizes(स्थिर QString& key, bool *ok);
+	bool ग_लिखोSizes(स्थिर QString& key, स्थिर Q3ValueList<पूर्णांक>& value);
+पूर्ण;
+
+क्रमागत colIdx अणु
+	promptColIdx, nameColIdx, noColIdx, modColIdx, yesColIdx, dataColIdx, colNr
+पूर्ण;
+क्रमागत listMode अणु
+	singleMode, menuMode, symbolMode, fullMode, listMode
+पूर्ण;
+क्रमागत optionMode अणु
+	normalOpt = 0, allOpt, promptOpt
+पूर्ण;
+
+class ConfigList : खुला Q3ListView अणु
+	Q_OBJECT
+	प्रकार class Q3ListView Parent;
+खुला:
+	ConfigList(ConfigView* p, स्थिर अक्षर *name = 0);
+	व्योम reinit(व्योम);
+	ConfigView* parent(व्योम) स्थिर
+	अणु
+		वापस (ConfigView*)Parent::parent();
+	पूर्ण
+	ConfigItem* findConfigItem(काष्ठा menu *);
+
+रक्षित:
+	व्योम keyPressEvent(QKeyEvent *e);
+	व्योम contentsMousePressEvent(QMouseEvent *e);
+	व्योम contentsMouseReleaseEvent(QMouseEvent *e);
+	व्योम contentsMouseMoveEvent(QMouseEvent *e);
+	व्योम contentsMouseDoubleClickEvent(QMouseEvent *e);
+	व्योम focusInEvent(QFocusEvent *e);
+	व्योम contextMenuEvent(QContextMenuEvent *e);
+
+खुला slots:
+	व्योम setRootMenu(काष्ठा menu *menu);
+
+	व्योम updateList(ConfigItem *item);
+	व्योम setValue(ConfigItem* item, tristate val);
+	व्योम changeValue(ConfigItem* item);
+	व्योम updateSelection(व्योम);
+	व्योम saveSettings(व्योम);
+संकेतs:
+	व्योम menuChanged(काष्ठा menu *menu);
+	व्योम menuSelected(काष्ठा menu *menu);
+	व्योम parentSelected(व्योम);
+	व्योम gotFocus(काष्ठा menu *);
+
+खुला:
+	व्योम updateListAll(व्योम)
+	अणु
+		updateAll = true;
+		updateList(शून्य);
+		updateAll = false;
+	पूर्ण
+	ConfigList* listView()
+	अणु
+		वापस this;
+	पूर्ण
+	ConfigItem* firstChild() स्थिर
+	अणु
+		वापस (ConfigItem *)Parent::firstChild();
+	पूर्ण
+	पूर्णांक mapIdx(colIdx idx)
+	अणु
+		वापस colMap[idx];
+	पूर्ण
+	व्योम addColumn(colIdx idx, स्थिर QString& label)
+	अणु
+		colMap[idx] = Parent::addColumn(label);
+		colRevMap[colMap[idx]] = idx;
+	पूर्ण
+	व्योम हटाओColumn(colIdx idx)
+	अणु
+		पूर्णांक col = colMap[idx];
+		अगर (col >= 0) अणु
+			Parent::हटाओColumn(col);
+			colRevMap[col] = colMap[idx] = -1;
+		पूर्ण
+	पूर्ण
+	व्योम setAllOpen(bool खोलो);
+	व्योम setParentMenu(व्योम);
+
+	bool menuSkip(काष्ठा menu *);
+
+	ढाँचा <class P>
+	व्योम updateMenuList(P*, काष्ठा menu*);
+
+	bool updateAll;
+
+	QPixmap symbolYesPix, symbolModPix, symbolNoPix;
+	QPixmap choiceYesPix, choiceNoPix;
+	QPixmap menuPix, menuInvPix, menuBackPix, व्योमPix;
+
+	bool showName, showRange, showData;
+	क्रमागत listMode mode;
+	क्रमागत optionMode optMode;
+	काष्ठा menu *rootEntry;
+	QColorGroup disabledColorGroup;
+	QColorGroup inactivedColorGroup;
+	Q3PopupMenu* headerPopup;
+
+निजी:
+	पूर्णांक colMap[colNr];
+	पूर्णांक colRevMap[colNr];
+पूर्ण;
+
+class ConfigItem : खुला Q3ListViewItem अणु
+	प्रकार class Q3ListViewItem Parent;
+खुला:
+	ConfigItem(Q3ListView *parent, ConfigItem *after, काष्ठा menu *m, bool v)
+	: Parent(parent, after), menu(m), visible(v), goParent(false)
+	अणु
+		init();
+	पूर्ण
+	ConfigItem(ConfigItem *parent, ConfigItem *after, काष्ठा menu *m, bool v)
+	: Parent(parent, after), menu(m), visible(v), goParent(false)
+	अणु
+		init();
+	पूर्ण
+	ConfigItem(Q3ListView *parent, ConfigItem *after, bool v)
+	: Parent(parent, after), menu(0), visible(v), goParent(true)
+	अणु
+		init();
+	पूर्ण
+	~ConfigItem(व्योम);
+	व्योम init(व्योम);
+	व्योम okRename(पूर्णांक col);
+	व्योम updateMenu(व्योम);
+	व्योम testUpdateMenu(bool v);
+	ConfigList* listView() स्थिर
+	अणु
+		वापस (ConfigList*)Parent::listView();
+	पूर्ण
+	ConfigItem* firstChild() स्थिर
+	अणु
+		वापस (ConfigItem *)Parent::firstChild();
+	पूर्ण
+	ConfigItem* nextSibling() स्थिर
+	अणु
+		वापस (ConfigItem *)Parent::nextSibling();
+	पूर्ण
+	व्योम setText(colIdx idx, स्थिर QString& text)
+	अणु
+		Parent::setText(listView()->mapIdx(idx), text);
+	पूर्ण
+	QString text(colIdx idx) स्थिर
+	अणु
+		वापस Parent::text(listView()->mapIdx(idx));
+	पूर्ण
+	व्योम setPixmap(colIdx idx, स्थिर QPixmap& pm)
+	अणु
+		Parent::setPixmap(listView()->mapIdx(idx), pm);
+	पूर्ण
+	स्थिर QPixmap* pixmap(colIdx idx) स्थिर
+	अणु
+		वापस Parent::pixmap(listView()->mapIdx(idx));
+	पूर्ण
+	व्योम paपूर्णांकCell(QPaपूर्णांकer* p, स्थिर QColorGroup& cg, पूर्णांक column, पूर्णांक width, पूर्णांक align);
+
+	ConfigItem* nextItem;
+	काष्ठा menu *menu;
+	bool visible;
+	bool goParent;
+पूर्ण;
+
+class ConfigLineEdit : खुला QLineEdit अणु
+	Q_OBJECT
+	प्रकार class QLineEdit Parent;
+खुला:
+	ConfigLineEdit(ConfigView* parent);
+	ConfigView* parent(व्योम) स्थिर
+	अणु
+		वापस (ConfigView*)Parent::parent();
+	पूर्ण
+	व्योम show(ConfigItem *i);
+	व्योम keyPressEvent(QKeyEvent *e);
+
+खुला:
+	ConfigItem *item;
+पूर्ण;
+
+class ConfigView : खुला Q3VBox अणु
+	Q_OBJECT
+	प्रकार class Q3VBox Parent;
+खुला:
+	ConfigView(QWidget* parent, स्थिर अक्षर *name = 0);
+	~ConfigView(व्योम);
+	अटल व्योम updateList(ConfigItem* item);
+	अटल व्योम updateListAll(व्योम);
+
+	bool showName(व्योम) स्थिर अणु वापस list->showName; पूर्ण
+	bool showRange(व्योम) स्थिर अणु वापस list->showRange; पूर्ण
+	bool showData(व्योम) स्थिर अणु वापस list->showData; पूर्ण
+खुला slots:
+	व्योम setShowName(bool);
+	व्योम setShowRange(bool);
+	व्योम setShowData(bool);
+	व्योम setOptionMode(QAction *);
+संकेतs:
+	व्योम showNameChanged(bool);
+	व्योम showRangeChanged(bool);
+	व्योम showDataChanged(bool);
+खुला:
+	ConfigList* list;
+	ConfigLineEdit* lineEdit;
+
+	अटल ConfigView* viewList;
+	ConfigView* nextView;
+
+	अटल QAction *showNormalAction;
+	अटल QAction *showAllAction;
+	अटल QAction *showPromptAction;
+पूर्ण;
+
+class ConfigInfoView : खुला Q3TextBrowser अणु
+	Q_OBJECT
+	प्रकार class Q3TextBrowser Parent;
+खुला:
+	ConfigInfoView(QWidget* parent, स्थिर अक्षर *name = 0);
+	bool showDebug(व्योम) स्थिर अणु वापस _showDebug; पूर्ण
+
+खुला slots:
+	व्योम setInfo(काष्ठा menu *menu);
+	व्योम saveSettings(व्योम);
+	व्योम setShowDebug(bool);
+
+संकेतs:
+	व्योम showDebugChanged(bool);
+	व्योम menuSelected(काष्ठा menu *);
+
+रक्षित:
+	व्योम symbolInfo(व्योम);
+	व्योम menuInfo(व्योम);
+	QString debug_info(काष्ठा symbol *sym);
+	अटल QString prपूर्णांक_filter(स्थिर QString &str);
+	अटल व्योम expr_prपूर्णांक_help(व्योम *data, काष्ठा symbol *sym, स्थिर अक्षर *str);
+	Q3PopupMenu* createPopupMenu(स्थिर QPoपूर्णांक& pos);
+	व्योम contentsContextMenuEvent(QContextMenuEvent *e);
+
+	काष्ठा symbol *sym;
+	काष्ठा menu *_menu;
+	bool _showDebug;
+पूर्ण;
+
+class ConfigSearchWinकरोw : खुला QDialog अणु
+	Q_OBJECT
+	प्रकार class QDialog Parent;
+खुला:
+	ConfigSearchWinकरोw(ConfigMainWinकरोw* parent, स्थिर अक्षर *name = 0);
+
+खुला slots:
+	व्योम saveSettings(व्योम);
+	व्योम search(व्योम);
+
+रक्षित:
+	QLineEdit* editField;
+	QPushButton* searchButton;
+	QSplitter* split;
+	ConfigView* list;
+	ConfigInfoView* info;
+
+	काष्ठा symbol **result;
+पूर्ण;
+
+class ConfigMainWinकरोw : खुला Q3MainWinकरोw अणु
+	Q_OBJECT
+
+	अटल Q3Action *saveAction;
+	अटल व्योम conf_changed(व्योम);
+खुला:
+	ConfigMainWinकरोw(व्योम);
+खुला slots:
+	व्योम changeMenu(काष्ठा menu *);
+	व्योम setMenuLink(काष्ठा menu *);
+	व्योम listFocusChanged(व्योम);
+	व्योम goBack(व्योम);
+	व्योम loadConfig(व्योम);
+	bool saveConfig(व्योम);
+	व्योम saveConfigAs(व्योम);
+	व्योम searchConfig(व्योम);
+	व्योम showSingleView(व्योम);
+	व्योम showSplitView(व्योम);
+	व्योम showFullView(व्योम);
+	व्योम showIntro(व्योम);
+	व्योम showAbout(व्योम);
+	व्योम saveSettings(व्योम);
+
+रक्षित:
+	व्योम बंदEvent(QCloseEvent *e);
+
+	ConfigSearchWinकरोw *searchWinकरोw;
+	ConfigView *menuView;
+	ConfigList *menuList;
+	ConfigView *configView;
+	ConfigList *configList;
+	ConfigInfoView *helpText;
+	Q3ToolBar *toolBar;
+	Q3Action *backAction;
+	QSplitter* split1;
+	QSplitter* split2;
+पूर्ण;

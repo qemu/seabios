@@ -1,0 +1,58 @@
+<शैली गुरु>
+#समावेश <मानकतर्क.स>
+
+/* confdata.c */
+P(conf_parse,व्योम,(स्थिर अक्षर *name));
+P(conf_पढ़ो,पूर्णांक,(स्थिर अक्षर *name));
+P(conf_पढ़ो_simple,पूर्णांक,(स्थिर अक्षर *name, पूर्णांक));
+P(conf_ग_लिखो_defconfig,पूर्णांक,(स्थिर अक्षर *name));
+P(conf_ग_लिखो,पूर्णांक,(स्थिर अक्षर *name));
+P(conf_ग_लिखो_स्वतःconf,पूर्णांक,(व्योम));
+P(conf_get_changed,bool,(व्योम));
+P(conf_set_changed_callback, व्योम,(व्योम (*fn)(व्योम)));
+P(conf_set_message_callback, व्योम,(व्योम (*fn)(स्थिर अक्षर *fmt, बहु_सूची ap)));
+
+/* menu.c */
+P(rooपंचांगenu,काष्ठा menu,);
+
+P(menu_is_empty, bool, (काष्ठा menu *menu));
+P(menu_is_visible, bool, (काष्ठा menu *menu));
+P(menu_has_prompt, bool, (काष्ठा menu *menu));
+P(menu_get_prompt,स्थिर अक्षर *,(काष्ठा menu *menu));
+P(menu_get_root_menu,काष्ठा menu *,(काष्ठा menu *menu));
+P(menu_get_parent_menu,काष्ठा menu *,(काष्ठा menu *menu));
+P(menu_has_help,bool,(काष्ठा menu *menu));
+P(menu_get_help,स्थिर अक्षर *,(काष्ठा menu *menu));
+P(get_symbol_str, व्योम, (काष्ठा gstr *r, काष्ठा symbol *sym, काष्ठा list_head
+			 *head));
+P(get_relations_str, काष्ठा gstr, (काष्ठा symbol **sym_arr, काष्ठा list_head
+				   *head));
+P(menu_get_ext_help,व्योम,(काष्ठा menu *menu, काष्ठा gstr *help));
+
+/* symbol.c */
+P(symbol_hash,काष्ठा symbol *,[SYMBOL_HASHSIZE]);
+
+P(sym_lookup,काष्ठा symbol *,(स्थिर अक्षर *name, पूर्णांक flags));
+P(sym_find,काष्ठा symbol *,(स्थिर अक्षर *name));
+P(sym_expand_string_value,स्थिर अक्षर *,(स्थिर अक्षर *in));
+P(sym_escape_string_value, स्थिर अक्षर *,(स्थिर अक्षर *in));
+P(sym_re_search,काष्ठा symbol **,(स्थिर अक्षर *pattern));
+P(sym_type_name,स्थिर अक्षर *,(क्रमागत symbol_type type));
+P(sym_calc_value,व्योम,(काष्ठा symbol *sym));
+P(sym_get_type,क्रमागत symbol_type,(काष्ठा symbol *sym));
+P(sym_tristate_within_range,bool,(काष्ठा symbol *sym,tristate tri));
+P(sym_set_tristate_value,bool,(काष्ठा symbol *sym,tristate tri));
+P(sym_toggle_tristate_value,tristate,(काष्ठा symbol *sym));
+P(sym_string_valid,bool,(काष्ठा symbol *sym, स्थिर अक्षर *newval));
+P(sym_string_within_range,bool,(काष्ठा symbol *sym, स्थिर अक्षर *str));
+P(sym_set_string_value,bool,(काष्ठा symbol *sym, स्थिर अक्षर *newval));
+P(sym_is_changable,bool,(काष्ठा symbol *sym));
+P(sym_get_choice_prop,काष्ठा property *,(काष्ठा symbol *sym));
+P(sym_get_शेष_prop,काष्ठा property *,(काष्ठा symbol *sym));
+P(sym_get_string_value,स्थिर अक्षर *,(काष्ठा symbol *sym));
+
+P(prop_get_type_name,स्थिर अक्षर *,(क्रमागत prop_type type));
+
+/* expr.c */
+P(expr_compare_type,पूर्णांक,(क्रमागत expr_type t1, क्रमागत expr_type t2));
+P(expr_prपूर्णांक,व्योम,(काष्ठा expr *e, व्योम (*fn)(व्योम *, काष्ठा symbol *, स्थिर अक्षर *), व्योम *data, पूर्णांक prevtoken));
