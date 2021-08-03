@@ -1,4 +1,4 @@
-# SeaBIOS build system
+# AyeBIOS build system
 #
 # Copyright (C) 2008-2012  Kevin O'Connor <kevin@koconnor.net>
 #

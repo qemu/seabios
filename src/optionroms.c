@@ -316,10 +316,10 @@ static int boot_irq_captured(void)
 
 static void boot_irq_restore(void)
 {
-    struct segoff_s seabios;
+    struct segoff_s ayebios;
 
-    seabios = FUNC16(entry_19_official);
-    SET_IVT(0x19, seabios);
+    ayebios = FUNC16(entry_19_official);
+    SET_IVT(0x19, ayebios);
 }
 
 // Attempt to map and initialize the option rom on a given PCI device.

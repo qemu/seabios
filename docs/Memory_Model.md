@@ -1,6 +1,6 @@
-The SeaBIOS code is required to support multiple x86 CPU memory
+The AyeBIOS code is required to support multiple x86 CPU memory
 models. This requirement impacts the code layout and internal storage
-of SeaBIOS.
+of AyeBIOS.
 
 x86 Memory Models
 =================
@@ -17,7 +17,7 @@ BIOS was extended to handle calls in the various modes that the CPU
 implemented.
 
 This section outlines the five different x86 CPU execution and memory
-access models that SeaBIOS supports.
+access models that AyeBIOS supports.
 
 16bit real mode
 ---------------
@@ -28,8 +28,8 @@ mode invoked by callers. The CPU defaults to executing 16bit
 instructions. Callers typically invoke the BIOS by issuing an "int x"
 instruction which causes a software
 [interrupt](http://en.wikipedia.org/wiki/Interrupt) that is handled by
-the BIOS. The SeaBIOS code also handles hardware interrupts in this
-mode. SeaBIOS can only access the first 1 megabyte of memory in this
+the BIOS. The AyeBIOS code also handles hardware interrupts in this
+mode. AyeBIOS can only access the first 1 megabyte of memory in this
 mode, but it can access any part of that first megabyte.
 
 16bit bigreal mode
@@ -60,7 +60,7 @@ mode](#16bit_real_mode) entry points while in 16bit protected
 mode. The PCI BIOS specification explicitly requires that the legacy
 "int 1a" real mode entry point support 16bit protected mode calls if
 they are for the PCI BIOS. Callers of other legacy entry points in
-protected mode have not been observed and SeaBIOS does not support
+protected mode have not been observed and AyeBIOS does not support
 them.
 
 32bit segmented mode
@@ -71,7 +71,7 @@ registers may have a limit and may have a non-zero offset. In effect,
 this mode has all of the limitations of [16bit protected
 mode](#16bit_protected_mode) - the main difference between the modes
 is that the processor defaults to executing 32bit instructions. In
-addition to these limitations, callers may also run the SeaBIOS code
+addition to these limitations, callers may also run the AyeBIOS code
 at varying virtual addresses and so the code must support code
 relocation. The PCI BIOS specification and APM BIOS specification
 define 32bit segmented mode interfaces.
@@ -85,14 +85,14 @@ the entire first 4 gigabytes of memory. This is the only "sane" mode
 for 32bit code - modern compilers and modern operating systems will
 generally only support this mode (when running 32bit code).
 Ironically, it's the only mode that is not strictly required for a
-BIOS to support. SeaBIOS uses this mode internally to support the POST
+BIOS to support. AyeBIOS uses this mode internally to support the POST
 and BOOT [phases of execution](Execution and code flow).
 
 code16gcc
 =========
 
 In order to produce code that can run when the processor is in a 16bit
-mode, SeaBIOS uses the
+mode, AyeBIOS uses the
 [binutils](http://en.wikipedia.org/wiki/GNU_Binutils) ".code16gcc"
 assembler flag. This instructs the assembler to emit extra prefix
 opcodes so that the 32bit code produced by
@@ -101,10 +101,10 @@ even when the processor is in 16bit mode. Note that gcc always
 produces 32bit code - it does not know about the ".code16gcc" flag and
 does not know that the code will run in a 16bit mode.
 
-SeaBIOS uses the same code for all of the 16bit modes ([16bit real
+AyeBIOS uses the same code for all of the 16bit modes ([16bit real
 mode](#16bit_real_mode), [16bit bigreal mode](#16bit_bigreal_mode),
 and [16bit protected mode](#16bit_protected_mode)) and that code is
-assembled using ".code16gcc". SeaBIOS is careful to use segment
+assembled using ".code16gcc". AyeBIOS is careful to use segment
 registers properly so that the same code can run in the different
 16bit modes that it needs to support.
 
@@ -120,34 +120,34 @@ mode both MODE16 and MODESEGMENT are false.
 Common memory used at run-time
 ==============================
 
-There are several memory areas that the SeaBIOS "runtime"
+There are several memory areas that the AyeBIOS "runtime"
 [phase](Execution and code flow) makes use of:
 
 * 0x000000-0x000400: Interrupt descriptor table (IDT). This area
   defines 256 interrupt vectors as defined by the Intel CPU
   specification for 16bit irq handlers. This area is read/writable at
   runtime and can be accessed from 16bit real mode and 16bit bigreal
-  mode calls. SeaBIOS only uses this area to maintain compatibility
+  mode calls. AyeBIOS only uses this area to maintain compatibility
   with legacy systems.
 
 * 0x000400-0x000500: BIOS Data Area (BDA). This area contains various
   legacy flags and attributes. The area is read/writable at runtime
   and can be accessed from 16bit real mode and 16bit bigreal mode
-  calls. SeaBIOS only uses this area to maintain compatibility with
+  calls. AyeBIOS only uses this area to maintain compatibility with
   legacy systems.
 
 * 0x09FC00-0x0A0000 (typical): Extended BIOS Data Area (EBDA). This
   area contains a few legacy flags and attributes. The area is
   typically located at 0x9FC00, but it can be moved by option roms, by
-  legacy operating systems, and by SeaBIOS if
+  legacy operating systems, and by AyeBIOS if
   CONFIG_MALLOC_UPPERMEMORY is not set. Its actual location is
   determined by a pointer in the BDA. The area is read/writable at
   runtime and can be accessed from 16bit real mode and 16bit bigreal
-  mode calls. SeaBIOS only uses this area to maintain compatibility
+  mode calls. AyeBIOS only uses this area to maintain compatibility
   with legacy systems.
 
 * 0x0E0000-0x0F0000 (typical): "low" memory. This area is used for
-  custom read/writable storage internal to SeaBIOS. The area is
+  custom read/writable storage internal to AyeBIOS. The area is
   read/writable at runtime and can be accessed from 16bit real mode
   and 16bit bigreal mode calls. The area is typically located at the
   end of the e-segment, but the build may position it anywhere in the
@@ -166,7 +166,7 @@ There are several memory areas that the SeaBIOS "runtime"
   16bit bigreal mode, 16bit protected mode, and 32bit segmented mode
   calls.
 
-All of the above areas are also read/writable during the SeaBIOS
+All of the above areas are also read/writable during the AyeBIOS
 initialization phase and are accessible when in 32bit flat mode.
 
 Segmented mode memory access
@@ -225,7 +225,7 @@ run-time](#Common_memory_used_at_run-time) and areas
 allocated at runtime via one of the malloc calls:
 
 * malloc_high : Permanent high-memory zone. This area is used for
-  custom read/writable storage internal to SeaBIOS. The area is
+  custom read/writable storage internal to AyeBIOS. The area is
   located at the top of the first 4 gigabytes of ram. It is commonly
   used for storing standard tables accessed by the operating system at
   runtime (ACPI, SMBIOS, and MPTable) and for DMA buffers used by
@@ -234,15 +234,15 @@ allocated at runtime via one of the malloc calls:
   emulator that has only 1 megabyte of ram this zone will be empty.
 
 * malloc_tmphigh : Temporary high-memory zone. This area is used for
-  custom read/writable storage during the SeaBIOS initialization
+  custom read/writable storage during the AyeBIOS initialization
   phase. The area generally starts after the first 1 megabyte of ram
   (0x100000) and ends prior to the Permanent high-memory zone. When
   running on an emulator that has only 1 megabyte of ram this zone
   will be empty. The area is not reserved from the operating system,
-  so it must not be accessed after the SeaBIOS initialization phase.
+  so it must not be accessed after the AyeBIOS initialization phase.
 
 * malloc_tmplow : Temporary low-memory zone. This area is used for
-  custom read/writable storage during the SeaBIOS initialization
+  custom read/writable storage during the AyeBIOS initialization
   phase. The area resides between 0x07000-0x90000. The area is not
   reserved from the operating system and by specification it is
   required to be zero'd at the end of the initialization phase.

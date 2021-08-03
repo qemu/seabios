@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Script to create seabios release and snapshot tarballs.
+# Script to create ayebios release and snapshot tarballs.
 # Accepts conmmit (hash, tag, branch, ...) as first argument,
 # uses HEAD if unspecified.
 #
@@ -19,8 +19,8 @@ else
 fi
 
 # export tarball archive from git
-prefix="seabios-${name}/"
-output="seabios-${name}.tar"
+prefix="ayebios-${name}/"
+output="ayebios-${name}.tar"
 echo "# commit $commit  ->  tarball: ${output}.gz"
 rm -f "$output" "${output}.gz"
 git archive --format=tar --prefix="$prefix" "$commit" > "$output"

@@ -1,24 +1,24 @@
 This page is intended for developers interested in understanding and
-enhancing SeaBIOS. Please also consider joining the [mailing
+enhancing AyeBIOS. Please also consider joining the [mailing
 list](Mailinglist).
 
-The SeaBIOS code can be obtained via the [download](Download)
-page. For specific information on building SeaBIOS for coreboot,
-please see the [coreboot SeaBIOS](http://www.coreboot.org/SeaBIOS)
+The AyeBIOS code can be obtained via the [download](Download)
+page. For specific information on building AyeBIOS for coreboot,
+please see the [coreboot AyeBIOS](http://www.coreboot.org/AyeBIOS)
 page.
 
-See details on [building SeaBIOS](Build overview).
+See details on [building AyeBIOS](Build overview).
 
-There is also information on the SeaBIOS [Memory Model](Memory Model).
-Along with information on SeaBIOS [Execution and code flow](Execution
+There is also information on the AyeBIOS [Memory Model](Memory Model).
+Along with information on AyeBIOS [Execution and code flow](Execution
 and code flow). A description of the process of linking the final
-SeaBIOS binary is available at [Linking overview](Linking overview).
+AyeBIOS binary is available at [Linking overview](Linking overview).
 
 The list of available runtime configuration items is at
 [runtime config](Runtime_config).
 
-To debug SeaBIOS and report problems see SeaBIOS
-[debugging](Debugging). To contribute changes to SeaBIOS see
+To debug AyeBIOS and report problems see AyeBIOS
+[debugging](Debugging). To contribute changes to AyeBIOS see
 [contributing](Contributing).
 
 Useful links to specifications is available at [Developer

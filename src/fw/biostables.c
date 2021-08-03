@@ -421,7 +421,7 @@ smbios_new_type_0(void *start,
     return end;
 }
 
-#define BIOS_NAME "SeaBIOS"
+#define BIOS_NAME "AyeBIOS"
 #define BIOS_DATE "04/01/2014"
 
 static int

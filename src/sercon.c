@@ -513,7 +513,7 @@ void sercon_setup(void)
     if (!CONFIG_SERCON)
         return;
 
-    struct segoff_s seabios, vgabios;
+    struct segoff_s ayebios, vgabios;
     u16 addr;
 
     addr = romfile_loadint("etc/sercon-port", 0);
@@ -526,16 +526,16 @@ void sercon_setup(void)
             ScreenAndDebug = 0;
 
     vgabios = GET_IVT(0x10);
-    seabios = FUNC16(entry_10);
-    if (vgabios.seg != seabios.seg ||
-        vgabios.offset != seabios.offset) {
+    ayebios = FUNC16(entry_10);
+    if (vgabios.seg != ayebios.seg ||
+        vgabios.offset != ayebios.offset) {
         dprintf(1, "sercon: configuring in splitmode (vgabios %04x:%04x)\n",
                 vgabios.seg, vgabios.offset);
         sercon_real_vga_handler = vgabios;
         SET_LOW(sercon_split, 1);
     } else {
         dprintf(1, "sercon: configuring as primary display\n");
-        sercon_real_vga_handler = seabios;
+        sercon_real_vga_handler = ayebios;
     }
 
     SET_IVT(0x10, FUNC16(entry_sercon));

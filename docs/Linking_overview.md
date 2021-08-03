@@ -1,7 +1,7 @@
-This page describes the process that the SeaBIOS build uses to link
+This page describes the process that the AyeBIOS build uses to link
 the compiled code into the final binary objects.
 
-Unfortunately, the SeaBIOS linking phase is complex. This complexity
+Unfortunately, the AyeBIOS linking phase is complex. This complexity
 is due to several unusual requirements:
 
 * Some BIOS entry points must reside at specific hardcoded memory
@@ -70,7 +70,7 @@ reduces the overall size of the final binary.
 C code in three modes
 ---------------------
 
-SeaBIOS must support multiple [memory models](Memory Model). This is
+AyeBIOS must support multiple [memory models](Memory Model). This is
 accomplished by compiling the C code three separate times into three
 separate objects.
 
@@ -99,7 +99,7 @@ prefixes need to be explicitly added in assembler code.
 Build garbage collection
 ------------------------
 
-To reduce the overall size of the final SeaBIOS binary the build
+To reduce the overall size of the final AyeBIOS binary the build
 supports automatically weeding out of unused code and variables. This
 is done with two separate processes: when supported the gcc
 "-fwhole-program" compilation flag is used, and the layoutrom.py
@@ -120,11 +120,11 @@ Code relocation
 ---------------
 
 To further reduce the runtime memory size of the BIOS, the build
-supports runtime self-relocation. Normally SeaBIOS is loaded into
+supports runtime self-relocation. Normally AyeBIOS is loaded into
 memory in the memory region at 0xC0000-0x100000. This is convenient
 for initial binary deployment, but the space competes with memory
 requirements for Option ROMs, BIOS tables, and runtime storage. By
-default, SeaBIOS will self-relocate its one-time initialization code
+default, AyeBIOS will self-relocate its one-time initialization code
 to free up space in this region.
 
 To support this feature, the build attempts to automatically detect
@@ -156,5 +156,5 @@ information.
 
 After the checkrom.py script is run the final user visible binary is
 produced. The name of the final binary is either **bios.bin**,
-**Csm16.bin**, or **bios.bin.elf** depending on the SeaBIOS build
+**Csm16.bin**, or **bios.bin.elf** depending on the AyeBIOS build
 requested.

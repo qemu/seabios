@@ -31,7 +31,7 @@ struct putcinfo {
 void
 debug_banner(void)
 {
-    dprintf(1, "SeaBIOS (version %s)\n", VERSION);
+    dprintf(1, "AyeBIOS (version %s)\n", VERSION);
     dprintf(1, "BUILD: %s\n", BUILDINFO);
 }
 

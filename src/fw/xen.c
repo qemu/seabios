@@ -21,8 +21,8 @@
 u32 xen_cpuid_base = 0;
 unsigned long xen_hypercall_page = 0;
 
-struct xen_seabios_info {
-    char signature[14]; /* XenHVMSeaBIOS\0 */
+struct xen_ayebios_info {
+    char signature[14]; /* XenHVMAyeBIOS\0 */
     u8 length;     /* Length of this struct */
     u8 checksum;   /* Set such that the sum over bytes 0..length == 0 */
     /*
@@ -40,12 +40,12 @@ struct xen_seabios_info {
     u32 e820_nr;
 } PACKED;
 
-static void validate_info(struct xen_seabios_info *t)
+static void validate_info(struct xen_ayebios_info *t)
 {
-    if ( memcmp(t->signature, "XenHVMSeaBIOS", 14) )
+    if ( memcmp(t->signature, "XenHVMAyeBIOS", 14) )
         panic("Bad Xen info signature\n");
 
-    if ( t->length < sizeof(struct xen_seabios_info) )
+    if ( t->length < sizeof(struct xen_ayebios_info) )
         panic("Bad Xen info length\n");
 
     if (checksum(t, t->length) != 0)
@@ -122,7 +122,7 @@ void xen_hypercall_setup(void)
 
 void xen_biostable_setup(void)
 {
-    struct xen_seabios_info *info = (void *)INFO_PHYSICAL_ADDRESS;
+    struct xen_ayebios_info *info = (void *)INFO_PHYSICAL_ADDRESS;
     void **tables = (void*)info->tables;
     int i;
 
@@ -136,7 +136,7 @@ void xen_biostable_setup(void)
 void xen_ramsize_preinit(void)
 {
     int i;
-    struct xen_seabios_info *info = (void *)INFO_PHYSICAL_ADDRESS;
+    struct xen_ayebios_info *info = (void *)INFO_PHYSICAL_ADDRESS;
     struct e820entry *e820 = (struct e820entry *)info->e820;
     validate_info(info);
 

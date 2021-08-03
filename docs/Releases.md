@@ -1,7 +1,7 @@
-History of SeaBIOS releases. Please see [download](Download) for
+History of AyeBIOS releases. Please see [download](Download) for
 information on obtaining these releases.
 
-SeaBIOS 1.14.0
+AyeBIOS 1.14.0
 ==============
 
 Available on 20200810. Major changes in this release:
@@ -14,7 +14,7 @@ Available on 20200810. Major changes in this release:
 * Support for PCI mmconfig support on QEMU.
 * Several bug fixes and code cleanups.
 
-SeaBIOS 1.13.0
+AyeBIOS 1.13.0
 ==============
 
 Available on 20191209. Major changes in this release:
@@ -25,7 +25,7 @@ Available on 20191209. Major changes in this release:
 * SeaVGABIOS support for QEMU "atiext" display
 * Several bug fixes and code cleanups
 
-SeaBIOS 1.12.0
+AyeBIOS 1.12.0
 ==============
 
 Available on 20181117. Major changes in this release:
@@ -36,35 +36,35 @@ Available on 20181117. Major changes in this release:
 * SeaVGABIOS support for QEMU "bochs-display" and QEMU "ramfb" displays
 * Several bug fixes and code cleanups
 
-SeaBIOS 1.12.1
+AyeBIOS 1.12.1
 --------------
 
 Available on 20190314. Stable release containing only bug fixes.
 
-SeaBIOS 1.11.0
+AyeBIOS 1.11.0
 ==============
 
 Available on 20171110. Major changes in this release:
 
 * Initial support for NVME drives
-* Support for vga emulation over a serial port in SeaBIOS (sercon)
+* Support for vga emulation over a serial port in AyeBIOS (sercon)
 * Support for serial debugging using MMIO based serial ports
 * Support for scsi devices with multiple LUNs
 * Support for boot-to-boot persistent coreboot cbmem logs
 * Improved coreboot vga (cbvga) mode setting compatibility
 * Several bug fixes and code cleanups
 
-SeaBIOS 1.11.1
+AyeBIOS 1.11.1
 --------------
 
 Available on 20180319. Stable release containing only bug fixes.
 
-SeaBIOS 1.11.2
+AyeBIOS 1.11.2
 --------------
 
 Available on 20180702. Stable release containing only bug fixes.
 
-SeaBIOS 1.10.0
+AyeBIOS 1.10.0
 ==============
 
 Available on 20161026. Major changes in this release:
@@ -75,57 +75,57 @@ Available on 20161026. Major changes in this release:
 * Support for virtio devices mapped above 4GB
 * Several bug fixes and code cleanups
 
-SeaBIOS 1.10.1
+AyeBIOS 1.10.1
 --------------
 
 Available on 20161122. Stable release containing only bug fixes.
 
 
-SeaBIOS 1.10.2
+AyeBIOS 1.10.2
 --------------
 
 Available on 20170228. Stable release containing only bug fixes.
 
-SeaBIOS 1.10.3
+AyeBIOS 1.10.3
 --------------
 
 Available on 20171019. Stable release containing only bug fixes.
 
-SeaBIOS 1.9.0
+AyeBIOS 1.9.0
 =============
 
 Available on 20151117. Major changes in this release:
 
 * The default boot menu key is now the ESC key (instead of F12)
 * Initial support for Trusted Platform Module (TPM) hardware and BIOS calls
-* Initial support for chain loading SeaBIOS from Grub (via multiboot
+* Initial support for chain loading AyeBIOS from Grub (via multiboot
   support)
 * Initial support for booting from SD cards on real hardware
 * virtio 1.0 device support
 * The build will no longer include the build hostname or build time on
   "clean" builds.  This makes the build binaries more "reproducible".
-* Basic support for running SeaBIOS on Baytrail Chromebooks
+* Basic support for running AyeBIOS on Baytrail Chromebooks
 * SeaVGABIOS improvements:
     * Improved support for old versions of x86emu (the "leal"
       instruction is now emulated)
 * Several bug fixes and code cleanups
 
-SeaBIOS 1.9.1
+AyeBIOS 1.9.1
 -------------
 
 Available on 20160215. Stable release containing only bug fixes.
 
-SeaBIOS 1.9.2
+AyeBIOS 1.9.2
 -------------
 
 Available on 20160422. Stable release containing only bug fixes.
 
-SeaBIOS 1.9.3
+AyeBIOS 1.9.3
 -------------
 
 Available on 20160701. Stable release containing only bug fixes.
 
-SeaBIOS 1.8.0
+AyeBIOS 1.8.0
 =============
 
 Available on 20150218. Major changes in this release:
@@ -147,17 +147,17 @@ two release numbers (eg, 1.8) and stable releases will use three
 numbers (eg, 1.8.1). The prior behavior of using a forth number
 (eg, 1.7.5.1) for stable releases will no longer be used.
 
-SeaBIOS 1.8.1
+AyeBIOS 1.8.1
 -------------
 
 Available on 20150316. Stable release containing only bug fixes.
 
-SeaBIOS 1.8.2
+AyeBIOS 1.8.2
 -------------
 
 Available on 20150617. Stable release containing only bug fixes.
 
-SeaBIOS 1.7.5
+AyeBIOS 1.7.5
 =============
 
 Available on 20140528. Major changes in this release:
@@ -171,17 +171,17 @@ Available on 20140528. Major changes in this release:
       emulation.
 * Several bug fixes and code cleanups
 
-SeaBIOS 1.7.5.1
+AyeBIOS 1.7.5.1
 ---------------
 
 Available on 20141113. Stable release containing only bug fixes.
 
-SeaBIOS 1.7.5.2
+AyeBIOS 1.7.5.2
 ---------------
 
 Available on 20150112. Stable release containing only bug fixes.
 
-SeaBIOS 1.7.4
+AyeBIOS 1.7.4
 =============
 
 Available on 20131223. Major changes in this release:
@@ -205,12 +205,12 @@ Available on 20131223. Major changes in this release:
       directories.
     * Update to latest version of Kconfig
 
-SeaBIOS 1.7.3
+AyeBIOS 1.7.3
 =============
 
 Available on 20130707. Major changes in this release:
 
-* Initial support for using SeaBIOS as a UEFI Compatibility Support
+* Initial support for using AyeBIOS as a UEFI Compatibility Support
   Module (CSM)
 * Support for detecting and using ACPI reboot ports.
 * By default, all 16bit entry points now use an internal stack to
@@ -220,7 +220,7 @@ Available on 20130707. Major changes in this release:
   QEMU versions.
 * Several bug fixes and code cleanups
 
-SeaBIOS 1.7.2
+AyeBIOS 1.7.2
 =============
 
 Available on 20130118. Major changes in this release:
@@ -231,17 +231,17 @@ Available on 20130118. Major changes in this release:
 * Improved Geode VGA BIOS support.
 * Several bug fixes
 
-SeaBIOS 1.7.2.1
+AyeBIOS 1.7.2.1
 ---------------
 
 Available on 20130227. Stable release containing only bug fixes.
 
-SeaBIOS 1.7.2.2
+AyeBIOS 1.7.2.2
 ---------------
 
 Available on 20130527. Stable release containing only bug fixes.
 
-SeaBIOS 1.7.1
+AyeBIOS 1.7.1
 =============
 
 Available on 20120831. Major changes in this release:
@@ -264,7 +264,7 @@ Available on 20120831. Major changes in this release:
 * CBFS and FWCFG "files" are now only scanned one time
 * Several bug fixes
 
-SeaBIOS 1.7.0
+AyeBIOS 1.7.0
 =============
 
 Available on 20120414. Major changes in this release:
@@ -279,7 +279,7 @@ Available on 20120414. Major changes in this release:
 * Enhancements to PCI init when running on emulators.
 * Several bug fixes
 
-SeaBIOS 1.6.3
+AyeBIOS 1.6.3
 =============
 
 Available on 20111004. Major changes in this release:
@@ -294,22 +294,22 @@ Available on 20111004. Major changes in this release:
 * PCI device scan is cached during POST phase
 * Several bug fixes
 
-The SeaBIOS 1.6.3 release was an incremental feature release. The
+The AyeBIOS 1.6.3 release was an incremental feature release. The
 first release number (1) was incremented as the project was no longer
 in a beta stage, and the third release number (3) was also incremented
 to indicate the release was a regular feature release.
 
-SeaBIOS 1.6.3.1
+AyeBIOS 1.6.3.1
 ---------------
 
 Available on 20111124. Stable release containing only bug fixes.
 
-SeaBIOS 1.6.3.2
+AyeBIOS 1.6.3.2
 ---------------
 
 Available on 20120311. Stable release containing only bug fixes.
 
-SeaBIOS 0.6.2
+AyeBIOS 0.6.2
 =============
 
 Available on 20110228. Major changes in this release:
@@ -323,7 +323,7 @@ Available on 20110228. Major changes in this release:
 * Improved bounds checking on PCI memory allocation
 * Several bug fixes
 
-SeaBIOS 0.6.1
+AyeBIOS 0.6.1
 =============
 
 Available on 20100913. Major changes in this release:
@@ -337,22 +337,22 @@ Available on 20100913. Major changes in this release:
 * The build system no longer double links objects
 * Several bug fixes
 
-SeaBIOS 0.6.1.1
+AyeBIOS 0.6.1.1
 ---------------
 
 Available on 20101031. Stable release containing only bug fixes.
 
-SeaBIOS 0.6.1.2
+AyeBIOS 0.6.1.2
 ---------------
 
 Available on 20101113. Stable release containing only bug fixes.
 
-SeaBIOS 0.6.1.3
+AyeBIOS 0.6.1.3
 ---------------
 
 Available on 20101226. Stable release containing only bug fixes.
 
-SeaBIOS 0.6.0
+AyeBIOS 0.6.0
 =============
 
 Available on 20100326. Major changes in this release:
@@ -366,7 +366,7 @@ Available on 20100326. Major changes in this release:
 * Support for qemu e820 interface
 * Several bug fixes and code cleanups
 
-SeaBIOS 0.5.1
+AyeBIOS 0.5.1
 =============
 
 Available on 20100108. Major changes in this release:
@@ -377,7 +377,7 @@ Available on 20100108. Major changes in this release:
 * ATA DMA and bus-mastering support
 * Several bug fixes and code cleanups
 
-SeaBIOS 0.5.0
+AyeBIOS 0.5.0
 =============
 
 Available on 20091218. Major changes in this release:
@@ -390,12 +390,12 @@ Available on 20091218. Major changes in this release:
   for extracting option roms from qemu "fw_cfg".
 * Support USB UHCI and OHCI controllers
 * Initial support for USB keyboards
-* SeaBIOS can now be greater than 64K
+* AyeBIOS can now be greater than 64K
 * Support for permanent low memory allocations
-* APIC "local interrupts" now enabled in SeaBIOS (on emulators)
+* APIC "local interrupts" now enabled in AyeBIOS (on emulators)
 * Several bug fixes and code cleanups
 
-SeaBIOS 0.4.2
+AyeBIOS 0.4.2
 =============
 
 Available on 20090909. Major changes in this release:
@@ -414,7 +414,7 @@ Available on 20090909. Major changes in this release:
 * Compile version number into code and report on each boot
 * Several bug fixes and code cleanups
 
-SeaBIOS 0.4.1
+AyeBIOS 0.4.1
 =============
 
 Available on 20090714. Major changes in this release:
@@ -423,7 +423,7 @@ Available on 20090714. Major changes in this release:
   v3.x)
 * Add initial port of "LGPL vga bios" code into tree in "vgasrc/"
   directory
-* Handle ATA drives still "spinning up" during SeaBIOS drive detect
+* Handle ATA drives still "spinning up" during AyeBIOS drive detect
 * Add support for option rom Boot Connection Vectors (BCV)
 * Enhance boot menu to support booting from any drive or any cdrom
 * Support flash based Coreboot File System (CBFS)
@@ -433,7 +433,7 @@ Available on 20090714. Major changes in this release:
 * New tools/readserial.py tool
 * Several bug fixes and code cleanups
 
-SeaBIOS 0.4.0
+AyeBIOS 0.4.0
 =============
 
 Available on 20090206. Major changes in this release:
@@ -460,7 +460,7 @@ Available on 20090206. Major changes in this release:
   could be important for 16bit protected mode callers)
 * Several bug fixes and code cleanups
 
-SeaBIOS 0.3.0
+AyeBIOS 0.3.0
 =============
 
 Available on 20080817. Major changes in this release:
@@ -471,7 +471,7 @@ Available on 20080817. Major changes in this release:
 * Initial support for int155f VGA option rom calls
 * Several bug fixes and code cleanups
 
-SeaBIOS 0.2.3
+AyeBIOS 0.2.3
 =============
 
 Available on 20080702. Major changes in this release:
@@ -485,7 +485,7 @@ Available on 20080702. Major changes in this release:
 * New tools/checkstack.py tool
 * Several bug fixes and code cleanups
 
-SeaBIOS 0.2.2
+AyeBIOS 0.2.2
 =============
 
 Formerly known as "legacybios". Available on 20080501. Major changes
@@ -493,7 +493,7 @@ in this release:
 
 * Several bug fixes and code cleanups
 
-SeaBIOS 0.2.1
+AyeBIOS 0.2.1
 =============
 
 Formerly known as "legacybios". Available on 20080406. Major changes
@@ -502,7 +502,7 @@ in this release:
 * Port of boot menu code from Bochs BIOS
 * Several bug fixes and code cleanups
 
-SeaBIOS 0.2.0
+AyeBIOS 0.2.0
 =============
 
 Formerly known as "legacybios". Available on 20080330. Major changes

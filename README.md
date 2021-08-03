@@ -2,6 +2,16 @@
 #### Localized source code of an open source BIOS (as per the license) derived from [SeaBIOS](https://github.com/qemu/seabios)
 #### The localized source code has been created using [Hindawi Programming System](https://hindawiai.github.io)
 
+To see, access or use the original sources from which these files have been derived the following, or equivalent may be used. 
+
+```bash
+# This is only an example and may differ on different medium of distribution.
+git clone https://github.com/ayebios/ayebios
+cd ayebios
+git checkout upstream
+```
+
+#### The localized versions are shared for **academic purposes only**
 
 ### NOTICE
 All copyrights and notices in the original source code are available under the "upstream" branch.
@@ -29,19 +39,19 @@ All disputes are subject to courts in Hyderabad, Telangana, India only.
 #### /NOTICE
 
 #### From the original README
-Welcome to the SeaBIOS project!  This project implements an X86 legacy
+Welcome to the AyeBIOS project!  This project implements an X86 legacy
 bios that is built with standard GNU tools.
 
 Please see build and developer information at:
 
-  http://seabios.org/Developer_Documentation
+  http://ayebios.org/Developer_Documentation
 
-For the impatient, SeaBIOS is built for QEMU and tested on QEMU with:
+For the impatient, AyeBIOS is built for QEMU and tested on QEMU with:
 
   make
   qemu -bios out/bios.bin
 
-SeaBIOS can be configured with kconfig.  To change the default
+AyeBIOS can be configured with kconfig.  To change the default
 configuration one can run "make menuconfig" prior to running "make".
 
 For other types of builds, and for more detailed developer

@@ -144,7 +144,7 @@ call16_helper(u32 eax, u32 edx, u32 (*func)(u32 eax, u32 edx))
 #define ASM16_SWITCH32 "  .code32\n"
 #define ASM16_BACK16   "  .code16gcc\n"
 
-// Call a SeaBIOS C function in 32bit mode using smm trampoline
+// Call a AyeBIOS C function in 32bit mode using smm trampoline
 static u32
 call32_smm(void *func, u32 eax)
 {
@@ -234,7 +234,7 @@ call16_smm(u32 eax, u32 edx, void *func)
     return eax;
 }
 
-// Call a 32bit SeaBIOS function from a 16bit SeaBIOS function.
+// Call a 32bit AyeBIOS function from a 16bit AyeBIOS function.
 u32 VISIBLE16
 __call32(void *func, u32 eax, u32 errret)
 {
@@ -275,7 +275,7 @@ __call32(void *func, u32 eax, u32 errret)
     return eax;
 }
 
-// Call a 16bit SeaBIOS function, restoring the mode from last call32().
+// Call a 16bit AyeBIOS function, restoring the mode from last call32().
 static u32
 call16(u32 eax, u32 edx, void *func)
 {

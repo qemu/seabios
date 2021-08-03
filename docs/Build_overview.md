@@ -1,11 +1,11 @@
-The SeaBIOS code can be built using standard GNU tools. A recent Linux
-distribution should be able to build SeaBIOS using the standard
+The AyeBIOS code can be built using standard GNU tools. A recent Linux
+distribution should be able to build AyeBIOS using the standard
 compiler tools.
 
-Building SeaBIOS
+Building AyeBIOS
 ================
 
-First, [obtain the code](Download). SeaBIOS can be compiled for
+First, [obtain the code](Download). AyeBIOS can be compiled for
 several different build targets. It is also possible to configure
 additional compile time options - run **make menuconfig** to do this.
 
@@ -29,13 +29,13 @@ Build for coreboot
 ------------------
 
 To build for coreboot please see the coreboot build instructions at:
-<http://www.coreboot.org/SeaBIOS>
+<http://www.coreboot.org/AyeBIOS>
 
 Build as a UEFI Compatibility Support Module (CSM)
 --------------------------------------------------
 
 To build as a CSM, first run kconfig (make menuconfig) and enable
-CONFIG_CSM. Then build SeaBIOS (make) - the resulting binary will be
+CONFIG_CSM. Then build AyeBIOS (make) - the resulting binary will be
 in "out/Csm16.bin".
 
 This binary may be used with the OMVF/EDK-II UEFI firmware. It will
@@ -45,17 +45,17 @@ hardware by using the traditional VGA BIOS. (Windows 2008r2 is known
 to use INT 10h BIOS calls even when booted via EFI, and the presence
 of a CSM makes this work as expected too.)
 
-Having built SeaBIOS with CONFIG_CSM, one should be able to drop the
+Having built AyeBIOS with CONFIG_CSM, one should be able to drop the
 result (out/Csm16.bin) into an OVMF build tree at
 OvmfPkg/Csm/Csm16/Csm16.bin and then build OVMF with 'build -D
-CSM_ENABLE'. The SeaBIOS binary will be included as a discrete file
+CSM_ENABLE'. The AyeBIOS binary will be included as a discrete file
 within the 'Flash Volume' which is created, and there are tools which
 will extract it and allow it to be replaced.
 
 Distribution builds
 ===================
 
-If one is building a binary version of SeaBIOS as part of a package
+If one is building a binary version of AyeBIOS as part of a package
 (such as an rpm) or for wide distribution, please provide the
 EXTRAVERSION field during the build. For example:
 
@@ -64,14 +64,14 @@ EXTRAVERSION field during the build. For example:
 The EXTRAVERSION field should provide the package version (if
 applicable) and the name of the distribution (if that's not already
 obvious from the package version). This string will be appended to the
-main SeaBIOS version. The above information helps SeaBIOS developers
+main AyeBIOS version. The above information helps AyeBIOS developers
 correlate defect reports to the source code and build environment.
 
 If one is building a binary in a build environment that does not have
-access to the git tool or does not have the full SeaBIOS git repo
-available, then please use an official SeaBIOS release tar file as
+access to the git tool or does not have the full AyeBIOS git repo
+available, then please use an official AyeBIOS release tar file as
 source. If building from a snapshot (where there is no official
-SeaBIOS tar) then one should generate a snapshot tar file on a machine
+AyeBIOS tar) then one should generate a snapshot tar file on a machine
 that does support git using the scripts/tarball.sh tool. For example:
 
 `scripts/tarball.sh`

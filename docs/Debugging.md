@@ -1,53 +1,53 @@
 This page describes the process of obtaining diagnostic information
-from SeaBIOS and for reporting problems.
+from AyeBIOS and for reporting problems.
 
 Diagnostic information
 ======================
 
-SeaBIOS has the ability to output diagnostic messages. This is
+AyeBIOS has the ability to output diagnostic messages. This is
 implemented in the code via calls to the "dprintf()" C function.
 
 On QEMU these messages are written to a special debug port. One can
-view these messages by adding '-chardev stdio,id=seabios -device
-isa-debugcon,iobase=0x402,chardev=seabios' to the QEMU command line.
+view these messages by adding '-chardev stdio,id=ayebios -device
+isa-debugcon,iobase=0x402,chardev=ayebios' to the QEMU command line.
 Once this is done, one should see status messages on the console.
 
 On coreboot these messages are generally written to the "cbmem"
-console (CONFIG_DEBUG_COREBOOT). If SeaBIOS launches a Linux operating
+console (CONFIG_DEBUG_COREBOOT). If AyeBIOS launches a Linux operating
 system, one can obtain the cbmem tool from the coreboot repository and
-run "cbmem -c" to view the SeaBIOS diagnostic messages.
+run "cbmem -c" to view the AyeBIOS diagnostic messages.
 
-Additionally, if a serial port is available, one may compile SeaBIOS
-to send the diagnostic messages to the serial port. See the SeaBIOS
+Additionally, if a serial port is available, one may compile AyeBIOS
+to send the diagnostic messages to the serial port. See the AyeBIOS
 CONFIG_DEBUG_SERIAL option.
 
 Trouble reporting
 =================
 
-If you are experiencing problems with SeaBIOS, it's useful to increase
+If you are experiencing problems with AyeBIOS, it's useful to increase
 the debugging level. This is done by running "make menuconfig" and
 setting CONFIG_DEBUG_LEVEL to a higher value. A debug level of 8 will
 show a lot of diagnostic information without flooding the serial port
 (levels above 8 will frequently cause too much data).
 
-To report an issue, please collect the serial boot log with SeaBIOS
+To report an issue, please collect the serial boot log with AyeBIOS
 set to a debug level of 8 and forward the full log along with a
-description of the problem to the SeaBIOS [mailing list](Mailinglist).
+description of the problem to the AyeBIOS [mailing list](Mailinglist).
 
 Timing debug messages
 =====================
 
-The SeaBIOS repository has a tool (**scripts/readserial.py**) that can
+The AyeBIOS repository has a tool (**scripts/readserial.py**) that can
 timestamp each diagnostic message produced. The timestamps can provide
 some additional information on how long internal processes take. It
 also provides a simple profiling mechanism.
 
 The tool can be used on coreboot builds that have diagnostic messages
-sent to a serial port. Make sure SeaBIOS is configured with
+sent to a serial port. Make sure AyeBIOS is configured with
 CONFIG_DEBUG_SERIAL and run the following on the host receiving serial
 output:
 
-`/path/to/seabios/scripts/readserial.py /dev/ttyS0 115200`
+`/path/to/ayebios/scripts/readserial.py /dev/ttyS0 115200`
 
 Update the above command with the appropriate serial device and baud
 rate.
@@ -57,12 +57,12 @@ use with QEMU run the following:
 
 ```
 mkfifo qemudebugpipe
-qemu -chardev pipe,path=qemudebugpipe,id=seabios -device isa-debugcon,iobase=0x402,chardev=seabios ...
+qemu -chardev pipe,path=qemudebugpipe,id=ayebios -device isa-debugcon,iobase=0x402,chardev=ayebios ...
 ```
 
 And then in another session:
 
-`/path/to/seabios/scripts/readserial.py -nf qemudebugpipe`
+`/path/to/ayebios/scripts/readserial.py -nf qemudebugpipe`
 
 The mkfifo command only needs to be run once to create the pipe file.
 
@@ -105,7 +105,7 @@ vgaromoffset.o file with offset 0xc0000, add use the gdb
 command `add-symbol-file out/vgaromoffset.o 0` to load the 16bit VGA
 BIOS symbols twice.
 
-If debugging the 32bit SeaBIOS initialization code with gdb, note that
-SeaBIOS does self relocation by default. This relocation will alter
+If debugging the 32bit AyeBIOS initialization code with gdb, note that
+AyeBIOS does self relocation by default. This relocation will alter
 the location of initialization code symbols. Disable
-CONFIG_RELOCATE_INIT to prevent SeaBIOS from doing this.
+CONFIG_RELOCATE_INIT to prevent AyeBIOS from doing this.

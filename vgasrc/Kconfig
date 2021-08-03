@@ -1,4 +1,4 @@
-# Kconfig SeaBIOS VGA BIOS configuration
+# Kconfig AyeBIOS VGA BIOS configuration
 
 menu "VGA ROM"
     choice

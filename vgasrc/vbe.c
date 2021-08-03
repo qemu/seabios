@@ -16,9 +16,9 @@
 #include "vgahw.h" // vgahw_set_mode
 #include "vgautil.h" // handle_104f
 
-#define VBE_OEM_STRING "SeaBIOS VBE(C) 2011"
-#define VBE_VENDOR_STRING "SeaBIOS Developers"
-#define VBE_PRODUCT_STRING "SeaBIOS VBE Adapter"
+#define VBE_OEM_STRING "AyeBIOS VBE(C) 2011"
+#define VBE_VENDOR_STRING "AyeBIOS Developers"
+#define VBE_PRODUCT_STRING "AyeBIOS VBE Adapter"
 #define VBE_REVISION_STRING "Rev. 1"
 
 u32 VBE_total_memory VAR16 = 256 * 1024;

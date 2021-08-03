@@ -34,7 +34,7 @@ EFI_COMPATIBILITY16_TABLE csm_compat_table VARFSEG __aligned(16) = {
     .TableLength = sizeof(csm_compat_table),
     .Compatibility16CallSegment = SEG_BIOS,
     .Compatibility16CallOffset = 0 /* Filled in by checkrom.py */,
-    .OemIdStringPointer = (u32)"SeaBIOS",
+    .OemIdStringPointer = (u32)"AyeBIOS",
     .AcpiRsdPtrPointer = (u32)&csm_rsdp,
 };
 
@@ -319,7 +319,7 @@ handle_csm(struct bregs *regs)
     csm_return(regs);
 }
 
-static int csm_prio_to_seabios(u16 csm_prio)
+static int csm_prio_to_ayebios(u16 csm_prio)
 {
     switch (csm_prio) {
     case BBS_DO_NOT_BOOT_FROM:
@@ -329,7 +329,7 @@ static int csm_prio_to_seabios(u16 csm_prio)
     case BBS_LOWEST_PRIORITY:
     case BBS_UNPRIORITIZED_ENTRY:
     default:
-        // SeaBIOS default priorities start at 1, with 0 being used for
+        // AyeBIOS default priorities start at 1, with 0 being used for
         // an item explicitly selected from interactive_bootmenu().
         // As in find_prio(), add 1 to the value being returned.
         return csm_prio + 1;
@@ -344,7 +344,7 @@ int csm_bootprio_ata(struct pci_device *pci, int chanid, int slave)
     int index = 1 + (chanid * 2) + slave;
     dprintf(3, "CSM bootprio for ATA%d,%d (index %d) is %d\n", chanid, slave,
             index, bbs[index].BootPriority);
-    return csm_prio_to_seabios(bbs[index].BootPriority);
+    return csm_prio_to_ayebios(bbs[index].BootPriority);
 }
 
 int csm_bootprio_fdc(struct pci_device *pci, int port, int fdid)
@@ -353,7 +353,7 @@ int csm_bootprio_fdc(struct pci_device *pci, int port, int fdid)
         return -1;
     BBS_TABLE *bbs = (void *)csm_boot_table->BbsTable;
     dprintf(3, "CSM bootprio for FDC is %d\n", bbs[0].BootPriority);
-    return csm_prio_to_seabios(bbs[0].BootPriority);
+    return csm_prio_to_ayebios(bbs[0].BootPriority);
 }
 
 int csm_bootprio_pci(struct pci_device *pci)
@@ -367,7 +367,7 @@ int csm_bootprio_pci(struct pci_device *pci)
         if (pci->bdf == pci_to_bdf(bbs[i].Bus, bbs[i].Device, bbs[i].Function)) {
             dprintf(3, "CSM bootprio for PCI(%d,%d,%d) is %d\n", bbs[i].Bus,
                     bbs[i].Device, bbs[i].Function, bbs[i].BootPriority);
-            return csm_prio_to_seabios(bbs[i].BootPriority);
+            return csm_prio_to_ayebios(bbs[i].BootPriority);
         }
     }
     return -1;
