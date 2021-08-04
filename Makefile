@@ -4,8 +4,6 @@
 #
 # This file may be distributed under the terms of the GNU LGPLv3 license.
 
-include src/Makefile.hin
-
 # Output directory
 OUT=out/
 
