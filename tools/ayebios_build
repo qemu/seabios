@@ -1,0 +1,3 @@
+for n in $(find . -type f | grep '\.[ch]\.uhin$'); do cat $n | tail +2 | iconv -futf8 -tutf16 | uni2acii | acii2pcf | h2c > $(echo $n | sed 's/\.uhin$//g'); done
+for n in $(find . -type f | grep '\.c_shipped.uhin'); do cat $n | tail +2 | iconv -futf8 -tutf16 | uni2acii | acii2pcf | h2c > $(echo $n | sed 's/\.uhin$//g'); done
+make EXTRAVERSION='Built from Hindawi ported version'
