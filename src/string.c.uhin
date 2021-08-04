@@ -250,3 +250,19 @@ nullTrailingSpace(अक्षर *buf)
         buf++;
     वापस buf;
 पूर्ण
+
+// From https://github.com/gcc-mirror/gcc/blob/master/libiberty/strstr.c
+अक्षर *
+म_माला (स्थिर अक्षर *s1, स्थिर अक्षर *s2)
+अणु
+  स्थिर माप_प्रकार len = म_माप (s2);
+  जबतक (*s1)
+    अणु
+      अगर (!स_भेद (s1, s2, len))
+	वापस (अक्षर *)s1;
+      ++s1;
+    पूर्ण
+  वापस (0);
+पूर्ण
+
+

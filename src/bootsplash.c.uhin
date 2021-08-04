@@ -17,6 +17,11 @@
 #समावेश "string.h" // स_रखो
 #समावेश "util.h" // enable_bootsplash
 
+//TBD: Fix these - coding style and robustness fixes needed
+#include "apcisr.h"
+#include "acii2csr.h"
+cisr dvn, retval;
+
 
 /****************************************************************
  * Helper functions
@@ -48,8 +53,12 @@ enable_vga_console(व्योम)
     br.ax = 0x0003;
     call16_पूर्णांक10(&br);
 
+    //Welcome message using APCISR
+    dvn=acii2cisr("¥§ÊÚÍå×",1);
+    cisr_printf_con(dvn); 
+
     // Write to screen.
-    म_लिखो("AyeBIOS (version %s)\n", VERSION);
+    म_लिखो("\n\nAyeBIOS (version %s)\n", VERSION);
     display_uuid();
 पूर्ण
 
