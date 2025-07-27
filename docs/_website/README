@@ -1,0 +1,12 @@
+This directory defines the https://www.seabios.org/ website.
+
+To test deploy the main site locally one can use commands similar to
+the following:
+
+virtualenv ~/mkdocs-env && ~/mkdocs-env/bin/pip install -r ~/seabios/docs/_website/mkdocs-requirements.txt
+cd ~/seabios && ~/mkdocs-env/bin/mkdocs serve --config-file ~/seabios/docs/_website/mkdocs.yml -a 0.0.0.0:8000
+
+To build the main html run something similar to:
+
+virtualenv ~/mkdocs-env && ~/mkdocs-env/bin/pip install -r ~/seabios/docs/_website/mkdocs-requirements.txt
+~/mkdocs-env/bin/mkdocs build -f ~/seabios/docs/_website/mkdocs.yml -d ~/seabios-site/

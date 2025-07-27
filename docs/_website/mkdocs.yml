@@ -1,0 +1,62 @@
+# Main configuration file for mkdocs generation of www.seabios.org website
+
+# Site and directory configuration
+site_name: SeaBIOS documentation
+repo_url: https://git.seabios.org/
+use_directory_urls: False
+docs_dir: '../'
+
+# Custom markdown dialect settings
+markdown_extensions:
+  - toc:
+      permalink: True
+      toc_depth: 6
+  - attr_list
+  - mdx_partial_gfm
+  - mdx_truly_sane_lists
+  - mdx_breakless_lists
+plugins:
+  search:
+    lang: en
+
+# Website layout configuration (using mkdocs-material theme)
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: white
+      accent: blue
+      toggle:
+        icon: material/lightbulb
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: grey
+      accent: light blue
+      toggle:
+        icon: material/lightbulb-outline
+        name: Switch to light mode
+  features:
+      - navigation.top
+      - search.suggest
+      - search.highlight
+      - search.share
+  language: en
+
+# Navigation hierarchy
+nav:
+  - Download.md
+  - Releases.md
+  - Mailinglist.md
+  - Developer Documentation:
+    - Developer_Documentation.md
+    - Build_overview.md
+    - Memory_Model.md
+    - Execution_and_code_flow.md
+    - Linking_overview.md
+    - Runtime_config.md
+    - Debugging.md
+    - Contributing.md
+    - Developer_links.md
+  - SeaVGABIOS.md
