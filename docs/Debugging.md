@@ -32,7 +32,8 @@ show a lot of diagnostic information without flooding the serial port
 
 To report an issue, please collect the serial boot log with SeaBIOS
 set to a debug level of 8 and forward the full log along with a
-description of the problem to the SeaBIOS [mailing list](Mailinglist).
+description of the problem to the SeaBIOS [mailing
+list](Mailinglist.md).
 
 Timing debug messages
 =====================

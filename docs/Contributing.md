@@ -2,9 +2,9 @@ SeaBIOS welcomes contributions of code (either fixing bugs or adding
 new functionality). At a high level, the process to contribute a
 change is:
 
-1. [Obtain](Download) the current code and documentation
+1. [Obtain](Download.md) the current code and documentation
 2. Enhance and test the code locally
-3. Submit changes to the SeaBIOS [mailing list](Mailinglist) as a
+3. Submit changes to the SeaBIOS [mailing list](Mailinglist.md) as a
    patch
 4. Receive feedback, answer questions, and possibly provide updated
    patches

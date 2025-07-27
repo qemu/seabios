@@ -1,4 +1,4 @@
-History of SeaBIOS releases. Please see [download](Download) for
+History of SeaBIOS releases. Please see [download](Download.md) for
 information on obtaining these releases.
 
 SeaBIOS 1.17.0

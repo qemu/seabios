@@ -86,7 +86,7 @@ for 32bit code - modern compilers and modern operating systems will
 generally only support this mode (when running 32bit code).
 Ironically, it's the only mode that is not strictly required for a
 BIOS to support. SeaBIOS uses this mode internally to support the POST
-and BOOT [phases of execution](Execution and code flow).
+and BOOT [phases of execution](Execution_and_code_flow.md).
 
 code16gcc
 =========
@@ -121,7 +121,7 @@ Common memory used at run-time
 ==============================
 
 There are several memory areas that the SeaBIOS "runtime"
-[phase](Execution and code flow) makes use of:
+[phase](Execution_and_code_flow.md) makes use of:
 
 * 0x000000-0x000400: Interrupt descriptor table (IDT). This area
   defines 256 interrupt vectors as defined by the Intel CPU
@@ -218,7 +218,7 @@ macros are also available.
 Memory available during initialization
 ======================================
 
-During the POST [phase](Execution and code flow) the code
+During the POST [phase](Execution_and_code_flow.md) the code
 can fully access the first 4 gigabytes of memory. However, memory
 accesses are generally limited to the [common memory used at
 run-time](#Common_memory_used_at_run-time) and areas

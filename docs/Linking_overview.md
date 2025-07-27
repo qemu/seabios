@@ -7,10 +7,10 @@ is due to several unusual requirements:
 * Some BIOS entry points must reside at specific hardcoded memory
   locations. The build must support positioning code and variables at
   specific locations.
-* In order to support multiple [memory models](Memory Model) the same
-  C code can be complied in three modes (16bit mode, 32bit segmented
-  mode, and 32bit "flat" mode). Binary code from these three modes
-  must be able to co-exist and on occasion reference each other.
+* In order to support multiple [memory models](Memory_Model.md) the
+  same C code can be complied in three modes (16bit mode, 32bit
+  segmented mode, and 32bit "flat" mode). Binary code from these three
+  modes must be able to co-exist and on occasion reference each other.
 * There is a finite amount of memory available to the BIOS. The build
   will attempt to weed out unused code and variables from the final
   binary. It also supports self-relocation of one-time initialization
@@ -28,7 +28,7 @@ its own
 section.
 
 The C code is compiled three times into three separate objects for
-each of the major supported [memory models](Memory Model):
+each of the major supported [memory models](Memory_Model.md):
 **code16.o**, **code32seg.o**, and **code32flat.o**. Information on
 the sections and symbols of these three objects are extracted (using
 **objdump**) and passed in to the **scripts/layoutrom.py** python
@@ -70,9 +70,9 @@ reduces the overall size of the final binary.
 C code in three modes
 ---------------------
 
-SeaBIOS must support multiple [memory models](Memory Model). This is
-accomplished by compiling the C code three separate times into three
-separate objects.
+SeaBIOS must support multiple [memory models](Memory_Model.md). This
+is accomplished by compiling the C code three separate times into
+three separate objects.
 
 The C code within a mode must not accidentally call a C function in
 another mode, but multiple modes must all access the same single copy

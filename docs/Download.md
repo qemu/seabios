@@ -24,4 +24,4 @@ Released versions of the source code are available at:
 
 <https://www.seabios.org/downloads/>
 
-Please see [releases](Releases) for information on each release.
+Please see [releases](Releases.md) for information on each release.

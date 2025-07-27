@@ -36,7 +36,8 @@ process.
 
 The POST phase itself has several sub-phases.
 
-* The "preinit" sub-phase: code run prior to [code relocation](Linking overview#Code relocation).
+* The "preinit" sub-phase: code run prior to
+  [code relocation](Linking_overview.md#Code relocation).
 * The "init" sub-phase: code to initialize internal variables and
   interfaces.
 * The "setup" sub-phase: code to setup hardware and drivers.
@@ -63,7 +64,7 @@ but it can also be invoked by an operating system or be invoked
 multiple times in an attempt to find a valid boot media. Although the
 boot phase C code runs in 32bit mode it does not have write access to
 the 0x0f0000-0x100000 memory region and can not call the various
-malloc_X() calls. See [Memory Model](Memory Model) for
+malloc_X() calls. See [Memory Model](Memory_Model.md) for
 more information.
 
 Main runtime phase
@@ -167,8 +168,8 @@ very small amounts of stack space (100 bytes or less).
 
 By default, SeaBIOS now switches to its own stack on most 16bit real
 mode entry points. This extra stack space is allocated in ["low
-memory"](Memory Model). It ensures SeaBIOS uses a minimal amount of a
-callers stack (typically no more than 16 bytes) for these legacy
+memory"](Memory_Model.md). It ensures SeaBIOS uses a minimal amount of
+a callers stack (typically no more than 16 bytes) for these legacy
 calls. (More recently defined BIOS interfaces such as those that
 support 16bit protected and 32bit protected mode calls standardize a
 minimum stack size with adequate space, and SeaBIOS generally will not

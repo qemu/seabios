@@ -96,8 +96,8 @@ parameter](#Other_Configuration_items).
 
 The JPEG viewer in SeaBIOS uses a simplified decoding algorithm. It
 supports most common JPEGs, but does not support all possible formats.
-Please see the [trouble reporting section](Debugging) if a valid image
-isn't displayed properly.
+Please see the [trouble reporting section](Debugging.md) if a valid
+image isn't displayed properly.
 
 Payloads
 ========
