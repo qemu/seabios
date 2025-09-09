@@ -189,7 +189,7 @@ start_ohci(struct usb_ohci_s *cntl, struct ohci_hcca *hcca)
     writel(&cntl->regs->cmdstatus, OHCI_HCR);
     for (;;) {
         u32 status = readl(&cntl->regs->cmdstatus);
-        if (! status & OHCI_HCR)
+        if (!(status & OHCI_HCR))
             break;
         if (timer_check(end)) {
             warn_timeout();
