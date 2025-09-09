@@ -53,7 +53,7 @@ virtio_blk_op_one_segment(struct virtiodrive_s *vdrive,
         usleep(5);
 
     /* Reclaim virtqueue element */
-        vring_get_buf(vq, NULL);
+    vring_get_buf(vq, NULL);
 
     /**
     ** Clear interrupt status register. Avoid leaving interrupts stuck
