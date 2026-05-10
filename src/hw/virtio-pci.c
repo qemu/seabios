@@ -22,6 +22,7 @@
 #include "pcidevice.h" // struct pci_device
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "string.h" // memset
+#include "util.h" // timer_calc
 #include "virtio-pci.h"
 #include "virtio-mmio.h"
 #include "virtio-ring.h"
@@ -270,7 +271,14 @@ void vp_reset(struct vp_device *vp)
         vp_write(&vp->common, virtio_mmio_cfg, device_status, 0);
         vp_read(&vp->common, virtio_mmio_cfg, irq_status);
     } else if (vp->use_modern) {
+        /* 0 status means a reset. */
         vp_write(&vp->common, virtio_pci_common_cfg, device_status, 0);
+        /* After writing 0 to device_status, the driver MUST wait for a read of
+         * device_status to return 0 before reinitializing the device.
+         */
+        while (vp_read(&vp->common, virtio_pci_common_cfg, device_status) != 0) {
+            msleep(1);
+        }
         vp_read(&vp->isr, virtio_pci_isr, isr);
     } else {
         vp_write(&vp->legacy, virtio_pci_legacy, status, 0);
